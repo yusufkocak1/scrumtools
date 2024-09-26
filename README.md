@@ -19,3 +19,6 @@ VITE_FIREBASE_MEASUREMENT_ID: *********`
 
 * npm install
 * npm run dev
+
+![img.png](img.png)
+![img_1.png](img_1.png)
