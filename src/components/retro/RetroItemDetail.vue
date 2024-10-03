@@ -24,7 +24,7 @@
           </textarea>
         </div>
         <div class="pl-10">
-          <RetroItemComment v-for="comment in comments" :key="comment.id" :comment="comment"
+          <RetroItemComment v-for="comment in comments" :key="comment.id" :comment="comment" :ownerName="members[comment.owner].displayName"
                             @removeComment="removeComment"></RetroItemComment>
         </div>
       </div>
@@ -69,6 +69,7 @@ export default {
   components: {RetroItemComment},
   props: {
     item: Object,
+    members: Array,
     boardId: String,
     teamId: String
   },

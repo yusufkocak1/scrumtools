@@ -18,9 +18,9 @@
       </div>
     </div>
     <div class="flex flex-wrap gap-2 w-screen justify-center">
-      <RetroColumn :isAdmin=isAdmin v-for="(column, index) in board?.columns" @addItem="addItem" :key="index" :column="column" :teamId="teamId" :boardId="boardId" @openDetail="openDetail"/>
+      <RetroColumn :isAdmin=isAdmin v-for="(column, index) in board?.columns" @addItem="addItem" :members="team?.members" :key="index" :column="column" :teamId="teamId" :boardId="boardId" @openDetail="openDetail"/>
       <div v-if="showItemDetail" class="fixed inset-0 z-[999] grid h-screen w-screen place-items-center bg-black bg-opacity-60  backdrop-blur-sm transition-opacity duration-300">
-      <RetroItemDetail class="absolute"  @close="showItemDetail = false" :item="RetroItemDetail" :board-id="boardId" :team-id="teamId"/>
+      <RetroItemDetail class="absolute"  @close="showItemDetail = false" :item="RetroItemDetail" :board-id="boardId" :team-id="teamId" :members="team?.members"/>
       </div>
     </div>
   </div>

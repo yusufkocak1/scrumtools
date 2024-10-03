@@ -21,7 +21,8 @@ import {getUserFromDB} from "../../firebase/AuthService.js";
 export default {
   name: "RetroItemComment",
   props: {
-    comment: Object
+    comment: Object,
+    ownerName: String
   },
   data() {
     return {

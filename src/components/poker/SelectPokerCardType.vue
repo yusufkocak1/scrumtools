@@ -38,9 +38,7 @@ export default {
         }
       ]}
   },
-  created() {
-    console.log(this.selectedPokerCardTypeName)
-    this.selectedPokerCardType = this.pokerCardNumbers.find(pokerCard => pokerCard.type === this.selectedPokerCardTypeName)
+  mounted() {
 
   },
   computed: {
@@ -50,8 +48,10 @@ export default {
   },
   watch: {
     selectedPokerCardType(){
-      this.selectedPokerCardTypeName = this.selectedPokerCardType.type
       this.$emit('selectPokerCardType', this.selectedPokerCardType)
+    },
+    selectedPokerCardTypeName(){
+      this.selectedPokerCardType = this.pokerCardNumbers.find(pokerCard => pokerCard.type === this.selectedPokerCardTypeName)
     }
   },
 

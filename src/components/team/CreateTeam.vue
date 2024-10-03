@@ -27,6 +27,7 @@
 
 <script>
 import { createTeam} from "../../firebase/TeamService.js";
+import {auth} from "../../firebase/Firebase.js";
 
 export default {
   name: "CreateTeam",
@@ -36,8 +37,7 @@ export default {
 
   methods: {
     createTeam() {
-      const email = localStorage.getItem("user")
-      createTeam(this.teamName,email)
+      createTeam(this.teamName,auth.currentUser.email,auth.currentUser.displayName)
       this.$emit('close')
     }
   }

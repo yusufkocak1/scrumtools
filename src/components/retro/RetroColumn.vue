@@ -7,7 +7,7 @@
     </div>
 
     <div class="p-4">
-      <RetroItem v-for="item in items" :key="item.id"
+      <RetroItem v-for="item in items" :key="item.id" :ownerName="members[item.owner]?.displayName"
                  :board-id="boardId" :column="column" :isAdmin="isAdmin" :item="item" :team-id="teamId"
                  @addVote="addVote" @openDetail="(itemDetail)=>$emit('openDetail', itemDetail, column)"
                  @removeItem="removeItem" @removeVote="removeVote"></RetroItem>
@@ -44,7 +44,8 @@ export default {
     column: String,
     boardId: String,
     teamId: String,
-    isAdmin: Boolean
+    isAdmin: Boolean,
+    members: Array
   },
   data() {
     return {

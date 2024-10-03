@@ -1,4 +1,4 @@
-import {addDoc, collection, doc, getDoc, getDocs, setDoc} from "firebase/firestore";
+import {addDoc, collection, deleteDoc, doc, getDoc, getDocs, onSnapshot, setDoc} from "firebase/firestore";
 import {db} from "./Firebase.js";
 
 const getScrumPokerFromTeam = async (teamId, setterFunc) => {
@@ -10,19 +10,33 @@ const getScrumPokerFromTeam = async (teamId, setterFunc) => {
         setterFunc(null)
     }
 }
-const createScrumPoker = async (teamId,cardType) => {
-    const docRef = await addDoc(collection(db, "teams", teamId,"scrumPoker"), {
-        cardType: cardType
-    });
-}
-const updateScrumPokerCardType = async (teamId,id,cardType) => {
-    const docRef = doc(db, "teams", teamId,"scrumPoker",id);
+const updateScrumPokerCardType = async (teamId,cardType) => {
+    const docRef = doc(db, "teams", teamId);
     const docSnap = await getDoc(docRef);
     if (docSnap.exists()) {
         let data = docSnap.data();
-        data.cardType = cardType
-        setDoc(docRef, data);
+        data.pokerCardType = cardType
+        console.log(data)
+        await setDoc(docRef, data);
     }
 }
+const updateScrumPokerVote = async (teamId,email,vote) => {
+   const docRef = doc(db, "teams", teamId,"scrumPoker",email);
+   await setDoc(docRef, {vote: vote})
+}
+const leaveScrumPoker = async (teamId,email) => {
+    const docRef = doc(db, "teams", teamId,"scrumPoker",email);
+   //delete
+    await deleteDoc(docRef);
+}
+const joinScrumPoker = async (teamId,email) => {
+    await updateScrumPokerVote(teamId, email, "-")
+}
+const listenScrumPoker = async (teamId, setterFunc) => {
+    const collectionRef = collection(db, "teams", teamId,"scrumPoker");
+    onSnapshot(collectionRef, (querySnapshot) => {
+        setterFunc(querySnapshot.docs.map(d => ({email: d.id, ...d.data()})))
+    })
+}
 
-export {getScrumPokerFromTeam,createScrumPoker,updateScrumPokerCardType}
+export {getScrumPokerFromTeam,updateScrumPokerCardType,updateScrumPokerVote,leaveScrumPoker,joinScrumPoker,listenScrumPoker}

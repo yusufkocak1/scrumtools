@@ -27,6 +27,7 @@
 
 <script>
 import {addUserToTeam} from "../../firebase/TeamService.js";
+import {auth} from "../../firebase/Firebase.js";
 
 export default {
   name: "JoinTeam",
@@ -36,8 +37,7 @@ export default {
 
   methods: {
     joinTeam() {
-      const email = localStorage.getItem("user")
-      addUserToTeam(email,this.teamId)
+      addUserToTeam(auth.currentUser.email,auth.currentUser.displayName,this.teamId)
       this.$emit('close')
     }
   }

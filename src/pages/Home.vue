@@ -64,7 +64,6 @@ export default {
   methods: {
     getRetroBoardsFromTeam,
     selectTeam(teamId) {
-      console.log(t)
       this.selectedTeam = teamId
     },
     deleteBoard(boardId) {

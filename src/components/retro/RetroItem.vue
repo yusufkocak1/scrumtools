@@ -3,7 +3,7 @@
       :class="['text-slate-800  flex flex-col w-full  rounded-md hover:bg-slate-100 focus:bg-slate-100 active:bg-slate-100 py-1 border-2 mb-2  px-2', getBorderColorByStatus]"
   ><span class="py-2 border-b" @click="openDetail">{{ item.value }}</span>
     <div class=" flex flex-row py-2 justify-between">
-      <span class="text-slate-600 text-xs font-bold">{{ ownerName }}</span>
+      <span class="text-slate-600 text-xs font-bold">{{ ownerName ? ownerName : 'Anonymous' }}</span>
       <div class="flex flex-row">
         <button class="rounded-md border border-transparent px-2 text-center text-sm transition-all text-slate-600 hover:bg-slate-200 focus:bg-slate-200 active:bg-slate-200 disabled:pointer-events-none disabled:opacity-50 disabled:shadow-none"
                 @click="addVote(1)">
@@ -70,7 +70,7 @@ export default {
   name: "RetroItem",
   data() {
     return {
-      ownerName: "",
+      owner: "",
     }
   },
   props: {
@@ -79,6 +79,7 @@ export default {
     teamId: String,
     boardId: String,
     column: String,
+    ownerName: String
   },
   methods: {
     openDetail() {
@@ -127,14 +128,10 @@ export default {
   },
   created() {
     if (this.item.owner === "Anonymous") {
-      this.ownerName = "Anonymous"
+      this.owner = "Anonymous"
     }
     listenRetroItemVotes(this.teamId, this.boardId, this.column, this.item.id, (votes) => {
       this.item.votes = votes
-    })
-
-    getUserFromDB(this.item.owner, (user) => {
-      this.ownerName = user.name
     })
   },
   unmounted() {

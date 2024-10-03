@@ -1,10 +1,11 @@
 <template>
   <div>
-    <SelectPokerCardType @selectPokerCardType="selectPokerCardType" :selectedPokerCardTypeName="selectedPokerCardTypeName" :team="team"></SelectPokerCardType>
-    <div class="container flex flex-row justify-center  border w-screen  mt-2">
-      <PokerTable></PokerTable>
-      <pokerCard v-for="pokerCard in selectedPokerCardType?.numbers" :key="pokerCard"></pokerCard>
-      <span class="p-4 font-extrabold text-4xl flex justify-center items-center text-center">Bir Müslüman kardeşimiz yardım etmek isterse eksiklerini tamamlayıp bu özelliği de kullanabiliriz.</span>
+    <SelectPokerCardType  @selectPokerCardType="selectPokerCardType" :selectedPokerCardTypeName="selectedPokerCardTypeName" :team="team"></SelectPokerCardType>
+    <div class="container flex flex-col justify-center  border w-screen  mt-2 gap-5">
+      <PokerTable :isVotesVisible="isVotesVisible" :votes="votes" :members="team.members" @newRound="newRound"></PokerTable>
+      <div class="p-2 flex flex-row justify-center lg:justify-start flex-wrap gap-2 absolute bottom-24">
+      <pokerCard  v-for="pokerCard in selectedPokerCardType?.numbers" :number="pokerCard" :key="pokerCard" @selectPokerCard="selectPokerCard" :selectable="true" :newRound="newRound"></pokerCard>
+      </div>
     </div>
   </div>
 </template>
@@ -13,7 +14,12 @@ import PokerTable from "../components/poker/pokerTable.vue";
 import PokerCard from "../components/poker/pokerCard.vue";
 import SelectPokerCardType from "../components/poker/SelectPokerCardType.vue";
 import {getTeamById} from "../firebase/TeamService.js";
-import {createScrumPoker, getScrumPokerFromTeam, updateScrumPokerCardType} from "../firebase/ScrumPokerService.js";
+import {
+  joinScrumPoker, leaveScrumPoker, listenScrumPoker,
+  updateScrumPokerCardType,
+  updateScrumPokerVote
+} from "../firebase/ScrumPokerService.js";
+import {auth} from "../firebase/Firebase.js";
 
 export default {
   name: "ScrumPoker",
@@ -23,31 +29,52 @@ export default {
   },
   data() {
     return {
+      maintenance: false,
       selectedPokerCardType: Object,
       team: {},
-      poker: {},
-      selectedPokerCardTypeName: ""
+      selectedPokerCardTypeName: "",
+      votes: [],
+      isVotesVisible: false
     }
   },
   methods: {
     selectPokerCardType(selectedPokerCardType) {
-      updateScrumPokerCardType(this.teamId,this.poker.id, selectedPokerCardType.type)
+      updateScrumPokerCardType(this.teamId, selectedPokerCardType.type)
       this.selectedPokerCardTypeName = selectedPokerCardType.type
       this.selectedPokerCardType = selectedPokerCardType
+    },
+    selectPokerCard(pokerCard) {
+      updateScrumPokerVote(this.teamId, auth.currentUser.email, pokerCard)
+    },
+    newRound() {
+      if(this.isVotesVisible) {
+        this.votes.forEach((vote) => {
+          updateScrumPokerVote(this.teamId, vote.email, "-").then(() => {
+            this.isVotesVisible = false
+          })
+        })
+      }else{
+        this.isVotesVisible = true
+      }
     }
+  },
+  unmounted() {
+    leaveScrumPoker(this.teamId, auth.currentUser.email)
   },
   created() {
     getTeamById(this.teamId, (team) => {
       this.team = team
-    })
-    getScrumPokerFromTeam(this.teamId, (scrumPoker) => {
-      if(!scrumPoker){
-        createScrumPoker(this.teamId, "Fibonacci")
+      if (!team.pokerCardType) {
+        updateScrumPokerCardType(team.id, "Fibonacci")
+        this.selectedPokerCardTypeName = "Fibonacci"
       }else{
-        console.log(scrumPoker)
-        this.poker = scrumPoker[0]
-        this.selectedPokerCardTypeName = this.poker.cardType
+        this.selectedPokerCardTypeName = this.team.pokerCardType
       }
+
+      joinScrumPoker(this.teamId, auth.currentUser.email)
+    })
+    listenScrumPoker(this.teamId,(votes) => {
+      this.votes = votes
     })
   }
 }

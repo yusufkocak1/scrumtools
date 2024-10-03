@@ -27,6 +27,11 @@ export default {
   data: () => ({
     selectedTeam: "",
   }),
+  created() {
+    if (this.teamList.length > 0) {
+      this.selectedTeam = this.teamList[0].id
+    }
+  },
   watch: {
     teamList() {
       if (this.teamList.length > 0) {
