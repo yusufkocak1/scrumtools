@@ -36,7 +36,7 @@ const routes = [
             requiresAuth: true // Add meta field to indicate protected route
         },
     },
-    {path:"/workList:teamId",component: WorkList,props:true,meta:{requiresAuth:true}}
+    {path:"/workList/:teamId",component: WorkList,props:true,meta:{requiresAuth:true}}
 ]
 
 const router = createRouter({

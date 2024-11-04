@@ -1,10 +1,10 @@
 <template>
   <div>
     <SelectPokerCardType  @selectPokerCardType="selectPokerCardType" :selectedPokerCardTypeName="selectedPokerCardTypeName" :team="team"></SelectPokerCardType>
-    <div class="container flex flex-col justify-center  border w-screen  mt-2 gap-5">
+    <div class="container flex flex-col justify-center  w-screen  mt-2">
       <PokerTable :isVotesVisible="isVotesVisible" :votes="votes" :members="team.members" @newRound="newRound"></PokerTable>
-      <div class="p-2 flex flex-row justify-center lg:justify-start flex-wrap gap-2 absolute bottom-24">
-      <pokerCard  v-for="pokerCard in selectedPokerCardType?.numbers" :number="pokerCard" :key="pokerCard" @selectPokerCard="selectPokerCard" :selectable="true" :newRound="newRound"></pokerCard>
+      <div class="py-16  border-4 flex justify-center flex-wrap gap-2 ">
+      <pokerCard  v-for="pokerCard in selectedPokerCardType?.numbers" :number="pokerCard" :key="pokerCard" @selectPokerCard="selectPokerCard" :selectable="true" :newRound="newRound" :selectedCardNumber="selectedPokerCardNumber"></pokerCard>
       </div>
     </div>
   </div>
@@ -15,7 +15,7 @@ import PokerCard from "../components/poker/pokerCard.vue";
 import SelectPokerCardType from "../components/poker/SelectPokerCardType.vue";
 import {getTeamById} from "../firebase/TeamService.js";
 import {
-  joinScrumPoker, leaveScrumPoker, listenScrumPoker,
+  joinScrumPoker, leaveScrumPoker, listenScrumPoker, listenVotesVisible, setVotesVisible,
   updateScrumPokerCardType,
   updateScrumPokerVote
 } from "../firebase/ScrumPokerService.js";
@@ -34,7 +34,8 @@ export default {
       team: {},
       selectedPokerCardTypeName: "",
       votes: [],
-      isVotesVisible: false
+      isVotesVisible: false,
+      selectedPokerCardNumber: null
     }
   },
   methods: {
@@ -44,18 +45,24 @@ export default {
       this.selectedPokerCardType = selectedPokerCardType
     },
     selectPokerCard(pokerCard) {
+      if(this.selectedPokerCardNumber === pokerCard) {
+        pokerCard = "-"
+      }
       updateScrumPokerVote(this.teamId, auth.currentUser.email, pokerCard)
+      this.selectedPokerCardNumber = pokerCard
     },
     newRound() {
       if(this.isVotesVisible) {
+        this.isVotesVisible = false
         this.votes.forEach((vote) => {
-          updateScrumPokerVote(this.teamId, vote.email, "-").then(() => {
-            this.isVotesVisible = false
-          })
+          updateScrumPokerVote(this.teamId, vote.email, "-")
         })
       }else{
         this.isVotesVisible = true
+
       }
+      setVotesVisible(this.teamId, this.isVotesVisible)
+
     }
   },
   unmounted() {
@@ -72,10 +79,14 @@ export default {
       }
 
       joinScrumPoker(this.teamId, auth.currentUser.email)
+
     })
     listenScrumPoker(this.teamId,(votes) => {
       this.votes = votes
     })
-  }
+    listenVotesVisible(this.teamId,(isVotesVisible) => {
+      this.isVotesVisible = isVotesVisible
+    })
+  },
 }
 </script>

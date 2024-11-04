@@ -4,6 +4,9 @@
 
 <script>
 export default {
-  name: "WorkList"
+  name: "WorkList",
+  props: {
+    teamId: String
+  }
 }
 </script>
