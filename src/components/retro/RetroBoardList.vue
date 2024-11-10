@@ -1,5 +1,5 @@
 <template>
-  <ul class="p-2 flex justify-center lg:justify-start flex-wrap gap-2 ">
+  <ul class="p-2 flex justify-center lg:justify-start w-full flex-wrap gap-2 ">
 
     <li v-for="(board,index) in boardList"
         class=" flex flex-col my-6 justify-center items-center bg-white shadow-sm border border-slate-200 rounded-lg w-64 h-64">

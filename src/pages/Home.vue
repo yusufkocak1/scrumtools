@@ -1,8 +1,8 @@
 <template>
   <div class="flex flex-row w-screen">
     <SideBar :team-id="selectedTeam"></SideBar>
-    <div class="container flex flex-row  border w-screen  mt-2">
-      <div class="flex flex-col w-4/5 h-screen">
+    <div class="mx-4 flex flex-row  border w-screen  mt-2">
+      <div class="flex flex-col w-full h-screen">
         <div class="flex flex-wrap gap-2 justify-between p-5 items-center border-b">
           <div class="flex justify-center gap-2">
             <TeamList :teamList="teamList" @select="selectTeam"></TeamList>
@@ -76,8 +76,9 @@ export default {
     },
     getBoardsByTeamId(teamId) {
       getRetroBoardsFromTeam(teamId, (boardList) => {
-        this.boardList = boardList;
+        this.boardList = boardList.sort((a, b) => a.createdDate.seconds - b.createdDate.seconds);
       })
+
     },
   },
   created() {
