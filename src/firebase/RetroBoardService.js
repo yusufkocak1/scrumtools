@@ -20,7 +20,8 @@ const getRetroBoard= async (teamId,boardId, setterFunc)=>{
 const createRetroBoard = async (teamId,retroBoardName,columns) => {
     const docRef = await addDoc(collection(db, "teams", teamId,"retroBoards"), {
         retroBoardName: retroBoardName,
-        columns: columns
+        columns: columns,
+        createdDate: new Date()
     });
 }
 const updateRetroBoard = async (teamId,retroId,retroBoardName,setterFunc) => {
