@@ -29,8 +29,7 @@ export default {
   },
   methods: {
     gotoSettings() {
-      createToast('Şuan herhangi bir ayarı yok',{type:'info',position:'top-center'})
-      //this.$router.push(`/Settings`)
+      this.$router.push(`/Settings`)
     },
     gotoScrumPoker() {
       this.$router.push(`/scrumPoker/${this.teamId}`)

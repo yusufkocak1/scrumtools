@@ -1,6 +1,7 @@
 import {db} from "./Firebase.js";
-import {addDoc, collection, deleteDoc, doc, getDoc, onSnapshot, query, setDoc} from 'firebase/firestore';
+import {addDoc, collection, deleteDoc, doc, getDoc, getDocs, onSnapshot, query, setDoc} from 'firebase/firestore';
 import {createToast} from "mosha-vue-toastify";
+import {getAuth} from "firebase/auth";
 
 
 const listenTeams = (setterFunc) => {
@@ -17,6 +18,18 @@ const listenTeams = (setterFunc) => {
         });
         setterFunc( teamList)
     });
+}
+const getTeams = async (setterFunc) => {
+    let email = localStorage.getItem("user");
+getDocs(collection(db, "teams")).then((querySnapshot) => {
+    const teamList= []
+    querySnapshot.forEach((doc) => {
+        if (doc.data().members[email]) {
+            teamList.push({...doc.data(), id: doc.id})
+        }
+    });
+    setterFunc( teamList)
+})
 }
 const getTeamById = async (teamId, setterFunc) => {
     console.log(teamId)
@@ -66,5 +79,19 @@ const removeTeam = async (teamName) => {
     const docRef = doc(db, "teams", teamName);
     await deleteDoc(docRef);
 }
+const updateDisplayNameFromTeam = async (teamId,displayName,email) => {
+    const docRef = doc(db, "teams", teamId);
+    const docSnap = await getDoc(docRef);
+    if (docSnap.exists()) {
+        let data = docSnap.data();
+        if(!data.members){
+            docSnap.data().members = {}
+        }
+        data.members[email] = {
+            displayName: displayName
+        }
+        setDoc(docRef, data);
+    }
+}
 
-export {createTeam,addUserToTeam,removeUserFromTeam,removeTeam,getTeamById,listenTeams}
+export {createTeam,addUserToTeam,removeUserFromTeam,removeTeam,getTeamById,listenTeams,getTeams,updateDisplayNameFromTeam}
