@@ -56,6 +56,7 @@ export default {
         this.isVotesVisible = false
         this.votes.forEach((vote) => {
           updateScrumPokerVote(this.teamId, vote.email, "-")
+          this.selectedPokerCardNumber = null
         })
       }else{
         this.isVotesVisible = true

@@ -55,7 +55,7 @@
 </template>
 <script>
 import {listenTeams, removeUserFromTeam} from "../firebase/TeamService.js";
-import TeamList from "../components/TeamList.vue";
+import TeamList from "../components/team/TeamList.vue";
 import {auth} from "../firebase/Firebase.js";
 import {createToast} from "mosha-vue-toastify";
 

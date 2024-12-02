@@ -42,7 +42,7 @@
 <script>
 import JoinTeam from "../components/team/JoinTeam.vue";
 import CreateTeam from "../components/team/CreateTeam.vue";
-import TeamList from "../components/TeamList.vue";
+import TeamList from "../components/team/TeamList.vue";
 import {listenTeams} from "../firebase/TeamService.js";
 import {getRetroBoardsFromTeam, removeRetroBoardFromTeam} from "../firebase/RetroBoardService.js";
 import RetroBoardList from "../components/retro/RetroBoardList.vue";
