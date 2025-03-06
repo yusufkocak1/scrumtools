@@ -12,6 +12,7 @@
     "@material-tailwind/html": "^2.3.1",
     "firebase": "^10.13.1",
     "mosha-vue-toastify": "^1.0.23",
+    "sortablejs": "^1.15.6",
     "vue": "^3.4.37",
     "vue-router": "^4.4.3"
   },
