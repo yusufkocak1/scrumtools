@@ -1,13 +1,29 @@
 <template>
-  <div class="flex flex-row w-screen">
+  <div class="flex flex-row w-full h-screen bg-white">
     <SideBar :team-id="teamId"></SideBar>
-    <div class="flex-1 flex flex-col items-center justify-center min-h-screen">
-      <div class="w-full max-w-6xl mx-auto px-4">
-        <SelectPokerCardType  @selectPokerCardType="selectPokerCardType" :selectedPokerCardTypeName="selectedPokerCardTypeName" :team="team"></SelectPokerCardType>
-        <div class="flex flex-col justify-center items-center mt-2">
+    <div class="flex-1 flex flex-col items-center min-h-screen p-6">
+      <div class="w-full max-w-7xl mx-auto">
+        <div class="flex flex-col items-center space-y-8">
           <PokerTable :isVotesVisible="isVotesVisible" :votes="votes" :members="team.members" @newRound="newRound"></PokerTable>
-          <div class="py-16 border-4 flex justify-center flex-wrap gap-2 w-full max-w-4xl">
-            <pokerCard  v-for="pokerCard in selectedPokerCardType?.numbers" :number="pokerCard" :key="pokerCard" @selectPokerCard="selectPokerCard" :selectable="true" :newRound="newRound" :selectedCardNumber="selectedPokerCardNumber"></pokerCard>
+
+          <!-- Cards Selection Area -->
+          <div class="w-full bg-gradient-to-br from-gray-50 to-gray-100 border-2 border-gray-200 rounded-2xl p-8 shadow-lg">
+            <div class="text-center mb-6">
+              <h3 class="text-xl font-bold text-gray-800 mb-2">Select Your Estimate</h3>
+              <p class="text-gray-600 text-sm">Choose a Fibonacci number that represents your estimate</p>
+            </div>
+            <div class="flex justify-center flex-wrap gap-4">
+              <pokerCard
+                v-for="pokerCard in fibonacciNumbers"
+                :number="pokerCard"
+                :key="pokerCard"
+                @selectPokerCard="selectPokerCard"
+                :selectable="!isVotesVisible"
+                :newRound="newRound"
+                :selectedCardNumber="selectedPokerCardNumber"
+                class="transform hover:rotate-1 transition-transform duration-300"
+              ></pokerCard>
+            </div>
           </div>
         </div>
       </div>
@@ -18,12 +34,10 @@
 import { ref, reactive, computed, onMounted, onUnmounted, nextTick } from 'vue'
 import PokerTable from "../components/poker/pokerTable.vue";
 import PokerCard from "../components/poker/pokerCard.vue";
-import SelectPokerCardType from "../components/poker/SelectPokerCardType.vue";
 import SideBar from "../components/SideBar.vue";
 import {getTeamById} from "../firebase/TeamService.js";
 import {
   joinScrumPoker, leaveScrumPoker, listenScrumPoker, listenVotesVisible, setVotesVisible,
-  updateScrumPokerCardType,
   updateScrumPokerVote,
   cleanupListeners
 } from "../firebase/ScrumPokerService.js";
@@ -31,19 +45,18 @@ import {auth} from "../firebase/Firebase.js";
 
 export default {
   name: "ScrumPoker",
-  components: {SelectPokerCardType, PokerCard, PokerTable, SideBar},
+  components: {PokerCard, PokerTable, SideBar},
   props: {
     teamId: String
   },
   setup(props) {
     const maintenance = ref(false)
-    const selectedPokerCardType = ref({})
     const team = reactive({})
-    const selectedPokerCardTypeName = ref("")
     const votes = ref(new Map()) // Map kullanarak O(1) erişim
     const isVotesVisible = ref(false)
     const selectedPokerCardNumber = ref(null)
-    
+    const fibonacciNumbers = ["1", "2", "3", "5", "8", "13", "21", "34", "55", "89", "?"]
+
     // Debounce için
     let updateTimeout = null
     let unsubscribeVotes = null
@@ -52,12 +65,6 @@ export default {
     // Computed property for votes array (sadece gerektiğinde hesaplanır)
     const votesArray = computed(() => Array.from(votes.value.values()))
 
-    const selectPokerCardType = (selectedType) => {
-      updateScrumPokerCardType(props.teamId, selectedType.type)
-      selectedPokerCardTypeName.value = selectedType.type
-      selectedPokerCardType.value = selectedType
-    }
-    
     const selectPokerCard = (pokerCard) => {
       if(selectedPokerCardNumber.value === pokerCard) {
         pokerCard = "-"
@@ -94,12 +101,6 @@ export default {
       try {
         await getTeamById(props.teamId, (teamData) => {
           Object.assign(team, teamData)
-          if (!teamData.pokerCardType) {
-            updateScrumPokerCardType(teamData.id, "Fibonacci")
-            selectedPokerCardTypeName.value = "Fibonacci"
-          } else {
-            selectedPokerCardTypeName.value = teamData.pokerCardType
-          }
         })
 
         await joinScrumPoker(props.teamId, auth.currentUser.email)
@@ -140,13 +141,11 @@ export default {
 
     return {
       maintenance,
-      selectedPokerCardType,
       team,
-      selectedPokerCardTypeName,
       votes: votesArray, // computed property döndür
       isVotesVisible,
       selectedPokerCardNumber,
-      selectPokerCardType,
+        fibonacciNumbers,
       selectPokerCard,
       newRound
     }
