@@ -45,7 +45,7 @@ export default {
 
     // Computed property for votes array (sadece gerektiğinde hesaplanır)
     const votesArray = computed(() => Array.from(votes.value.values()))
-    
+
     const selectPokerCardType = (selectedType) => {
       updateScrumPokerCardType(props.teamId, selectedType.type)
       selectedPokerCardTypeName.value = selectedType.type
@@ -73,7 +73,7 @@ export default {
       if(isVotesVisible.value) {
         isVotesVisible.value = false
         // Batch update yapmak için Promise.all kullan
-        const updates = Array.from(votes.value.values()).map((vote) => 
+        const updates = Array.from(votes.value.values()).map((vote) =>
           updateScrumPokerVote(props.teamId, vote.email, "-")
         )
         await Promise.all(updates)
@@ -114,7 +114,7 @@ export default {
         console.error("Error mounting ScrumPoker:", error)
       }
     })
-    
+
     onUnmounted(() => {
       // Cleanup işlemleri
       if (updateTimeout) {
@@ -131,7 +131,7 @@ export default {
       // Firebase'den ayrıl
       leaveScrumPoker(props.teamId, auth.currentUser.email).catch(console.error)
     })
-    
+
     return {
       maintenance,
       selectedPokerCardType,

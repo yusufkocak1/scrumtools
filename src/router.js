@@ -12,35 +12,66 @@ import {authService} from "./firebase/AuthService.js";
 import CodeShare from "./pages/CodeShare.vue";
 
 const routes = [{
-    path: '/', component: HomeView, meta: {
-        requiresAuth: true // Add meta field to indicate protected route
-    }
-}, {path: '/login', component: Login, meta: {requiresAuth: false}}, {
-    path: '/retroBoard/:teamId/:boardId', component: RetroBoard, props: true, meta: {
-        requiresAuth: true // Add meta field to indicate protected route
-    }
-}, {
-    path: '/scrumPoker/:teamId', component: ScrumPoker, props: true, meta: {
+    path: '/',
+    name: 'Home',
+    component: HomeView,
+    meta: {
         requiresAuth: true // Add meta field to indicate protected route
     }
 }, {
-    path: '/teams', component: Teams, meta: {
+    path: '/login',
+    name: 'Login',
+    component: Login,
+    meta: {requiresAuth: false}
+}, {
+    path: '/retroBoard/:teamId/:boardId',
+    name: 'RetroBoard',
+    component: RetroBoard,
+    props: true,
+    meta: {
+        requiresAuth: true // Add meta field to indicate protected route
+    }
+}, {
+    path: '/scrumPoker/:teamId',
+    name: 'ScrumPoker',
+    component: ScrumPoker,
+    props: true,
+    meta: {
+        requiresAuth: true // Add meta field to indicate protected route
+    }
+}, {
+    path: '/teams',
+    name: 'Teams',
+    component: Teams,
+    meta: {
         requiresAuth: true // Add meta field to indicate protected route}
     }
 }, {
-    path: '/settings', component: Settings, meta: {
+    path: '/settings',
+    name: 'Settings',
+    component: Settings,
+    meta: {
         requiresAuth: true // Add meta field to indicate protected route
     },
 }, {
-    path: "/workList/:teamId", component: WorkList, props: true, meta: {requiresAuth: true}
-
+    path: "/workList/:teamId",
+    name: 'WorkList',
+    component: WorkList,
+    props: true,
+    meta: {requiresAuth: true}
 }, {
-    path: '/sprint/:sprintId', name: 'SprintPage', component: SprintPage,props: true, meta: {requiresAuth: true}
+    path: '/sprint/:sprintId',
+    name: 'SprintPage',
+    component: SprintPage,
+    props: true,
+    meta: {requiresAuth: true}
 }, {
-    path: '/codeShare/:teamId', name: 'CodeShare', component: CodeShare, props: true, meta: {requiresAuth: true}
-}
-
-]
+    path: '/codeShare/:teamId',
+    name: 'CodeShare',
+    component: CodeShare,
+    props: true,
+    meta: {requiresAuth: true}
+}]
 
 const router = createRouter({
     history: createWebHistory(), routes,
