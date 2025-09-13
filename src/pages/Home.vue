@@ -26,7 +26,7 @@
         <div v-if="showJoinTeam || showCreateTeam || showCreateRetroBoard"
              class=" fixed inset-0 z-[999] grid h-screen w-screen place-items-center bg-black bg-opacity-60  backdrop-blur-sm transition-opacity duration-300">
           <JoinTeam v-if="showJoinTeam" @close="showJoinTeam = false" @showCreateTeam="showCreateTeam = true"/>
-          <CreateTeam v-if="showCreateTeam" @close="showCreateTeam = false" @showJoinTeam="showJoinTeam = true"/>
+          <CreateTeam v-if="showCreateTeam" @close="closeCreateTeam" @showJoinTeam="showJoinTeam = true"/>
           <CreateRetroBoard v-if="showCreateRetroBoard" :selectedTeam="selectedTeam" @close="closeCreateRetroBoard"/>
         </div>
         <div>
@@ -43,7 +43,7 @@
 import JoinTeam from "../components/team/JoinTeam.vue";
 import CreateTeam from "../components/team/CreateTeam.vue";
 import TeamList from "../components/team/TeamList.vue";
-import {listenTeams} from "../firebase/TeamService.js";
+import {getTeams, listenTeams} from "../firebase/TeamService.js";
 import {getRetroBoardsFromTeam, removeRetroBoardFromTeam} from "../firebase/RetroBoardService.js";
 import RetroBoardList from "../components/retro/RetroBoardList.vue";
 import CreateRetroBoard from "../components/retro/CreateRetroBoard.vue";
@@ -65,6 +65,7 @@ export default {
     getRetroBoardsFromTeam,
     selectTeam(teamId) {
       this.selectedTeam = teamId
+      localStorage.setItem("selectedTeam", teamId)
     },
     deleteBoard(boardId) {
       removeRetroBoardFromTeam(this.selectedTeam, boardId)
@@ -72,6 +73,7 @@ export default {
     },
     closeCreateRetroBoard() {
       this.showCreateRetroBoard = false
+      this.getAllTeams();
       this.getBoardsByTeamId(this.selectedTeam)
     },
     getBoardsByTeamId(teamId) {
@@ -80,16 +82,30 @@ export default {
       })
 
     },
+    closeCreateTeam(){
+      this.showCreateTeam = false
+      this.getAllTeams();
+    },
+    getAllTeams(){
+      getTeams((teamList) => {
+        this.teamList = teamList
+        if (teamList && teamList.length > 0) {
+          if(localStorage.getItem("selectedTeam")) {
+            if(teamList.find(t=>t.id===localStorage.getItem("selectedTeam"))){
+              this.selectedTeam = localStorage.getItem("selectedTeam")
+            } else {
+              this.selectedTeam = teamList[0].id
+            }
+          }
+          this.selectedTeam = teamList[0].id
+        } else {
+          this.selectedTeam = ""
+        }
+      })
+    }
   },
   created() {
-    listenTeams((teamList) => {
-      this.teamList = teamList
-      if (teamList && teamList.length > 0) {
-        this.selectedTeam = teamList[0].id
-      } else {
-        this.selectedTeam = ""
-      }
-    })
+    this.getAllTeams()
   },
   watch: {
     selectedTeam() {
