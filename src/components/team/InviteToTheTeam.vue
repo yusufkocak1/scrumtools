@@ -1,21 +1,21 @@
 <template>
-  <button @click="copyTeamId">
-    <!-- invite button-->
-    <svg id="Capa_1" fill="#000000" height="24px" version="1.1" viewBox="0 0 268.733 268.733"
-         width="24px" xml:space="preserve"
-         xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink"><g id="SVGRepo_bgCarrier" stroke-width="0"></g>
-      <g id="SVGRepo_tracerCarrier" stroke-linecap="round" stroke-linejoin="round"></g>
-      <g id="SVGRepo_iconCarrier"> <g> <path
-          d="M0,141.467v36.37c0,5.69,4.613,10.304,10.304,10.304h33.425v-39.175c0-13.63,3.309-26.493,9.135-37.864 c-12.09-0.718-23.009-5.835-31.187-13.77C8.495,107.539,0,123.506,0,141.467z"></path>
-        <path
-            d="M78.616,81.218c-5.225-8.579-8.236-18.646-8.236-29.403c0-6.551,1.13-12.839,3.183-18.697 c-5.172-3.171-11.254-5.001-17.765-5.001c-18.8,0-34.041,15.239-34.041,34.04c0,18.8,15.241,34.041,34.041,34.041 c2.589,0,5.107-0.299,7.531-0.847C67.813,90.029,72.951,85.282,78.616,81.218z"></path>
-        <path
-            d="M171.078,150.335c5.518,0,10.918,1.226,15.834,3.515l8.482-6.204c-0.432-22.684-11.904-42.655-29.279-54.77 c-10.175,9.679-23.919,15.639-39.037,15.639c-15.118,0-28.862-5.96-39.038-15.638c-17.712,12.35-29.312,32.86-29.312,56.091v44.552 c0,6.971,5.651,12.622,12.622,12.622h66.796c-2.988-5.393-4.696-11.589-4.696-18.178 C133.45,167.214,150.33,150.335,171.078,150.335z"></path>
-        <circle cx="127.078" cy="51.815" r="41.698"></circle>
-        <path
-            d="M247.104,215.36c-3.436,0-6.672,0.822-9.558,2.248l-40.529-29.645l40.234-29.431c2.957,1.518,6.301,2.391,9.852,2.391 c11.279,0,20.53-8.636,21.529-19.652c1.163-12.944-9.064-23.603-21.529-23.603c-11.944,0-21.628,9.683-21.628,21.628 c0,0.99,0.09,1.957,0.219,2.911l-40.359,29.521c-3.96-3.473-9.025-5.393-14.258-5.393c-11.944,0-21.628,9.683-21.628,21.628 c0,11.944,9.684,21.628,21.628,21.628c5.273,0,10.329-1.941,14.258-5.394l40.408,29.557c-0.159,1.058-0.268,2.132-0.268,3.234 c0,11.944,9.684,21.628,21.628,21.628c11.912,0,21.629-9.655,21.629-21.628C268.733,225.079,259.078,215.36,247.104,215.36z"></path> </g> </g></svg>
+  <button
+    @click="copyTeamId"
+    class="group relative flex items-center justify-center p-2 rounded-xl transition-all duration-200 hover:bg-purple-50 focus:bg-purple-50 active:bg-purple-100 cursor-pointer border border-purple-200 hover:border-purple-300 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+  >
+    <div class="w-5 h-5 bg-purple-100 rounded-md flex items-center justify-center group-hover:bg-purple-200 transition-colors">
+      <svg class="w-3 h-3 text-purple-600" fill="currentColor" viewBox="0 0 20 20">
+        <path d="M8 9a3 3 0 100-6 3 3 0 000 6zM8 11a6 6 0 016 6H2a6 6 0 016-6zM16 7a1 1 0 10-2 0v1h-1a1 1 0 100 2h1v1a1 1 0 102 0v-1h1a1 1 0 100-2h-1V7z"/>
+      </svg>
+    </div>
+
+    <!-- Tooltip -->
+    <div class="absolute bottom-full mb-2 px-2 py-1 bg-gray-900 text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap">
+      Invite to Team
+    </div>
   </button>
 </template>
+
 <script>
 import {createToast} from "mosha-vue-toastify";
 
@@ -27,8 +27,10 @@ export default {
   methods: {
     copyTeamId() {
       navigator.clipboard.writeText(this.teamId)
-      createToast("Team id copied to clipboard", {
-        type: "success",position:"top-center"})
+      createToast("Team ID copied to clipboard", {
+        type: "success",
+        position: "top-center"
+      })
     },
   }
 }

@@ -1,5 +1,5 @@
 <template>
-  <div class="relative flex flex-col my-6 bg-white shadow-sm border border-slate-200 rounded-lg w-11/12 lg:w-[30%]">
+  <div class="relative flex flex-col my-6 bg-white shadow-sm border border-slate-200 rounded-lg w-11/12 lg:w-[32%]">
     <div class="mx-3 mb-0 border-b border-slate-200 pt-3 pb-2 px-1">
     <span class="text-sm text-slate-600 font-medium">
       {{ column }}
