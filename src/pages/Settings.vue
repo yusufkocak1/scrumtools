@@ -1,45 +1,48 @@
 <template>
-  <div class="container">
-    <!--profile-->
-    <div class="py-16">
-      <div class="flex flex-row border gap-2 bg-gray-100 rounded-xl p-6">
-        <div class="flex flex-col w-full col-span-12 border p-4 rounded-xl">
-          <div class="w-full max-w-sm min-w-[200px] flex  mt-4">
-            <label class="block mb-2 text-md  font-bold text-slate-600">
-              Email: {{ email.toUpperCase() }}
-            </label>
-          </div>
-          <div class="w-full  flex items-center mt-4">
-            <label class="  w-1/8 flex-wrap block mb-2 text-md  font-bold text-slate-600">
-              Display Name:
-            </label>
+  <div class="flex flex-row w-screen">
+    <SideBar :team-id="selectedTeam"></SideBar>
+    <div class="flex-1 p-4">
+      <!--profile-->
+      <div class="py-16">
+        <div class="flex flex-row border gap-2 bg-gray-100 rounded-xl p-6">
+          <div class="flex flex-col w-full col-span-12 border p-4 rounded-xl">
+            <div class="w-full max-w-sm min-w-[200px] flex  mt-4">
+              <label class="block mb-2 text-md  font-bold text-slate-600">
+                Email: {{ email.toUpperCase() }}
+              </label>
+            </div>
+            <div class="w-full  flex items-center mt-4">
+              <label class="  w-1/8 flex-wrap block mb-2 text-md  font-bold text-slate-600">
+                Display Name:
+              </label>
 
-              <input v-model="displayName"
-                     class=" mx-2 placeholder:text-slate-400 text-slate-700 text-md border border-slate-200 rounded-md text-left py-2 px-2 transition duration-300 ease focus:outline-none focus:border-slate-400 hover:border-slate-300 shadow-sm focus:shadow"
-                     placeholder="Enter your text"
-                     type="text"
-                     @change="changeDisplayName"/>
-            <button
-                class="mx-2 rounded bg-slate-800 py-1 px-6  border border-transparent text-center text-sm text-white transition-all shadow-sm hover:shadow focus:bg-slate-700 focus:shadow-none active:bg-slate-700 hover:bg-slate-700 active:shadow-none disabled:pointer-events-none disabled:opacity-50 disabled:shadow-none"
-                type="button">
-              Change
-            </button>
-          </div>
-          <div class="w-full  flex items-center mt-4">
-            <label class="w-1/8 flex-wrap block mb-2 text-md  font-bold text-slate-600">
-              New Password:
-            </label>
-             <input v-model="password"
-                     class=" mx-2  placeholder:text-slate-400 text-slate-700 text-md border border-slate-200 rounded-md text-left py-2 px-2 transition duration-300 ease focus:outline-none focus:border-slate-400 hover:border-slate-300 shadow-sm focus:shadow"
-                     placeholder="Enter New Password"
-                     type="password"
-                     @change="changePassword"/>
+                <input v-model="displayName"
+                       class=" mx-2 placeholder:text-slate-400 text-slate-700 text-md border border-slate-200 rounded-md text-left py-2 px-2 transition duration-300 ease focus:outline-none focus:border-slate-400 hover:border-slate-300 shadow-sm focus:shadow"
+                       placeholder="Enter your text"
+                       type="text"
+                       @change="changeDisplayName"/>
+              <button
+                  class="mx-2 rounded bg-slate-800 py-1 px-6  border border-transparent text-center text-sm text-white transition-all shadow-sm hover:shadow focus:bg-slate-700 focus:shadow-none active:bg-slate-700 hover:bg-slate-700 active:shadow-none disabled:pointer-events-none disabled:opacity-50 disabled:shadow-none"
+                  type="button">
+                Change
+              </button>
+            </div>
+            <div class="w-full  flex items-center mt-4">
+              <label class="w-1/8 flex-wrap block mb-2 text-md  font-bold text-slate-600">
+                New Password:
+              </label>
+               <input v-model="password"
+                       class=" mx-2  placeholder:text-slate-400 text-slate-700 text-md border border-slate-200 rounded-md text-left py-2 px-2 transition duration-300 ease focus:outline-none focus:border-slate-400 hover:border-slate-300 shadow-sm focus:shadow"
+                       placeholder="Enter New Password"
+                       type="password"
+                       @change="changePassword"/>
 
-            <button
-                class=" mx-2 rounded bg-slate-800 py-1 px-6  border border-transparent text-center text-sm text-white transition-all shadow-sm hover:shadow focus:bg-slate-700 focus:shadow-none active:bg-slate-700 hover:bg-slate-700 active:shadow-none disabled:pointer-events-none disabled:opacity-50 disabled:shadow-none"
-                type="button">
-              Change
-            </button>
+              <button
+                  class=" mx-2 rounded bg-slate-800 py-1 px-6  border border-transparent text-center text-sm text-white transition-all shadow-sm hover:shadow focus:bg-slate-700 focus:shadow-none active:bg-slate-700 hover:bg-slate-700 active:shadow-none disabled:pointer-events-none disabled:opacity-50 disabled:shadow-none"
+                  type="button">
+                Change
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -51,10 +54,12 @@ import {getAuth} from "firebase/auth";
 import {changeEmail, changePassword, updateDisplayName} from "../firebase/AuthService.js";
 import {createToast} from "mosha-vue-toastify";
 import {listenTeams, updateDisplayNameFromTeam} from "../firebase/TeamService.js";
+import SideBar from "../components/SideBar.vue";
 import teams from "./Teams.vue";
 
 export default {
   name: "Settings",
+  components: {SideBar},
   methods: {
 
     changeDisplayName() {
@@ -95,6 +100,14 @@ export default {
       displayName: "",
       email: "",
       teamList: [],
+      selectedTeam: "",
+    }
+  },
+  mounted() {
+    // localStorage'dan selectedTeam'i al
+    const storedTeam = localStorage.getItem("selectedTeam");
+    if (storedTeam) {
+      this.selectedTeam = storedTeam;
     }
   }
 }

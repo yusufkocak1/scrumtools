@@ -3,6 +3,7 @@ import {createRouter, createWebHistory} from 'vue-router'
 import HomeView from './pages/Home.vue'
 import Login from "./pages/Login.vue";
 import RetroBoard from "./pages/RetroBoard.vue";
+import Retrospective from "./pages/Retrospective.vue";
 import ScrumPoker from "./pages/ScrumPoker.vue";
 import Teams from "./pages/Teams.vue";
 import Settings from "./pages/Settings.vue";
@@ -23,6 +24,13 @@ const routes = [{
     name: 'Login',
     component: Login,
     meta: {requiresAuth: false}
+}, {
+    path: '/retrospective',
+    name: 'Retrospective',
+    component: Retrospective,
+    meta: {
+        requiresAuth: true
+    }
 }, {
     path: '/retroBoard/:teamId/:boardId',
     name: 'RetroBoard',

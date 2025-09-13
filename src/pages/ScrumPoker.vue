@@ -1,10 +1,15 @@
 <template>
-  <div>
-    <SelectPokerCardType  @selectPokerCardType="selectPokerCardType" :selectedPokerCardTypeName="selectedPokerCardTypeName" :team="team"></SelectPokerCardType>
-    <div class="container flex flex-col justify-center  w-screen  mt-2">
-      <PokerTable :isVotesVisible="isVotesVisible" :votes="votes" :members="team.members" @newRound="newRound"></PokerTable>
-      <div class="py-16  border-4 flex justify-center flex-wrap gap-2 ">
-      <pokerCard  v-for="pokerCard in selectedPokerCardType?.numbers" :number="pokerCard" :key="pokerCard" @selectPokerCard="selectPokerCard" :selectable="true" :newRound="newRound" :selectedCardNumber="selectedPokerCardNumber"></pokerCard>
+  <div class="flex flex-row w-screen">
+    <SideBar :team-id="teamId"></SideBar>
+    <div class="flex-1 flex flex-col items-center justify-center min-h-screen">
+      <div class="w-full max-w-6xl mx-auto px-4">
+        <SelectPokerCardType  @selectPokerCardType="selectPokerCardType" :selectedPokerCardTypeName="selectedPokerCardTypeName" :team="team"></SelectPokerCardType>
+        <div class="flex flex-col justify-center items-center mt-2">
+          <PokerTable :isVotesVisible="isVotesVisible" :votes="votes" :members="team.members" @newRound="newRound"></PokerTable>
+          <div class="py-16 border-4 flex justify-center flex-wrap gap-2 w-full max-w-4xl">
+            <pokerCard  v-for="pokerCard in selectedPokerCardType?.numbers" :number="pokerCard" :key="pokerCard" @selectPokerCard="selectPokerCard" :selectable="true" :newRound="newRound" :selectedCardNumber="selectedPokerCardNumber"></pokerCard>
+          </div>
+        </div>
       </div>
     </div>
   </div>
@@ -14,6 +19,7 @@ import { ref, reactive, computed, onMounted, onUnmounted, nextTick } from 'vue'
 import PokerTable from "../components/poker/pokerTable.vue";
 import PokerCard from "../components/poker/pokerCard.vue";
 import SelectPokerCardType from "../components/poker/SelectPokerCardType.vue";
+import SideBar from "../components/SideBar.vue";
 import {getTeamById} from "../firebase/TeamService.js";
 import {
   joinScrumPoker, leaveScrumPoker, listenScrumPoker, listenVotesVisible, setVotesVisible,
@@ -25,7 +31,7 @@ import {auth} from "../firebase/Firebase.js";
 
 export default {
   name: "ScrumPoker",
-  components: {SelectPokerCardType, PokerCard, PokerTable},
+  components: {SelectPokerCardType, PokerCard, PokerTable, SideBar},
   props: {
     teamId: String
   },

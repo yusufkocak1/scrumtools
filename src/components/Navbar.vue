@@ -28,28 +28,53 @@
       </div>
 
       <div class="flex items-center gap-2">
-        <span v-if="isLogged" class="items-center p-1 text-lg font-bold gap-x-2 text-gray-800 hidden lg:block">{{ name }}</span>
-        <div v-if="isLogged" class="flex items-center p-1 text-2xl font-bold gap-x-2 text-gray-800">
+        <!-- Profile Dropdown -->
+        <div v-if="isLogged" class="relative">
           <button
-              class="ml-auto h-6 max-h-[40px] w-6 max-w-[40px] rounded-lg text-center text-xs font-medium uppercase text-inherit transition-all hover:bg-transparent"
-              type="button"
-              @click="handleLogout"
-          >
-            <svg fill="#000000" height="24px" width="24px" version="1.1" id="Layer_1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 512 512" xml:space="preserve">
-              <g id="SVGRepo_bgCarrier" stroke-width="0"></g>
-              <g id="SVGRepo_tracerCarrier" stroke-linecap="round" stroke-linejoin="round"></g>
-              <g id="SVGRepo_iconCarrier">
-                <g>
-                  <g>
-                    <g>
-                      <path d="M320,320c-11.782,0-21.333,9.551-21.333,21.333v128h-256V42.667h256v128c0,11.782,9.551,21.333,21.333,21.333 s21.333-9.551,21.333-21.333V21.333C341.333,9.551,331.782,0,320,0H21.333C9.551,0,0,9.551,0,21.333v469.333 C0,502.449,9.551,512,21.333,512H320c11.782,0,21.333-9.551,21.333-21.333V341.333C341.333,329.551,331.782,320,320,320z"></path>
-                      <path d="M507.164,269.52c0.204-0.248,0.38-0.509,0.571-0.764c0.226-0.302,0.461-0.598,0.671-0.913 c0.204-0.304,0.38-0.62,0.566-0.932c0.17-0.285,0.349-0.564,0.506-0.857c0.17-0.318,0.315-0.646,0.468-0.971 c0.145-0.306,0.297-0.607,0.428-0.921c0.13-0.315,0.236-0.637,0.35-0.957c0.121-0.337,0.25-0.669,0.354-1.013 c0.097-0.32,0.168-0.646,0.249-0.969c0.089-0.351,0.187-0.698,0.258-1.055c0.074-0.375,0.118-0.753,0.173-1.13 c0.044-0.311,0.104-0.617,0.135-0.933c0.138-1.4,0.138-2.811,0-4.211c-0.031-0.315-0.09-0.621-0.135-0.933 c-0.054-0.377-0.098-0.756-0.173-1.13c-0.071-0.358-0.169-0.704-0.258-1.055c-0.081-0.324-0.152-0.649-0.249-0.969 c-0.104-0.344-0.233-0.677-0.354-1.013c-0.115-0.32-0.22-0.642-0.35-0.957c-0.13-0.314-0.283-0.615-0.428-0.921 c-0.153-0.325-0.297-0.653-0.468-0.971c-0.157-0.293-0.336-0.572-0.506-0.857c-0.186-0.312-0.363-0.628-0.566-0.932 c-0.211-0.315-0.445-0.611-0.671-0.913c-0.191-0.255-0.368-0.516-0.571-0.764c-0.439-0.535-0.903-1.05-1.392-1.54 c-0.007-0.008-0.014-0.016-0.021-0.023l-85.333-85.333c-8.331-8.331-21.839-8.331-30.17,0s-8.331,21.839,0,30.17l48.915,48.915 H256c-11.782,0-21.333,9.551-21.333,21.333c0,11.782,9.551,21.333,21.333,21.333h183.163l-48.915,48.915 c-8.331,8.331-8.331,21.839,0,30.17c8.331,8.331,21.839,8.331,30.17,0l85.333-85.333c0.008-0.008,0.014-0.016,0.021-0.023 C506.261,270.57,506.725,270.055,507.164,269.52z"></path>
-                    </g>
-                  </g>
-                </g>
-              </g>
+              @click="toggleProfileDropdown"
+              class="flex items-center gap-2 p-2 rounded-lg hover:bg-gray-100 transition-colors"
+              type="button">
+            <!-- Avatar with initials -->
+            <div class="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center text-white font-bold text-sm">
+              {{ userInitials }}
+            </div>
+            <span class="hidden lg:block text-sm font-medium">{{ name }}</span>
+            <svg class="w-4 h-4 transition-transform" :class="{'rotate-180': showProfileDropdown}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
             </svg>
           </button>
+
+          <!-- Dropdown Menu -->
+          <div v-if="showProfileDropdown"
+               class="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg border border-gray-200 z-50">
+            <div class="py-1">
+              <button
+                  @click="gotoTeams"
+                  class="flex items-center gap-3 w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
+                <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                  <path d="M13 6a3 3 0 11-6 0 3 3 0 016 0zM18 8a2 2 0 11-4 0 2 2 0 014 0zM14 15a4 4 0 00-8 0v3h8v-3z"></path>
+                </svg>
+                Teams
+              </button>
+              <button
+                  @click="gotoSettings"
+                  class="flex items-center gap-3 w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
+                <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                  <path fill-rule="evenodd" d="M11.49 3.17c-.38-1.56-2.6-1.56-2.98 0a1.532 1.532 0 01-2.286.948c-1.372-.836-2.942.734-2.106 2.106.54.886.061 2.042-.947 2.287-1.561.379-1.561 2.6 0 2.978a1.532 1.532 0 01.947 2.287c-.836 1.372.734 2.942 2.106 2.106a1.532 1.532 0 012.287.947c.379 1.561 2.6 1.561 2.978 0a1.533 1.533 0 012.287-.947c1.372.836 2.942-.734 2.106-2.106a1.533 1.533 0 01.947-2.287c1.561-.379 1.561-2.6 0-2.978a1.532 1.532 0 01-.947-2.287c.836-1.372-.734-2.942-2.106-2.106a1.532 1.532 0 01-2.287-.947zM10 13a3 3 0 100-6 3 3 0 000 6z" clip-rule="evenodd"></path>
+                </svg>
+                Settings
+              </button>
+              <hr class="my-1">
+              <button
+                  @click="handleLogout"
+                  class="flex items-center gap-3 w-full px-4 py-2 text-sm text-red-600 hover:bg-red-50">
+                <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                  <path fill-rule="evenodd" d="M3 3a1 1 0 00-1 1v12a1 1 0 102 0V4a1 1 0 00-1-1zm10.293 9.293a1 1 0 001.414 1.414l3-3a1 1 0 000-1.414l-3-3a1 1 0 10-1.414 1.414L14.586 9H7a1 1 0 100 2h7.586l-1.293 1.293z" clip-rule="evenodd"></path>
+                </svg>
+                Logout
+              </button>
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -85,8 +110,34 @@ export default {
     }
   },
   emits: ['logout', 'team-select', 'join-team', 'create-team'],
+  data() {
+    return {
+      showProfileDropdown: false
+    }
+  },
+  computed: {
+    userInitials() {
+      if (!this.name) return '';
+
+      const words = this.name.trim().split(' ').filter(word => word.length > 0);
+
+      if (words.length === 1) {
+        // Tek kelime varsa ilk harfi
+        return words[0].charAt(0).toUpperCase();
+      } else if (words.length === 2) {
+        // İki kelime varsa her birinin ilk harfi (örn: Yusuf Koçak -> YK)
+        return (words[0].charAt(0) + words[1].charAt(0)).toUpperCase();
+      } else if (words.length >= 3) {
+        // Üç veya daha fazla kelime varsa ilk ve son kelimenin ilk harfi (örn: Ömer Talha Çim -> ÖÇ)
+        return (words[0].charAt(0) + words[words.length - 1].charAt(0)).toUpperCase();
+      }
+
+      return '';
+    }
+  },
   methods: {
     handleLogout() {
+      this.showProfileDropdown = false;
       this.$emit('logout')
     },
     handleTeamSelect(teamId) {
@@ -97,6 +148,17 @@ export default {
     },
     handleCreateTeam() {
       this.$emit('create-team')
+    },
+    toggleProfileDropdown() {
+      this.showProfileDropdown = !this.showProfileDropdown;
+    },
+    gotoTeams() {
+      this.$router.push('/teams');
+      this.showProfileDropdown = false;
+    },
+    gotoSettings() {
+      this.$router.push('/settings');
+      this.showProfileDropdown = false;
     }
   }
 }

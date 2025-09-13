@@ -1,44 +1,51 @@
 <template>
-  <div class="container mx-auto">
-    <div class="flex justify-between m-4 space-x-2">
-      <input
-          v-model="tag"
-          class="w-full p-2 border rounded-md focus:ring-2 focus:ring-blue-500"
-          placeholder="Tag giriniz"
-          required
-          type="text"
-      />
-      <button class="px-4 py-2 bg-green-600 text-white rounded-md" @click="get">
-        Getir
-      </button>
-      <button class="px-4 py-2 bg-blue-500 text-white rounded-md" @click="save">
-        Paylaş
-      </button>
-    </div>
+  <div class="flex flex-row w-screen">
+    <SideBar :team-id="teamId"></SideBar>
+    <div class="flex-1 p-4">
+      <div class="container mx-auto">
+        <div class="flex justify-between m-4 space-x-2">
+          <input
+              v-model="tag"
+              class="w-full p-2 border rounded-md focus:ring-2 focus:ring-blue-500"
+              placeholder="Tag giriniz"
+              required
+              type="text"
+          />
+          <button class="px-4 py-2 bg-green-600 text-white rounded-md" @click="get">
+            Getir
+          </button>
+          <button class="px-4 py-2 bg-blue-500 text-white rounded-md" @click="save">
+            Paylaş
+          </button>
+        </div>
 
-    <CodeEditor
-        ref="codeEditor"
-        v-model="data"
-        @blur="save"
-        width="100%"
-        height="1200px"
-        theme="github-dark"
-        :line-nums="true"
-        :languages="[['java','Java'],['javascript','JS'],['cpp','C++'],['python','Python'],['php','PHP']]"
-        :header="true"
-    ></CodeEditor>
+        <CodeEditor
+            ref="codeEditor"
+            v-model="data"
+            @blur="save"
+            width="100%"
+            height="1200px"
+            theme="github-dark"
+            :line-nums="true"
+            :languages="[['java','Java'],['javascript','JS'],['cpp','C++'],['python','Python'],['php','PHP']]"
+            :header="true"
+        ></CodeEditor>
+      </div>
+    </div>
   </div>
 </template>
 
 <script>
 import hljs from 'highlight.js';
 import CodeEditor from 'simple-code-editor';
+import SideBar from "../components/SideBar.vue";
 import { getCodeShare, saveCodeShare } from "../firebase/codeShareService.js";
 
 export default {
   name: "CodeShare",
   components: {
     CodeEditor,
+    SideBar
   },
   props: {
     teamId: String
@@ -100,4 +107,3 @@ export default {
   }
 }
 </script>
-

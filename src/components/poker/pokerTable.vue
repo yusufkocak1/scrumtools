@@ -12,7 +12,7 @@
       <div v-for="vote in votes" :key="vote">
         <div class="border-4 border-slate-200 rounded-lg  p-4 flex  flex-col gap-2 justify-center items-center">
           <pokerCard :key="'vote'+vote" :number="vote.vote==='-' ? '' : isVotesVisible ? vote.vote:'?'" :selectable="false"></pokerCard>
-          <span class="text-center text-2xl font-bold">{{ getName(vote.email) }}</span>
+          <span class="text-center text-2xl font-bold">{{ getName(vote.email).split(" ")[0].toUpperCase() }}</span>
         </div>
       </div>
     </div>

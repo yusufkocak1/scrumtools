@@ -138,7 +138,6 @@ export default {
       const selectedTeam = this.teamList.find(team => team.id === teamId);
       if (selectedTeam) {
         this.pendingTeamId = selectedTeam.id;
-        this.pendingTeamName = selectedTeam.teamName; // name yerine teamName kullan
         this.showTeamChangeConfirm = true;
       }
     },
@@ -158,7 +157,7 @@ export default {
     }
   },
   created() {
-    authService.onAuthStateChanged((user) => {
+    authService.onAuthStateChanged(async (user) => {
       this.isLogged = !!user;
       if (!this.isLogged){
         localStorage.removeItem("user")
@@ -170,10 +169,6 @@ export default {
       // Loading'i kapat
       this.loading = false;
     })
-    this.getUserName()
-    if (!this.isLogged) {
-      this.$router.push('/')
-    }
   },
   watch: {
     isLogged() {

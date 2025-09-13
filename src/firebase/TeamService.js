@@ -18,15 +18,30 @@ const listenTeams = (setterFunc) => {
 }
 
 const getTeams = async (setterFunc) => {
-    let email = localStorage.getItem("user");
+    const auth = getAuth();
+    const user = auth.currentUser;
+
+    if (!user || !user.email) {
+        console.log('getTeams: No authenticated user');
+        setterFunc([]);
+        return;
+    }
+
+    const email = user.email;
+    console.log('getTeams: Using email from auth:', email);
+
     const q = query(collection(db, "teams"), where("memberEmails", "array-contains", email));
     getDocs(q).then((querySnapshot) => {
-        const teamList= []
+        const teamList = []
         querySnapshot.forEach((doc) => {
             teamList.push({...doc.data(), id: doc.id})
         });
+        console.log('getTeams: Fetched teams from Firebase:', teamList);
         setterFunc(teamList)
-    })
+    }).catch((error) => {
+        console.error('getTeams: Error fetching teams:', error);
+        setterFunc([]);
+    });
 }
 
 const getTeamById = async (teamId, setterFunc) => {
