@@ -10,6 +10,7 @@
   </div>
 </template>
 <script>
+import { ref, reactive, computed, onMounted, onUnmounted, nextTick } from 'vue'
 import PokerTable from "../components/poker/pokerTable.vue";
 import PokerCard from "../components/poker/pokerCard.vue";
 import SelectPokerCardType from "../components/poker/SelectPokerCardType.vue";
@@ -17,7 +18,8 @@ import {getTeamById} from "../firebase/TeamService.js";
 import {
   joinScrumPoker, leaveScrumPoker, listenScrumPoker, listenVotesVisible, setVotesVisible,
   updateScrumPokerCardType,
-  updateScrumPokerVote
+  updateScrumPokerVote,
+  cleanupListeners
 } from "../firebase/ScrumPokerService.js";
 import {auth} from "../firebase/Firebase.js";
 
@@ -27,67 +29,121 @@ export default {
   props: {
     teamId: String
   },
-  data() {
-    return {
-      maintenance: false,
-      selectedPokerCardType: Object,
-      team: {},
-      selectedPokerCardTypeName: "",
-      votes: [],
-      isVotesVisible: false,
-      selectedPokerCardNumber: null
+  setup(props) {
+    const maintenance = ref(false)
+    const selectedPokerCardType = ref({})
+    const team = reactive({})
+    const selectedPokerCardTypeName = ref("")
+    const votes = ref(new Map()) // Map kullanarak O(1) erişim
+    const isVotesVisible = ref(false)
+    const selectedPokerCardNumber = ref(null)
+
+    // Debounce için
+    let updateTimeout = null
+    let unsubscribeVotes = null
+    let unsubscribeVisibility = null
+
+    // Computed property for votes array (sadece gerektiğinde hesaplanır)
+    const votesArray = computed(() => Array.from(votes.value.values()))
+
+    const selectPokerCardType = (selectedType) => {
+      updateScrumPokerCardType(props.teamId, selectedType.type)
+      selectedPokerCardTypeName.value = selectedType.type
+      selectedPokerCardType.value = selectedType
     }
-  },
-  methods: {
-    selectPokerCardType(selectedPokerCardType) {
-      updateScrumPokerCardType(this.teamId, selectedPokerCardType.type)
-      this.selectedPokerCardTypeName = selectedPokerCardType.type
-      this.selectedPokerCardType = selectedPokerCardType
-    },
-    selectPokerCard(pokerCard) {
-      if(this.selectedPokerCardNumber === pokerCard) {
+
+    const selectPokerCard = (pokerCard) => {
+      if(selectedPokerCardNumber.value === pokerCard) {
         pokerCard = "-"
       }
-      updateScrumPokerVote(this.teamId, auth.currentUser.email, pokerCard)
-      this.selectedPokerCardNumber = pokerCard
-    },
-    newRound() {
-      if(this.isVotesVisible) {
-        this.isVotesVisible = false
-        this.votes.forEach((vote) => {
-          updateScrumPokerVote(this.teamId, vote.email, "-")
-          this.selectedPokerCardNumber = null
-        })
-      }else{
-        this.isVotesVisible = true
 
+      // Debounce uygula
+      if (updateTimeout) {
+        clearTimeout(updateTimeout)
       }
-      setVotesVisible(this.teamId, this.isVotesVisible)
 
+      updateTimeout = setTimeout(() => {
+        updateScrumPokerVote(props.teamId, auth.currentUser.email, pokerCard)
+      }, 300) // 300ms debounce
+
+      selectedPokerCardNumber.value = pokerCard
     }
-  },
-  unmounted() {
-    leaveScrumPoker(this.teamId, auth.currentUser.email)
-  },
-  created() {
-    getTeamById(this.teamId, (team) => {
-      this.team = team
-      if (!team.pokerCardType) {
-        updateScrumPokerCardType(team.id, "Fibonacci")
-        this.selectedPokerCardTypeName = "Fibonacci"
-      }else{
-        this.selectedPokerCardTypeName = this.team.pokerCardType
+
+    const newRound = async () => {
+      if(isVotesVisible.value) {
+        isVotesVisible.value = false
+        // Batch update yapmak için Promise.all kullan
+        const updates = Array.from(votes.value.values()).map((vote) =>
+          updateScrumPokerVote(props.teamId, vote.email, "-")
+        )
+        await Promise.all(updates)
+        selectedPokerCardNumber.value = null
+      } else {
+        isVotesVisible.value = true
+      }
+      await setVotesVisible(props.teamId, isVotesVisible.value)
+    }
+
+    onMounted(async () => {
+      try {
+        await getTeamById(props.teamId, (teamData) => {
+          Object.assign(team, teamData)
+          if (!teamData.pokerCardType) {
+            updateScrumPokerCardType(teamData.id, "Fibonacci")
+            selectedPokerCardTypeName.value = "Fibonacci"
+          } else {
+            selectedPokerCardTypeName.value = teamData.pokerCardType
+          }
+        })
+
+        await joinScrumPoker(props.teamId, auth.currentUser.email)
+
+        // Optimize listener - Map kullanarak veri yapısını iyileştir
+        unsubscribeVotes = listenScrumPoker(props.teamId, (newVotes) => {
+          const voteMap = new Map()
+          newVotes.forEach(vote => {
+            voteMap.set(vote.email, vote)
+          })
+          votes.value = voteMap
+        })
+
+        unsubscribeVisibility = listenVotesVisible(props.teamId, (visible) => {
+          isVotesVisible.value = visible
+        })
+      } catch (error) {
+        console.error("Error mounting ScrumPoker:", error)
+      }
+    })
+
+    onUnmounted(() => {
+      // Cleanup işlemleri
+      if (updateTimeout) {
+        clearTimeout(updateTimeout)
       }
 
-      joinScrumPoker(this.teamId, auth.currentUser.email)
+      // Listener'ları temizle
+      if (unsubscribeVotes) unsubscribeVotes()
+      if (unsubscribeVisibility) unsubscribeVisibility()
 
+      // Global cleanup
+      cleanupListeners()
+
+      // Firebase'den ayrıl
+      leaveScrumPoker(props.teamId, auth.currentUser.email).catch(console.error)
     })
-    listenScrumPoker(this.teamId,(votes) => {
-      this.votes = votes
-    })
-    listenVotesVisible(this.teamId,(isVotesVisible) => {
-      this.isVotesVisible = isVotesVisible
-    })
-  },
+
+    return {
+      maintenance,
+      selectedPokerCardType,
+      team,
+      selectedPokerCardTypeName,
+      votes: votesArray, // computed property döndür
+      isVotesVisible,
+      selectedPokerCardNumber,
+      selectPokerCardType,
+      selectPokerCard,
+      newRound
+    }
+  }
 }
 </script>
