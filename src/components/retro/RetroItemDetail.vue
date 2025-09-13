@@ -1,58 +1,108 @@
 <template>
-  <div class="relative flex flex-col   shadow-sm border border-slate-200 rounded-lg lg:w-[30%] bg-white p-1 mx-2">
-    <div class="flex justify-end border-b py-1">
-      <span class="w-full flex items-center ml-2 font-bold">Retro Item</span>
+  <div class="relative flex flex-col bg-white rounded-2xl shadow-xl border-2 border-gray-300 lg:w-[30%] mx-4 overflow-hidden">
+    <!-- Header -->
+    <div class="flex items-center justify-between p-4 border-b-2 border-gray-300 bg-gray-50">
+      <h3 class="font-semibold text-gray-900">Retro Item</h3>
       <button
-          class="rounded-2xl  font-extrabold text-md bg-slate-800 py-1 px-2  border border-transparent text-center  text-white transition-all shadow-md hover:shadow-lg focus:bg-slate-700 focus:shadow-none active:bg-slate-700 hover:bg-red-800 active:shadow-none disabled:pointer-events-none disabled:opacity-50 disabled:shadow-none"
-          type="button"
-          @click="$emit('close')">
-        x
+        @click="$emit('close')"
+        class="p-2 rounded-xl hover:bg-red-50 text-red-600 transition-colors focus:outline-none focus:ring-2 focus:ring-red-500"
+      >
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+        </svg>
       </button>
     </div>
-    <div class="p-5 mb-2  border border-slate-200">
-      <div class="border-b-2 border-slate-200 my-2">
-        <div class="pr-10">
-          <div v-if="!edit"  @click="edit=true" class="text-sm text-white bg-slate-800 rounded-md p-6  border  mb-2 font-medium right-0 ">
-            {{ item.value }}
-          </div>
-          <textarea
-              v-else
-              v-model="item.value"
-              @blur="updateItem()"
-              class="peer h-full min-h-[100px] w-full resize-none rounded-[7px] border border-blue-gray-200 border-t-transparent bg-transparent px-3 py-2.5 font-sans text-sm font-normal text-blue-gray-700 outline outline-0 transition-all placeholder-shown:border placeholder-shown:border-blue-gray-200 placeholder-shown:border-t-blue-gray-200 focus:border-2 focus:border-gray-900 focus:border-t-transparent focus:outline-0 disabled:resize-none disabled:border-0 disabled:bg-blue-gray-50"
-              >
-          </textarea>
+
+    <!-- Content -->
+    <div class="flex-1 p-6 space-y-4">
+      <!-- Item Content -->
+      <div>
+        <div v-if="!edit"
+             @click="edit=true"
+             class="p-4 bg-gray-50 rounded-xl border-2 border-gray-300 cursor-pointer hover:bg-gray-100 transition-colors">
+          <p class="text-gray-900">{{ item.value }}</p>
         </div>
-        <div class="pl-10">
-          <RetroItemComment v-for="comment in comments" :key="comment.id" :comment="comment" :ownerName="members[comment.owner].displayName"
-                            @removeComment="removeComment"></RetroItemComment>
+        <div v-else class="space-y-2">
+          <textarea
+            v-model="item.value"
+            @blur="updateItem(); edit = false"
+            @keydown.esc="edit = false"
+            class="w-full min-h-[100px] p-3 border-2 border-gray-400 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
+            placeholder="Enter item content..."
+          />
+          <div class="flex gap-2">
+            <button
+              @click="updateItem(); edit = false"
+              class="px-3 py-1 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 transition-colors"
+            >
+              Save
+            </button>
+            <button
+              @click="edit = false"
+              class="px-3 py-1 bg-gray-200 text-gray-700 text-sm rounded-lg hover:bg-gray-300 transition-colors"
+            >
+              Cancel
+            </button>
+          </div>
         </div>
       </div>
-      <div
-          class="text-slate-800  flex w-full items-center rounded-md hover:bg-slate-100 focus:bg-slate-100 active:bg-slate-100 py-1 border-b px-2"
-      ><input v-model="commentInput"
-              class="border border-slate-200 rounded-md px-3 py-2 w-full transition duration-300 ease focus:outline-none focus:border-slate-400 hover:border-slate-300 shadow-sm focus:shadow"
-              placeholder="Add new comment"
-              type="text"
-              @keydown.enter="addComment()"/>
-        <div class="ml-auto grid place-items-center justify-self-end">
+
+      <!-- Comments -->
+      <div class="space-y-3">
+        <h4 class="font-medium text-gray-900">Comments</h4>
+        <div class="space-y-2 max-h-48 overflow-y-auto">
+          <RetroItemComment
+            v-for="comment in comments"
+            :key="comment.id"
+            :comment="comment"
+            :ownerName="members[comment.owner]?.displayName || 'Unknown'"
+            @removeComment="removeComment"
+          />
+        </div>
+
+        <!-- Add Comment -->
+        <div class="flex gap-2 pt-2 border-t-2 border-gray-300">
+          <input
+            v-model="commentInput"
+            @keydown.enter="addComment()"
+            class="flex-1 px-3 py-2 border-2 border-gray-400 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            placeholder="Add comment..."
+            type="text"
+          />
           <button
-              class="rounded-md border border-transparent  text-center text-xl px-2 font-bold transition-all text-slate-600 hover:bg-slate-200 focus:bg-slate-200 active:bg-slate-200 disabled:pointer-events-none disabled:opacity-50 disabled:shadow-none"
-              type="button"
-              @click="addComment()">
+            @click="addComment()"
+            :disabled="!commentInput.trim()"
+            class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 focus:ring-2 focus:ring-blue-500 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+          >
             +
           </button>
         </div>
       </div>
     </div>
-    <div class="flex justify-end gap-2 p-2">
-      <button class="w-6 h-6 bg-green-700 hover:border-2 rounded-3xl" @click="setStatus('ACCEPTED')"></button>
-      <button class="w-6 h-6 bg-red-700 rounded-3xl hover:border-2" @click="setStatus('REJECTED')"></button>
-      <button class="w-6 h-6 bg-amber-700 rounded-3xl hover:border-2" @click="setStatus('CONFLICT')"></button>
+
+    <!-- Status Actions -->
+    <div class="p-4 border-t-2 border-gray-300 bg-gray-50">
+      <div class="flex justify-end gap-3">
+        <button
+          @click="setStatus('ACCEPTED')"
+          class="w-8 h-8 bg-green-600 hover:bg-green-700 rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-green-500"
+          title="Accept"
+        />
+        <button
+          @click="setStatus('REJECTED')"
+          class="w-8 h-8 bg-red-600 hover:bg-red-700 rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-red-500"
+          title="Reject"
+        />
+        <button
+          @click="setStatus('CONFLICT')"
+          class="w-8 h-8 bg-amber-600 hover:bg-amber-700 rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-amber-500"
+          title="Conflict"
+        />
+      </div>
     </div>
   </div>
-
 </template>
+
 <script>
 
 import {
@@ -124,4 +174,3 @@ export default {
   }
 }
 </script>
-

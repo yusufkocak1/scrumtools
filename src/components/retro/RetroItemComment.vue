@@ -1,16 +1,26 @@
 <template>
-  <div
-       class="text-white flex flex-col bg-blue-900 flex w-full rounded-md border-b p-2 mb-2">
-    <span class="border-b border-slate-200 p-4">{{ comment.value }}</span>
-    <div class=" flex flex-row py-2">
-      <span class="text-white text-xs font-bold">{{ownerName}}</span>
-      <div class="ml-auto grid place-items-center justify-self-end">
-        <button  @click="$emit('removeComment', comment.id)" class="rounded-md border border-transparent px-2 text-center text-sm transition-all text-slate-600  disabled:pointer-events-none disabled:opacity-50 disabled:shadow-none" type="button">
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="white" class="w-4 h-4">
-            <path fill-rule="evenodd" d="M16.5 4.478v.227a48.816 48.816 0 0 1 3.878.512.75.75 0 1 1-.256 1.478l-.209-.035-1.005 13.07a3 3 0 0 1-2.991 2.77H8.084a3 3 0 0 1-2.991-2.77L4.087 6.66l-.209.035a.75.75 0 0 1-.256-1.478A48.567 48.567 0 0 1 7.5 4.705v-.227c0-1.564 1.213-2.9 2.816-2.951a52.662 52.662 0 0 1 3.369 0c1.603.051 2.815 1.387 2.815 2.951Zm-6.136-1.452a51.196 51.196 0 0 1 3.273 0C14.39 3.05 15 3.684 15 4.478v.113a49.488 49.488 0 0 0-6 0v-.113c0-.794.609-1.428 1.364-1.452Zm-.355 5.945a.75.75 0 1 0-1.5.058l.347 9a.75.75 0 1 0 1.499-.058l-.346-9Zm5.48.058a.75.75 0 1 0-1.498-.058l-.347 9a.75.75 0 0 0 1.5.058l.345-9Z" clip-rule="evenodd" />
-          </svg>
-        </button>
+  <div class="bg-white border-2 border-gray-300 rounded-xl p-4 shadow-sm hover:shadow-md transition-shadow duration-200">
+    <!-- Comment Content -->
+    <div class="mb-3">
+      <p class="text-gray-900 leading-relaxed">{{ comment.value }}</p>
+    </div>
+
+    <!-- Comment Footer -->
+    <div class="flex items-center justify-between pt-3 border-t-2 border-gray-300">
+      <!-- Owner Info -->
+      <div class="flex items-center gap-2">
+        <span class="text-sm font-medium text-gray-700">{{ ownerName }}</span>
       </div>
+
+      <!-- Delete Button -->
+      <button
+        @click="$emit('removeComment', comment.id)"
+        class="group relative p-1.5 rounded-lg transition-all duration-200 hover:bg-red-50 focus:bg-red-50 active:bg-red-100 cursor-pointer focus:outline-none focus:ring-2 focus:ring-red-500"
+      >
+        <svg class="w-4 h-4 text-red-500" fill="currentColor" viewBox="0 0 20 20">
+          <path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd"/>
+        </svg>
+      </button>
     </div>
   </div>
 </template>
