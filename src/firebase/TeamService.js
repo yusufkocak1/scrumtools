@@ -22,13 +22,11 @@ const getTeams = async (setterFunc) => {
     const user = auth.currentUser;
 
     if (!user || !user.email) {
-        console.log('getTeams: No authenticated user');
         setterFunc([]);
         return;
     }
 
     const email = user.email;
-    console.log('getTeams: Using email from auth:', email);
 
     const q = query(collection(db, "teams"), where("memberEmails", "array-contains", email));
     getDocs(q).then((querySnapshot) => {
@@ -36,10 +34,8 @@ const getTeams = async (setterFunc) => {
         querySnapshot.forEach((doc) => {
             teamList.push({...doc.data(), id: doc.id})
         });
-        console.log('getTeams: Fetched teams from Firebase:', teamList);
         setterFunc(teamList)
     }).catch((error) => {
-        console.error('getTeams: Error fetching teams:', error);
         setterFunc([]);
     });
 }
