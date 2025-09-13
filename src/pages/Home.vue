@@ -84,7 +84,11 @@ export default {
   created() {
     listenTeams((teamList) => {
       this.teamList = teamList
-      this.selectedTeam = teamList[0].id
+      if (teamList && teamList.length > 0) {
+        this.selectedTeam = teamList[0].id
+      } else {
+        this.selectedTeam = ""
+      }
     })
   },
   watch: {

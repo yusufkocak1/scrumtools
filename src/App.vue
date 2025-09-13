@@ -1,5 +1,10 @@
 <template>
   <div class="flex flex-col">
+    <!-- Loading spinner -->
+    <div v-if="loading" class="fixed inset-0 bg-white bg-opacity-75 flex items-center justify-center z-[10000]">
+      <div class="animate-spin rounded-full h-32 w-32 border-b-2 border-gray-900"></div>
+    </div>
+
     <div
         class=" w-screen  px-4 py-2 mx-auto bg-white bg-opacity-90  top-3 shadow lg:px-8 lg:py-3 backdrop-blur-lg backdrop-saturate-150 z-[9999]">
       <div class=" flex flex-wrap items-center justify-between mx-auto text-slate-800 font-extrabold text-2xl">
@@ -39,11 +44,12 @@ export default {
   data: () => ({
     isLogged: false,
     name: "",
+    loading: true,
   }),
   methods: {
     logout() {
       logout()
-      this.islogged = false
+      this.isLogged = false
       this.name = ""
       this.$router.push('/login')
     },
@@ -63,12 +69,13 @@ export default {
       }else{
         this.getUserName()
       }
+      // Loading'i kapat
+      this.loading = false;
     })
     this.getUserName()
     if (!this.isLogged) {
       this.$router.push('/')
     }
-    this.$router.push('/login')
   },
   watch: {
     isLogged() {

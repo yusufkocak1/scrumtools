@@ -4,8 +4,8 @@
       <div class="relative">
         <select
             v-model="selectedTeam"
-            class="w-full bg-transparent placeholder:text-slate-400 text-slate-700 text-sm border border-slate-200 rounded pl-3 pr-8 py-2 transition duration-300 ease focus:outline-none focus:border-slate-400 hover:border-slate-400 shadow-sm focus:shadow-md appearance-none cursor-pointer"
-            @change="$emit('select',selectedTeam)">
+            class="w-full bg-transparent placeholder:text-slate-400 text-slate-700 text-sm border border-slate-200 rounded pl-3 pr-8 py-2 transition duration-300 ease focus:outline-none focus:border-slate-400 hover:border-slate-400 shadow-sm focus:shadow-md appearance-none cursor-pointer">
+
           <option v-for="team in teamList" :key="team.id" :value=team.id>{{ team.teamName }}</option>
         </select>
         <svg class="h-5 w-5 ml-1 absolute top-2.5 right-2.5 text-slate-700" fill="none" stroke="currentColor" stroke-width="1.2" viewBox="0 0 24 24"
@@ -29,14 +29,26 @@ export default {
   }),
   created() {
     if (this.teamList.length > 0) {
-      this.selectedTeam = this.teamList[0].id
+      if(localStorage.getItem("selectedTeam")){
+        this.selectedTeam = localStorage.getItem("selectedTeam");
+      }else{
+        this.selectedTeam = this.teamList[0].id
+      }
     }
   },
   watch: {
     teamList() {
       if (this.teamList.length > 0) {
-        this.selectedTeam = this.teamList[0].id
+        if(localStorage.getItem("selectedTeam")){
+          this.selectedTeam = localStorage.getItem("selectedTeam");
+        }else{
+          this.selectedTeam = this.teamList[0].id
+        }
       }
+    },
+    selectedTeam(value) {
+      localStorage.setItem("selectedTeam",value)
+      this.$emit('select',this.selectedTeam)
     }
   }
   ,

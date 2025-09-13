@@ -1,36 +1,34 @@
 import {db} from "./Firebase.js";
-import {addDoc, collection, deleteDoc, doc, getDoc, getDocs, onSnapshot, query, setDoc} from 'firebase/firestore';
+import {addDoc, collection, deleteDoc, doc, getDoc, getDocs, onSnapshot, query, setDoc, where} from 'firebase/firestore';
 import {createToast} from "mosha-vue-toastify";
 import {getAuth} from "firebase/auth";
 
 
 const listenTeams = (setterFunc) => {
-
     let email = localStorage.getItem("user");
-    console.log(email)
-    const q = query(collection(db, "teams"));
-     onSnapshot(q, (querySnapshot) => {
+    // Doğru sorgu: memberEmails dizisinde email var mı?
+    const q = query(collection(db, "teams"), where("memberEmails", "array-contains", email));
+    onSnapshot(q, (querySnapshot) => {
         const teamList= []
         querySnapshot.forEach((doc) => {
-            if (doc.data().members[email]) {
-                teamList.push({...doc.data(), id: doc.id})
-            }
+            teamList.push({...doc.data(), id: doc.id})
         });
-        setterFunc( teamList)
+        setterFunc(teamList)
     });
 }
+
 const getTeams = async (setterFunc) => {
     let email = localStorage.getItem("user");
-getDocs(collection(db, "teams")).then((querySnapshot) => {
-    const teamList= []
-    querySnapshot.forEach((doc) => {
-        if (doc.data().members[email]) {
+    const q = query(collection(db, "teams"), where("memberEmails", "array-contains", email));
+    getDocs(q).then((querySnapshot) => {
+        const teamList= []
+        querySnapshot.forEach((doc) => {
             teamList.push({...doc.data(), id: doc.id})
-        }
-    });
-    setterFunc( teamList)
-})
+        });
+        setterFunc(teamList)
+    })
 }
+
 const getTeamById = async (teamId, setterFunc) => {
     console.log(teamId)
     const docRef = doc(db, "teams", teamId);
@@ -44,16 +42,16 @@ const createTeam = async (teamName,email,displayName) => {
         teamName: teamName,
         adminEmail: email,
         members: {[email]:{displayName:displayName}},
+        memberEmails: [email], // Yeni: email dizisi
     });
 }
 const addUserToTeam = async (email,displayName,teamId) => {
-
     const docRef = doc(db, "teams", teamId);
     const docSnap = await getDoc(docRef);
     if (docSnap.exists()) {
         let data = docSnap.data();
         if(!data.members){
-            docSnap.data().members = {}
+            data.members = {}
         }
         if (data.members[email]) {
             createToast('User already in team',{type:'danger',position:'top-center'})
@@ -62,16 +60,23 @@ const addUserToTeam = async (email,displayName,teamId) => {
         data.members[email] = {
             displayName: displayName
         }
+        // Yeni: memberEmails dizisine ekle
+        if (!data.memberEmails) data.memberEmails = [];
+        if (!data.memberEmails.includes(email)) data.memberEmails.push(email);
         setDoc(docRef, data);
     }
 }
 
-const removeUserFromTeam = async (teamName,email) => {
-    const docRef = doc(db, "teams", teamName);
+const removeUserFromTeam = async (teamId,email) => {
+    const docRef = doc(db, "teams", teamId);
     const docSnap = await getDoc(docRef);
     if (docSnap.exists()) {
         let data = docSnap.data();
         delete data.members[email];
+        // Yeni: memberEmails dizisinden çıkar
+        if (data.memberEmails) {
+            data.memberEmails = data.memberEmails.filter(e => e !== email);
+        }
         setDoc(docRef, data);
     }
 }

@@ -1,4 +1,4 @@
-import {createMemoryHistory, createRouter} from 'vue-router'
+import {createRouter, createWebHistory} from 'vue-router'
 
 import HomeView from './pages/Home.vue'
 import Login from "./pages/Login.vue";
@@ -9,6 +9,7 @@ import Settings from "./pages/Settings.vue";
 import WorkList from "./pages/WorkList.vue";
 import SprintPage from "./components/work/SprintPage.vue";
 import {authService} from "./firebase/AuthService.js";
+import CodeShare from "./pages/CodeShare.vue";
 
 const routes = [{
     path: '/', component: HomeView, meta: {
@@ -34,15 +35,15 @@ const routes = [{
     path: "/workList/:teamId", component: WorkList, props: true, meta: {requiresAuth: true}
 
 }, {
-    path: '/sprint/:sprintId', name: 'SprintPage', component: SprintPage,
+    path: '/sprint/:sprintId', name: 'SprintPage', component: SprintPage,props: true, meta: {requiresAuth: true}
 }, {
-    path: '/codeShare/:teamId', name: 'CodeShare', component: CodeShare,
+    path: '/codeShare/:teamId', name: 'CodeShare', component: CodeShare, props: true, meta: {requiresAuth: true}
 }
 
 ]
 
 const router = createRouter({
-    history: createMemoryHistory(), routes,
+    history: createWebHistory(), routes,
 })
 router.beforeEach((to, from, next) => {
     if (to.meta.requiresAuth) {

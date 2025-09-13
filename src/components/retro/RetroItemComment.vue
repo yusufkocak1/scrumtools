@@ -25,14 +25,11 @@ export default {
     ownerName: String
   },
   data() {
-    return {
-      ownerName: ""
-    }
   },
   created() {
-    getUserFromDB(this.comment.owner, (user) => {
-      return this.ownerName = user.name
-    })
+
+  },
+  computed:{
   }
 }
 </script>
