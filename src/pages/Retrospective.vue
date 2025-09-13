@@ -1,7 +1,7 @@
 <template>
   <div class="flex flex-row w-screen">
     <SideBar :team-id="selectedTeam"></SideBar>
-    <div class="mx-4 flex flex-row border w-screen mt-2">
+    <div class="flex-1 flex flex-col min-h-screen">
       <div class="flex flex-col w-full h-screen">
         <div v-if="showCreateRetroBoard"
              class="fixed inset-0 z-[999] grid h-screen w-screen place-items-center bg-black bg-opacity-60 backdrop-blur-sm transition-opacity duration-300">
@@ -10,7 +10,8 @@
         <div>
           <RetroBoardList v-if="selectedTeam" :boardList="boardList"
                           :teamId="selectedTeam" @createBoard="showCreateRetroBoard = true"
-                          @deleteBoard="deleteBoard"></RetroBoardList>
+                          @deleteBoard="deleteBoard" @editBoard="editBoard" @confirmDelete="confirmDelete"
+                          @openRetroBoard="openRetroBoard"></RetroBoardList>
         </div>
       </div>
     </div>
@@ -18,7 +19,7 @@
 </template>
 
 <script>
-import {getRetroBoardsFromTeam, removeRetroBoardFromTeam} from "../firebase/RetroBoardService.js";
+import {getRetroBoardsFromTeam, removeRetroBoardFromTeam, updateRetroBoard} from "../firebase/RetroBoardService.js";
 import RetroBoardList from "../components/retro/RetroBoardList.vue";
 import CreateRetroBoard from "../components/retro/CreateRetroBoard.vue";
 import SideBar from "../components/SideBar.vue";
@@ -36,6 +37,15 @@ export default {
       removeRetroBoardFromTeam(this.selectedTeam, boardId)
       this.getBoardsByTeamId(this.selectedTeam)
     },
+    editBoard(boardData) {
+      updateRetroBoard(this.selectedTeam, boardData.id, boardData.name)
+      this.getBoardsByTeamId(this.selectedTeam)
+    },
+    confirmDelete(boardId) {
+      if (confirm('Are you sure you want to delete this board?')) {
+        this.deleteBoard(boardId)
+      }
+    },
     closeCreateRetroBoard() {
       this.showCreateRetroBoard = false
       this.getBoardsByTeamId(this.selectedTeam)
@@ -48,6 +58,9 @@ export default {
     },
     handleTeamChanged(event) {
       this.selectedTeam = event.detail.teamId;
+    },
+    openRetroBoard(boardId) {
+      this.$router.push(`/retroBoard/${this.selectedTeam}/${boardId}`)
     }
   },
   mounted() {
