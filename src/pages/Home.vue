@@ -73,7 +73,6 @@ export default {
     },
     closeCreateRetroBoard() {
       this.showCreateRetroBoard = false
-      this.getAllTeams();
       this.getBoardsByTeamId(this.selectedTeam)
     },
     getBoardsByTeamId(teamId) {
