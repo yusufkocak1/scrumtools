@@ -37,7 +37,7 @@ export default {
     const votes = ref(new Map()) // Map kullanarak O(1) erişim
     const isVotesVisible = ref(false)
     const selectedPokerCardNumber = ref(null)
-
+    
     // Debounce için
     let updateTimeout = null
     let unsubscribeVotes = null
@@ -45,35 +45,35 @@ export default {
 
     // Computed property for votes array (sadece gerektiğinde hesaplanır)
     const votesArray = computed(() => Array.from(votes.value.values()))
-
+    
     const selectPokerCardType = (selectedType) => {
       updateScrumPokerCardType(props.teamId, selectedType.type)
       selectedPokerCardTypeName.value = selectedType.type
       selectedPokerCardType.value = selectedType
     }
-
+    
     const selectPokerCard = (pokerCard) => {
       if(selectedPokerCardNumber.value === pokerCard) {
         pokerCard = "-"
       }
-
+      
       // Debounce uygula
       if (updateTimeout) {
         clearTimeout(updateTimeout)
       }
-
+      
       updateTimeout = setTimeout(() => {
         updateScrumPokerVote(props.teamId, auth.currentUser.email, pokerCard)
       }, 300) // 300ms debounce
-
+      
       selectedPokerCardNumber.value = pokerCard
     }
-
+    
     const newRound = async () => {
       if(isVotesVisible.value) {
         isVotesVisible.value = false
         // Batch update yapmak için Promise.all kullan
-        const updates = Array.from(votes.value.values()).map((vote) =>
+        const updates = Array.from(votes.value.values()).map((vote) => 
           updateScrumPokerVote(props.teamId, vote.email, "-")
         )
         await Promise.all(updates)
@@ -83,7 +83,7 @@ export default {
       }
       await setVotesVisible(props.teamId, isVotesVisible.value)
     }
-
+    
     onMounted(async () => {
       try {
         await getTeamById(props.teamId, (teamData) => {
@@ -114,7 +114,7 @@ export default {
         console.error("Error mounting ScrumPoker:", error)
       }
     })
-
+    
     onUnmounted(() => {
       // Cleanup işlemleri
       if (updateTimeout) {
@@ -131,7 +131,7 @@ export default {
       // Firebase'den ayrıl
       leaveScrumPoker(props.teamId, auth.currentUser.email).catch(console.error)
     })
-
+    
     return {
       maintenance,
       selectedPokerCardType,

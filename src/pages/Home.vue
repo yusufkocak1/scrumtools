@@ -25,7 +25,7 @@
         </div>
         <div v-if="showJoinTeam || showCreateTeam || showCreateRetroBoard"
              class=" fixed inset-0 z-[999] grid h-screen w-screen place-items-center bg-black bg-opacity-60  backdrop-blur-sm transition-opacity duration-300">
-          <JoinTeam v-if="showJoinTeam" @close="showJoinTeam = false" @showCreateTeam="showCreateTeam = true"/>
+          <JoinTeam v-if="showJoinTeam" @close="closeJoinTeam" @showCreateTeam="showCreateTeam = true"/>
           <CreateTeam v-if="showCreateTeam" @close="closeCreateTeam" @showJoinTeam="showJoinTeam = true"/>
           <CreateRetroBoard v-if="showCreateRetroBoard" :selectedTeam="selectedTeam" @close="closeCreateRetroBoard"/>
         </div>
@@ -83,6 +83,10 @@ export default {
     },
     closeCreateTeam(){
       this.showCreateTeam = false
+      this.getAllTeams();
+    },
+    closeJoinTeam(){
+      this.showJoinTeam = false
       this.getAllTeams();
     },
     getAllTeams(){
