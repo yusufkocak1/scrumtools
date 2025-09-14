@@ -14,9 +14,9 @@
           </span>
         </div>
 
-        <!-- Team Info - Hidden on mobile -->
-        <div class="hidden md:block">
-          <div class="text-sm font-medium text-gray-900">
+        <!-- Team Info - Show on all screen sizes -->
+        <div class="flex-1 min-w-0">
+          <div class="text-sm font-medium text-gray-900 truncate">
             {{ selectedTeamData?.teamName || 'Select Team' }}
           </div>
         </div>
@@ -47,15 +47,6 @@
         v-if="isOpen"
         class="absolute right-0 z-50 w-72 mt-2 bg-white border border-gray-200 rounded-xl shadow-lg overflow-hidden"
       >
-        <!-- Dropdown Header -->
-        <div class="px-4 py-3 bg-gray-50 border-b border-gray-100">
-          <div class="flex items-center gap-2">
-            <svg class="w-4 h-4 text-gray-600" fill="currentColor" viewBox="0 0 20 20">
-              <path d="M13 6a3 3 0 11-6 0 3 3 0 016 0zM18 8a2 2 0 11-4 0 2 2 0 014 0zM14 15a4 4 0 00-8 0v3h8v-3z"/>
-            </svg>
-            <span class="text-sm font-medium text-gray-700">Select Team</span>
-          </div>
-        </div>
 
         <!-- Teams List -->
         <div class="max-h-60 overflow-y-auto">

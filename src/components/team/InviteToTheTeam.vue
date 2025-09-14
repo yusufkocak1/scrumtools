@@ -1,12 +1,19 @@
 <template>
   <button
     @click="copyTeamId"
-    class="group relative flex items-center justify-center p-2 rounded-xl transition-all duration-200 hover:bg-purple-50 focus:bg-purple-50 active:bg-purple-100 cursor-pointer border border-purple-200 hover:border-purple-300 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+    :class="[
+      'group relative flex items-center justify-center py-2 px-4 rounded-xl transition-all duration-200 hover:bg-purple-50 focus:bg-purple-50 active:bg-purple-100 cursor-pointer border border-purple-200 hover:border-purple-300 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent',
+      {'w-full': $attrs.class && $attrs.class.includes('w-full')},
+      {'min-w-0 flex-shrink-0': !($attrs.class && $attrs.class.includes('w-full'))}
+    ]"
   >
-    <div class="w-5 h-5 bg-purple-100 rounded-md flex items-center justify-center group-hover:bg-purple-200 transition-colors">
-      <svg class="w-3 h-3 text-purple-600" fill="currentColor" viewBox="0 0 20 20">
-        <path d="M8 9a3 3 0 100-6 3 3 0 000 6zM8 11a6 6 0 016 6H2a6 6 0 016-6zM16 7a1 1 0 10-2 0v1h-1a1 1 0 100 2h1v1a1 1 0 102 0v-1h1a1 1 0 100-2h-1V7z"/>
-      </svg>
+    <div class="flex items-center gap-2">
+      <div class="w-5 h-5 bg-purple-100 rounded-md flex items-center justify-center group-hover:bg-purple-200 transition-colors">
+        <svg class="w-3 h-3 text-purple-600" fill="currentColor" viewBox="0 0 20 20">
+          <path d="M8 9a3 3 0 100-6 3 3 0 000 6zM8 11a6 6 0 016 6H2a6 6 0 016-6zM16 7a1 1 0 10-2 0v1h-1a1 1 0 100 2h1v1a1 1 0 102 0v-1h1a1 1 0 100-2h-1V7z"/>
+        </svg>
+      </div>
+      <span class="text-sm font-medium text-purple-700">Copy Team ID</span>
     </div>
 
     <!-- Tooltip -->

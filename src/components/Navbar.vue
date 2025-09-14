@@ -41,12 +41,15 @@
           <div class="p-4">
             <!-- Team Management Section -->
             <div class="space-y-3 mb-4">
-              <TeamList ref="teamList" :teamList="teamList" @select="handleTeamSelect"></TeamList>
-              <InviteToTheTeam v-if="selectedTeam" :team-id="selectedTeam"></InviteToTheTeam>
-            </div>
+              <div class="w-full">
+                <TeamList ref="teamList" :teamList="teamList" @select="handleTeamSelect" class="w-full"></TeamList>
+              </div>
+              <div v-if="selectedTeam" class="w-full">
+                <InviteToTheTeam :team-id="selectedTeam" class="w-full justify-center"></InviteToTheTeam>
+              </div>
+
 
             <!-- Action Buttons -->
-            <div class="space-y-2">
               <button
                   class="group relative flex items-center justify-center w-full px-4 py-3 rounded-xl transition-all duration-200 hover:bg-green-50 focus:bg-green-50 active:bg-green-100 cursor-pointer border border-green-200 hover:border-green-300"
                   type="button"
