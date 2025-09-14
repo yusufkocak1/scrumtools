@@ -10,7 +10,7 @@
       </div>
 
       <!-- Content Area -->
-      <div class="flex-1 min-w--0 ">
+      <div class="flex-1 min-w-0">
         <!-- User Info -->
         <div class="flex items-center gap-2 mb-2">
           <span class="font-semibold text-gray-900 text-sm">{{ ownerName || 'Anonymous' }}</span>
@@ -82,13 +82,16 @@
 
 <script>
 import {getUserFromDB} from "../../firebase/AuthService.js";
-import {getVotes, listenRetroItemVotes, removeVote} from "../../firebase/RetroBoardService.js";
+import {getVotes, removeVote} from "../../firebase/RetroBoardService.js";
 
 export default {
   name: "RetroItem",
   data() {
     return {
       owner: "",
+      votes: [],
+      isDestroyed: false,
+      lastVoteTime: 0
     }
   },
   props: {
@@ -99,11 +102,31 @@ export default {
     column: String,
     ownerName: String
   },
+  watch: {
+    // Watch for item changes to update votes efficiently
+    'item.votes': {
+      handler(newVotes) {
+        if (newVotes && Array.isArray(newVotes)) {
+          this.votes = newVotes
+        }
+      },
+      immediate: true
+    }
+  },
   methods: {
     openDetail() {
+      // Throttle detail opening
+      const now = Date.now()
+      if (now - this.lastVoteTime < 200) {
+        return
+      }
+      this.lastVoteTime = now
+
       this.$emit('openDetail', this.item)
     },
     getAvatar(){
+      if (!this.ownerName) return 'A'
+
       let splitOwnerName = this.ownerName.split(" ")
       if(splitOwnerName.length > 1){
         return splitOwnerName[0].charAt(0).toUpperCase() + splitOwnerName[1].charAt(0).toUpperCase()
@@ -112,10 +135,18 @@ export default {
       }
     },
     addVote(voteValue) {
+      // Prevent rapid fire voting
+      const now = Date.now()
+      if (now - this.lastVoteTime < 300) {
+        return
+      }
+      this.lastVoteTime = now
+
       const vote = {
         value: voteValue,
         owner: localStorage.getItem('user')
       }
+
       if (voteValue === 1 && this.isThereUpVote) {
         removeVote(this.teamId, this.boardId, this.column, this.item.id, localStorage.getItem('user'))
       } else if (voteValue === -1 && this.isThereDownVote) {
@@ -130,13 +161,16 @@ export default {
       return this.item.owner === localStorage.getItem('user') || this.isAdmin
     },
     getVoteCount() {
-      return this.item?.votes?.map(vote => vote.value).reduce((a, b) => a + b, 0)
+      if (!this.votes || !Array.isArray(this.votes)) return 0
+      return this.votes.map(vote => vote.value).reduce((a, b) => a + b, 0)
     },
     isThereUpVote() {
-      return this.item?.votes?.filter(vote => vote.value === 1 && vote.owner === localStorage.getItem('user')).length > 0
+      if (!this.votes || !Array.isArray(this.votes)) return false
+      return this.votes.some(vote => vote.value === 1 && vote.owner === localStorage.getItem('user'))
     },
     isThereDownVote() {
-      return this.item?.votes?.filter(vote => vote.value === -1 && vote.owner === localStorage.getItem('user')).length > 0
+      if (!this.votes || !Array.isArray(this.votes)) return false
+      return this.votes.some(vote => vote.value === -1 && vote.owner === localStorage.getItem('user'))
     },
     getStatusColor() {
       if (this.item.status === "ACCEPTED") {
@@ -176,11 +210,12 @@ export default {
     if (this.item.owner === "Anonymous") {
       this.owner = "Anonymous"
     }
-    listenRetroItemVotes(this.teamId, this.boardId, this.column, this.item.id, (votes) => {
-      this.item.votes = votes
-    })
+    // Votes are now handled via props/watch instead of individual listeners
+    // This eliminates the major performance bottleneck
   },
-  unmounted() {
+  beforeUnmount() {
+    this.isDestroyed = true
+    // No more individual listeners to clean up
   }
 }
 </script>

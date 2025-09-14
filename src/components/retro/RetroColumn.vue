@@ -50,7 +50,10 @@ export default {
   data() {
     return {
       item: "",
-      items: Array,
+      items: [],
+      unsubscribeListener: null,
+      lastUpdateTime: 0,
+      isDestroyed: false
     }
   },
   methods: {
@@ -58,6 +61,15 @@ export default {
       return []//this.item[column].items
     },
     addItem() {
+      // Throttle item creation
+      const now = Date.now()
+      if (now - this.lastUpdateTime < 500) {
+        return
+      }
+      this.lastUpdateTime = now
+
+      if (!this.item.trim()) return
+
       const newRetroItem = {
         value: this.item,
         column: this.column
@@ -76,14 +88,32 @@ export default {
         createToast('Item removed. ', {type: 'success', position: 'top-center'})
       })
     },
+
+    // Throttled listener update
+    updateItems(items) {
+      if (this.isDestroyed) return
+
+      // Batch update with requestAnimationFrame for better performance
+      requestAnimationFrame(() => {
+        if (!this.isDestroyed) {
+          this.items = items
+        }
+      })
+    }
   },
-  unmounted() {
+
+  beforeUnmount() {
+    this.isDestroyed = true
+    // Cleanup listener
+    if (this.unsubscribeListener && typeof this.unsubscribeListener === 'function') {
+      this.unsubscribeListener()
+      this.unsubscribeListener = null
+    }
   },
 
   created() {
-    listenRetroItemsChange(this.teamId, this.boardId, this.column, (items) => {
-      this.items = items
-    })
+    // Store unsubscribe function for cleanup
+    this.unsubscribeListener = listenRetroItemsChange(this.teamId, this.boardId, this.column, this.updateItems)
   }
 }
 </script>

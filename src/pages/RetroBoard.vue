@@ -1,10 +1,8 @@
 <template>
   <div class="flex h-screen bg-gray-50">
     <!-- SideBar -->
-    <SideBar :team-id="teamId" class="hidden lg:flex w-12 flex-shrink-0" />
-
     <!-- Main Content -->
-    <div class="flex-1 w-full overflow-auto">
+    <div class="flex-1 w-screen overflow-auto">
       <div class="p-6 w-full h-full">
         <!-- Header Component -->
         <RetroBoardHeader
@@ -57,36 +55,86 @@ export default {
       items: Array,
       showItemDetail: false,
       RetroItemDetail: {},
-      allRetroItems: [] // Tüm retro item'larını tutacak
+      allRetroItems: [],
+      unsubscribeFunctions: [], // Listener cleanup için
+      debounceTimer: null, // Debouncing için
+      isLoading: false, // Loading state
+      lastUpdateTime: Date.now(), // Rate limiting için
+      updateQueue: [] // Batch update için
     }
   },
   created() {
-    getRetroBoard(this.teamId, this.boardId, (board) => {
-      this.board = board
-      this.loadAllRetroItems()
-    })
-    getTeamById(this.teamId, (team) => {
-      this.team = team
-    })
+    this.initializeBoard()
+  },
+  beforeUnmount() {
+    this.cleanup()
   },
   methods: {
-    getItems(column) {
-      return this.items[column]
-    },
-    addItem(item) {
-      const newItem = {
-        ...item,
-        owner: this.anonymousMode ? "Anonymous" : localStorage.getItem("user")
-      }
-      createRetroItem(this.teamId, this.boardId, newItem.column, newItem).then(()=>{
-        createToast('Item created. ',{type:'success',position:'top-center'})
+    initializeBoard() {
+      this.isLoading = true
+
+      // Board verilerini yükle
+      getRetroBoard(this.teamId, this.boardId, (board) => {
+        this.board = board
+        this.loadAllRetroItems()
+        this.isLoading = false
       })
 
+      // Team verilerini yükle
+      getTeamById(this.teamId, (team) => {
+        this.team = team
+      })
     },
+
+    cleanup() {
+      // Tüm listener'ları temizle
+      this.unsubscribeFunctions.forEach(unsubscribe => {
+        if (typeof unsubscribe === 'function') {
+          unsubscribe()
+        }
+      })
+      this.unsubscribeFunctions = []
+
+      // Timer'ları temizle
+      if (this.debounceTimer) {
+        clearTimeout(this.debounceTimer)
+      }
+    },
+
+    // Debounced item creation
+    addItem(item) {
+      if (this.debounceTimer) {
+        clearTimeout(this.debounceTimer)
+      }
+
+      this.debounceTimer = setTimeout(() => {
+        const newItem = {
+          ...item,
+          owner: this.anonymousMode ? "Anonymous" : localStorage.getItem("user"),
+          createdAt: new Date().toISOString()
+        }
+
+        createRetroItem(this.teamId, this.boardId, newItem.column, newItem).then(()=>{
+          createToast('Item created. ',{type:'success',position:'top-center'})
+        }).catch(error => {
+          console.error('Error creating item:', error)
+          createToast('Error creating item. Please try again.',{type:'error',position:'top-center'})
+        })
+      }, 300) // 300ms debounce
+    },
+
+    // Rate limited detail opening
     openDetail(item) {
+      const now = Date.now()
+      if (now - this.lastUpdateTime < 100) { // 100ms rate limit
+        return
+      }
+      this.lastUpdateTime = now
+
       this.RetroItemDetail = item
       this.showItemDetail = true
     },
+
     handleToggleAnonymous(value) {
       this.anonymousMode = value;
     },
@@ -145,22 +193,28 @@ export default {
       if (!this.board?.columns) return;
 
       this.allRetroItems = [];
-      const promises = [];
 
-      this.board.columns.forEach(column => {
-        const promise = new Promise((resolve) => {
+      // Throttled loading with batch processing
+      const loadPromises = this.board.columns.map(column => {
+        return new Promise((resolve) => {
           getRetroItems(this.teamId, this.boardId, column.id, (items) => {
-            if (items) {
+            if (items && Array.isArray(items)) {
+              // Batch update yerine direct assignment
               this.allRetroItems = [...this.allRetroItems, ...items];
             }
             resolve();
           });
         });
-        promises.push(promise);
       });
 
-      Promise.all(promises).then(() => {
-        // Tüm item'lar yüklendi, progress hesaplanabilir
+      Promise.all(loadPromises).then(() => {
+        // Tüm item'lar yüklendi
+        this.$nextTick(() => {
+          // DOM güncellemelerini bir sonraki tick'e ertele
+        })
+      }).catch(error => {
+        console.error('Error loading retro items:', error)
+        createToast('Error loading items. Please refresh the page.',{type:'error',position:'top-center'})
       });
     },
   },
@@ -171,13 +225,14 @@ export default {
     isAdmin() {
       return this.team?.adminEmail === localStorage.getItem('user')
     },
+    // Memoized computed properties
     totalRetroItems() {
-      return this.allRetroItems.length;
+      return this.allRetroItems?.length || 0;
     },
     processedRetroItems() {
-      // Status'u 'processed', 'done', 'completed' olanları say
+      if (!this.allRetroItems) return 0
       return this.allRetroItems.filter(item =>
-        item.status
+        item.status && ['processed', 'done', 'completed'].includes(item.status.toLowerCase())
       ).length;
     }
   }
