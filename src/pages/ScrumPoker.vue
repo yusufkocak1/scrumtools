@@ -1,28 +1,30 @@
 <template>
-  <div class="flex flex-row w-full h-screen bg-white">
-    <SideBar :team-id="teamId"></SideBar>
-    <div class="flex-1 flex flex-col items-center min-h-screen p-6">
-      <div class="w-full max-w-7xl mx-auto">
-        <div class="flex flex-col items-center space-y-8">
-          <PokerTable :isVotesVisible="isVotesVisible" :votes="votes" :members="team.members" @newRound="newRound"></PokerTable>
+  <div class="flex flex-row w-screen">
+    <SideBar :team-id="teamId" class="hidden lg:flex"></SideBar>
+    <div class="flex-1 p-4">
+      <div class="flex flex-col items-center min-h-screen">
+        <div class="w-full max-w-7xl mx-auto">
+          <div class="flex flex-col items-center space-y-8">
+            <PokerTable :isVotesVisible="isVotesVisible" :votes="votes" :members="team.members" @newRound="newRound"></PokerTable>
 
-          <!-- Cards Selection Area -->
-          <div class="w-full bg-gradient-to-br from-gray-50 to-gray-100 border-2 border-gray-200 rounded-2xl p-8 shadow-lg">
-            <div class="text-center mb-6">
-              <h3 class="text-xl font-bold text-gray-800 mb-2">Select Your Estimate</h3>
-              <p class="text-gray-600 text-sm">Choose a Fibonacci number that represents your estimate</p>
-            </div>
-            <div class="flex justify-center flex-wrap gap-4">
-              <pokerCard
-                v-for="pokerCard in fibonacciNumbers"
-                :number="pokerCard"
-                :key="pokerCard"
-                @selectPokerCard="selectPokerCard"
-                :selectable="!isVotesVisible"
-                :newRound="newRound"
-                :selectedCardNumber="selectedPokerCardNumber"
-                class="transform hover:rotate-1 transition-transform duration-300"
-              ></pokerCard>
+            <!-- Cards Selection Area -->
+            <div class="w-full bg-gradient-to-br from-gray-50 to-gray-100 border-2 border-gray-200 rounded-2xl p-8 shadow-lg">
+              <div class="text-center mb-6">
+                <h3 class="text-xl font-bold text-gray-800 mb-2">Select Your Estimate</h3>
+                <p class="text-gray-600 text-sm">Choose a Fibonacci number that represents your estimate</p>
+              </div>
+              <div class="flex justify-center flex-wrap gap-4">
+                <pokerCard
+                  v-for="pokerCard in fibonacciNumbers"
+                  :number="pokerCard"
+                  :key="pokerCard"
+                  @selectPokerCard="selectPokerCard"
+                  :selectable="!isVotesVisible"
+                  :newRound="newRound"
+                  :selectedCardNumber="selectedPokerCardNumber"
+                  class="transform hover:rotate-1 transition-transform duration-300"
+                ></pokerCard>
+              </div>
             </div>
           </div>
         </div>

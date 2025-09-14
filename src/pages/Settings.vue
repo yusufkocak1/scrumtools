@@ -1,6 +1,6 @@
 <template>
   <div class="flex flex-row w-screen">
-    <SideBar :team-id="selectedTeam"></SideBar>
+    <SideBar :team-id="selectedTeam" class="hidden lg:flex"></SideBar>
     <div class="flex-1 p-4">
       <!--profile-->
       <div class="py-16">

@@ -1,6 +1,6 @@
 <template>
   <div class="flex flex-row w-screen">
-    <SideBar :team-id="teamId"></SideBar>
+    <SideBar :team-id="teamId" class="hidden lg:flex"></SideBar>
     <div class="flex-1 p-4">
       <div class="container mx-auto">
         <div class="flex justify-between m-4 space-x-2">

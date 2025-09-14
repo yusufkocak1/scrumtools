@@ -1,7 +1,7 @@
 <template>
   <div class="flex h-screen bg-gray-50">
     <!-- SideBar -->
-    <SideBar :team-id="teamId" />
+    <SideBar :team-id="teamId" class="hidden lg:flex" />
 
     <!-- Main Content -->
     <div class="flex-1 overflow-auto">

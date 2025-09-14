@@ -1,7 +1,7 @@
 <template>
   <div class="flex flex-row w-screen">
-    <SideBar :team-id="selectedTeam"></SideBar>
-    <div class="flex-1 flex flex-col min-h-screen">
+    <SideBar :team-id="selectedTeam" class="hidden lg:flex"></SideBar>
+    <div class="flex-1 p-4">
       <div class="flex flex-col w-full h-screen">
         <div v-if="showCreateRetroBoard"
              class="fixed inset-0 z-[999] grid h-screen w-screen place-items-center bg-black bg-opacity-60 backdrop-blur-sm transition-opacity duration-300">

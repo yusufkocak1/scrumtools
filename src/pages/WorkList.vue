@@ -1,7 +1,7 @@
 <template>
   <div class="flex flex-row w-screen">
-    <SideBar :team-id="teamId"></SideBar>
-    <div class="flex-1">
+    <SideBar :team-id="teamId" class="hidden lg:flex"></SideBar>
+    <div class="flex-1 p-4">
       <h1>Preview version</h1>
       <Backlog :teamId="teamId"></Backlog>
     </div>

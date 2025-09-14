@@ -1,7 +1,7 @@
 <template>
   <div class="flex flex-row w-screen">
-    <SideBar :team-id="currentTeam"></SideBar>
-    <div class="flex-1 flex flex-col items-center justify-center min-h-screen p-4">
+    <SideBar :team-id="currentTeam" class="hidden lg:flex"></SideBar>
+    <div class="flex-1 p-4">
       <div class="w-full max-w-6xl mx-auto">
         <div class="py-5 border-b">
           <TeamList :teamList="teams" @select="selectTeam"></TeamList>
