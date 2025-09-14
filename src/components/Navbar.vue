@@ -39,6 +39,23 @@
         <div v-if="showMobileLogo"
              class="absolute left-0 top-full mt-2 w-64 bg-white rounded-xl shadow-lg border border-gray-200 z-50 overflow-hidden">
           <div class="p-4">
+            <!-- Home Button -->
+            <div class="mb-4">
+              <button
+                  @click="gotoHome"
+                  class="group relative flex items-center justify-center w-full px-4 py-3 rounded-xl transition-all duration-200 hover:bg-gray-50 focus:bg-gray-50 active:bg-gray-100 cursor-pointer border border-gray-200 hover:border-gray-300"
+                  type="button">
+                <div class="flex items-center gap-2">
+                  <div class="w-5 h-5 bg-gray-100 rounded-md flex items-center justify-center group-hover:bg-gray-200 transition-colors">
+                    <svg class="w-3 h-3 text-gray-600" fill="currentColor" viewBox="0 0 20 20">
+                      <path d="M10.707 2.293a1 1 0 00-1.414 0l-7 7a1 1 0 001.414 1.414L4 10.414V17a1 1 0 001 1h2a1 1 0 001-1v-2a1 1 0 011-1h2a1 1 0 011 1v2a1 1 0 001 1h2a1 1 0 001-1v-6.586l.293.293a1 1 0 001.414-1.414l-7-7z"/>
+                    </svg>
+                  </div>
+                  <span class="text-sm font-medium text-gray-700">Home</span>
+                </div>
+              </button>
+            </div>
+
             <!-- Team Management Section -->
             <div class="space-y-3 mb-4">
               <div class="w-full">
@@ -219,7 +236,7 @@
 
     <!-- Mobile Menu -->
     <div v-if="isLogged && showMobileMenu" class="lg:hidden mt-4 pb-4 border-t border-gray-200 pt-4">
-        <!-- Mobile Profile Menu -->
+      <!-- Mobile Profile Menu -->
       <div class="space-y-2">
         <div class="flex items-center gap-3 mb-4 p-3 bg-purple-50 rounded-xl">
           <div class="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center">
@@ -446,6 +463,12 @@ export default {
     },
     gotoSettings() {
       this.$router.push('/settings');
+      this.showProfileDropdown = false;
+      this.showMobileMenu = false;
+      this.showMobileLogo = false;
+    },
+    gotoHome() {
+      this.$router.push('/');
       this.showProfileDropdown = false;
       this.showMobileMenu = false;
       this.showMobileLogo = false;

@@ -1,11 +1,11 @@
 <template>
   <div class="flex h-screen bg-gray-50">
     <!-- SideBar -->
-    <SideBar :team-id="teamId" class="hidden lg:flex" />
+    <SideBar :team-id="teamId" class="hidden lg:flex w-12 flex-shrink-0" />
 
     <!-- Main Content -->
-    <div class="flex-1 overflow-auto">
-      <div class="p-6">
+    <div class="flex-1 w-full overflow-auto">
+      <div class="p-6 w-full h-full">
         <!-- Header Component -->
         <RetroBoardHeader
           :board-name="board?.retroBoardName || ''"
@@ -16,8 +16,8 @@
           @open-settings="handleOpenSettings"
         />
 
-        <div class="bg-white rounded-2xl shadow-sm border border-gray-200">
-          <div class="flex flex-wrap gap-4  justify-center">
+        <div class="bg-white rounded-2xl shadow-sm border border-gray-200 w-full">
+          <div class="flex flex-wrap gap-4 justify-center p-4">
             <RetroColumn :isAdmin=isAdmin v-for="(column, index) in board?.columns" @addItem="addItem" :members="team?.members" :key="index" :column="column" :teamId="teamId" :boardId="boardId" @openDetail="openDetail"/>
           </div>
         </div>

@@ -10,7 +10,7 @@
       </div>
 
       <!-- Content Area -->
-      <div class="flex-1 min-w-0">
+      <div class="flex-1 min-w--0 ">
         <!-- User Info -->
         <div class="flex items-center gap-2 mb-2">
           <span class="font-semibold text-gray-900 text-sm">{{ ownerName || 'Anonymous' }}</span>

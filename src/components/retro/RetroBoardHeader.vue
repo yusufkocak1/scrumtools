@@ -1,5 +1,5 @@
 <template>
-  <div class="bg-white rounded-2xl shadow-sm border border-gray-200 p-6 mb-6">
+  <div class="bg-white rounded-2xl w-full shadow-sm border border-gray-200 p-6 mb-6">
     <div class="flex flex-wrap justify-between items-center">
       <!-- Board Title and Info -->
       <div class="flex items-center gap-4">

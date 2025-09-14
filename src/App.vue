@@ -113,9 +113,12 @@ export default {
               this.selectedTeam = localStorage.getItem("selectedTeam")
             } else {
               this.selectedTeam = teamList[0].id
+              localStorage.setItem("selectedTeam", teamList[0].id)
+
             }
           } else {
             this.selectedTeam = teamList[0].id
+            localStorage.setItem("selectedTeam", teamList[0].id)
           }
         } else {
           this.selectedTeam = ""
