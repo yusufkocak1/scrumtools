@@ -2,11 +2,97 @@
   <div class="w-screen px-4 lg:px-6 py-4 mx-auto bg-white border-b border-gray-200 shadow-sm z-[9999]">
     <div class="flex items-center justify-between mx-auto">
       <!-- Logo/Home Link -->
-      <RouterLink to="/" class="text-xl lg:text-2xl font-bold text-gray-900 hover:text-blue-600 transition-colors">
-        ScrumTools
+      <RouterLink to="/" class="hidden lg:flex items-center gap-3 text-xl lg:text-2xl font-bold text-gray-900 hover:text-blue-600 transition-colors">
+        <div class="w-8 h-8 lg:w-10 lg:h-10 bg-blue-100 rounded-lg flex items-center justify-center">
+          <svg class="w-5 h-5 lg:w-6 lg:h-6 text-blue-600" fill="currentColor" viewBox="0 0 24 24">
+            <!-- Development Tools Icon -->
+            <path d="M20 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zM4 18V6h16v12H4z"/>
+            <path d="M6 8h2v2H6zm0 3h2v2H6zm3-3h2v2H9zm0 3h2v2H9zm3-3h6v2h-6zm0 3h4v2h-4z"/>
+            <circle cx="17" cy="14" r="1.5"/>
+            <path d="M6 15l2-2 2 2"/>
+          </svg>
+        </div>
+        <span>ScrumTools</span>
       </RouterLink>
 
-      <!-- Mobile Menu Button -->
+      <!-- Mobile Logo with Dropdown -->
+      <div v-if="isLogged" class="lg:hidden relative">
+        <button
+          @click="toggleMobileLogo"
+          class="flex items-center gap-2 text-lg font-bold text-gray-900 hover:text-blue-600 transition-colors">
+          <div class="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center">
+            <svg class="w-5 h-5 text-blue-600" fill="currentColor" viewBox="0 0 24 24">
+              <!-- Development Tools Icon -->
+              <path d="M20 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zM4 18V6h16v12H4z"/>
+              <path d="M6 8h2v2H6zm0 3h2v2H6zm3-3h2v2H9zm0 3h2v2H9zm3-3h6v2h-6zm0 3h4v2h-4z"/>
+              <circle cx="17" cy="14" r="1.5"/>
+              <path d="M6 15l2-2 2 2"/>
+            </svg>
+          </div>
+          <span>ScrumTools</span>
+          <svg class="w-4 h-4 text-blue-600 transition-transform" :class="{'rotate-180': showMobileLogo}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+          </svg>
+        </button>
+
+        <!-- Mobile Logo Dropdown -->
+        <div v-if="showMobileLogo"
+             class="absolute left-0 top-full mt-2 w-64 bg-white rounded-xl shadow-lg border border-gray-200 z-50 overflow-hidden">
+          <div class="p-4">
+            <!-- Team Management Section -->
+            <div class="space-y-3 mb-4">
+              <TeamList ref="teamList" :teamList="teamList" @select="handleTeamSelect"></TeamList>
+              <InviteToTheTeam v-if="selectedTeam" :team-id="selectedTeam"></InviteToTheTeam>
+            </div>
+
+            <!-- Action Buttons -->
+            <div class="space-y-2">
+              <button
+                  class="group relative flex items-center justify-center w-full px-4 py-3 rounded-xl transition-all duration-200 hover:bg-green-50 focus:bg-green-50 active:bg-green-100 cursor-pointer border border-green-200 hover:border-green-300"
+                  type="button"
+                  @click="handleJoinTeam">
+                <div class="flex items-center gap-2">
+                  <div class="w-5 h-5 bg-green-100 rounded-md flex items-center justify-center group-hover:bg-green-200 transition-colors">
+                    <svg class="w-3 h-3 text-green-600" fill="currentColor" viewBox="0 0 20 20">
+                      <path d="M8 9a3 3 0 100-6 3 3 0 000 6zM8 11a6 6 0 016 6H2a6 6 0 016-6zM16 7a1 1 0 10-2 0v1h-1a1 1 0 100 2h1v1a1 1 0 102 0v-1h1a1 1 0 100-2h-1V7z"></path>
+                    </svg>
+                  </div>
+                  <span class="text-sm font-medium text-green-700">Join Team</span>
+                </div>
+              </button>
+              <button
+                  class="group relative flex items-center justify-center w-full px-4 py-3 rounded-xl transition-all duration-200 hover:bg-blue-50 focus:bg-blue-50 active:bg-blue-100 cursor-pointer border border-blue-200 hover:border-blue-300"
+                  type="button"
+                  @click="handleCreateTeam">
+                <div class="flex items-center gap-2">
+                  <div class="w-5 h-5 bg-blue-100 rounded-md flex items-center justify-center group-hover:bg-blue-200 transition-colors">
+                    <svg class="w-3 h-3 text-blue-600" fill="currentColor" viewBox="0 0 20 20">
+                      <path fill-rule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clip-rule="evenodd"></path>
+                    </svg>
+                  </div>
+                  <span class="text-sm font-medium text-blue-700">Create Team</span>
+                </div>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Mobile Logo without Login -->
+      <RouterLink v-if="!isLogged" to="/" class="lg:hidden flex items-center gap-2 text-lg font-bold text-gray-900 hover:text-blue-600 transition-colors">
+        <div class="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center">
+          <svg class="w-5 h-5 text-blue-600" fill="currentColor" viewBox="0 0 24 24">
+            <!-- Development Tools Icon -->
+            <path d="M20 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zM4 18V6h16v12H4z"/>
+            <path d="M6 8h2v2H6zm0 3h2v2H6zm3-3h2v2H9zm0 3h2v2H9zm3-3h6v2h-6zm0 3h4v2h-4z"/>
+            <circle cx="17" cy="14" r="1.5"/>
+            <path d="M6 15l2-2 2 2"/>
+          </svg>
+        </div>
+        <span>ScrumTools</span>
+      </RouterLink>
+
+      <!-- Mobile Menu Button (only hamburger for profile) -->
       <button
         v-if="isLogged"
         @click="toggleMobileMenu"
@@ -126,56 +212,11 @@
         </div>
       </div>
 
-      <!-- Mobile Profile Icon -->
-      <div v-if="isLogged" class="lg:hidden">
-        <button
-            @click="toggleProfileDropdown"
-            class="flex items-center justify-center w-10 h-10 bg-purple-100 rounded-lg hover:bg-purple-200 transition-colors">
-          <span class="text-purple-600 font-bold text-sm">{{ userInitials }}</span>
-        </button>
-      </div>
     </div>
 
     <!-- Mobile Menu -->
     <div v-if="isLogged && showMobileMenu" class="lg:hidden mt-4 pb-4 border-t border-gray-200 pt-4">
-      <!-- Team Management Section -->
-      <div class="space-y-4 mb-6">
-        <div class="space-y-3">
-          <TeamList ref="teamList" :teamList="teamList" @select="handleTeamSelect"></TeamList>
-          <InviteToTheTeam v-if="selectedTeam" :team-id="selectedTeam"></InviteToTheTeam>
-        </div>
-
-        <div class="grid grid-cols-1 gap-3">
-          <button
-              class="group relative flex items-center justify-center px-4 py-3 rounded-xl transition-all duration-200 hover:bg-green-50 focus:bg-green-50 active:bg-green-100 cursor-pointer border border-green-200 hover:border-green-300"
-              type="button"
-              @click="handleJoinTeam">
-            <div class="flex items-center gap-2">
-              <div class="w-5 h-5 bg-green-100 rounded-md flex items-center justify-center group-hover:bg-green-200 transition-colors">
-                <svg class="w-3 h-3 text-green-600" fill="currentColor" viewBox="0 0 20 20">
-                  <path d="M8 9a3 3 0 100-6 3 3 0 000 6zM8 11a6 6 0 016 6H2a6 6 0 016-6zM16 7a1 1 0 10-2 0v1h-1a1 1 0 100 2h1v1a1 1 0 102 0v-1h1a1 1 0 100-2h-1V7z"></path>
-                </svg>
-              </div>
-              <span class="text-sm font-medium text-green-700">Join Team</span>
-            </div>
-          </button>
-          <button
-              class="group relative flex items-center justify-center px-4 py-3 rounded-xl transition-all duration-200 hover:bg-blue-50 focus:bg-blue-50 active:bg-blue-100 cursor-pointer border border-blue-200 hover:border-blue-300"
-              type="button"
-              @click="handleCreateTeam">
-            <div class="flex items-center gap-2">
-              <div class="w-5 h-5 bg-blue-100 rounded-md flex items-center justify-center group-hover:bg-blue-200 transition-colors">
-                <svg class="w-3 h-3 text-blue-600" fill="currentColor" viewBox="0 0 20 20">
-                  <path fill-rule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clip-rule="evenodd"></path>
-                </svg>
-              </div>
-              <span class="text-sm font-medium text-blue-700">Create Team</span>
-            </div>
-          </button>
-        </div>
-      </div>
-
-      <!-- Mobile Profile Menu -->
+        <!-- Mobile Profile Menu -->
       <div class="space-y-2">
         <div class="flex items-center gap-3 mb-4 p-3 bg-purple-50 rounded-xl">
           <div class="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center">
@@ -284,7 +325,7 @@
             <div class="w-8 h-8 bg-red-100 rounded-lg flex items-center justify-center group-hover:bg-red-200 transition-colors">
               <svg class="w-4 h-4 text-red-600" fill="currentColor" viewBox="0 0 20 20">
                 <path fill-rule="evenodd" d="M3 3a1 1 0 00-1 1v12a1 1 0 102 0V4a1 1 0 00-1-1zm10.293 9.293a1 1 0 001.414 1.414l3-3a1 1 0 000-1.414l-3-3a1 1 0 10-1.414 1.414L14.586 9H7a1 1 0 100 2h7.586l-1.293 1.293z" clip-rule="evenodd"></path>
-            </svg>
+              </svg>
             </div>
             <div class="flex flex-col">
               <span class="font-medium text-red-600">Logout</span>
@@ -329,7 +370,8 @@ export default {
   data() {
     return {
       showProfileDropdown: false,
-      showMobileMenu: false
+      showMobileMenu: false,
+      showMobileLogo: false
     }
   },
   computed: {
@@ -356,6 +398,7 @@ export default {
     handleLogout() {
       this.showProfileDropdown = false;
       this.showMobileMenu = false;
+      this.showMobileLogo = false;
       this.$emit('logout')
     },
     handleTeamSelect(teamId) {
@@ -363,33 +406,46 @@ export default {
     },
     handleJoinTeam() {
       this.showMobileMenu = false;
+      this.showMobileLogo = false;
       this.$emit('join-team')
     },
     handleCreateTeam() {
       this.showMobileMenu = false;
+      this.showMobileLogo = false;
       this.$emit('create-team')
     },
     toggleProfileDropdown() {
       this.showProfileDropdown = !this.showProfileDropdown;
       if (this.showProfileDropdown) {
         this.showMobileMenu = false;
+        this.showMobileLogo = false;
       }
     },
     toggleMobileMenu() {
       this.showMobileMenu = !this.showMobileMenu;
       if (this.showMobileMenu) {
         this.showProfileDropdown = false;
+        this.showMobileLogo = false;
+      }
+    },
+    toggleMobileLogo() {
+      this.showMobileLogo = !this.showMobileLogo;
+      if (this.showMobileLogo) {
+        this.showProfileDropdown = false;
+        this.showMobileMenu = false;
       }
     },
     gotoTeams() {
       this.$router.push('/teams');
       this.showProfileDropdown = false;
       this.showMobileMenu = false;
+      this.showMobileLogo = false;
     },
     gotoSettings() {
       this.$router.push('/settings');
       this.showProfileDropdown = false;
       this.showMobileMenu = false;
+      this.showMobileLogo = false;
     }
   }
 }
