@@ -78,10 +78,42 @@ export default {
       this.item = ""
     },
     addVote(itemId, vote) {
+      // Optimistic UI: ilgili item'ın votes dizisini local olarak güncelle
+      const itemIndex = this.items.findIndex(item => item.id === itemId)
+      if (itemIndex !== -1) {
+        const item = this.items[itemIndex]
+        if (!item.votes) item.votes = []
+        // Aynı kullanıcıdan aynı tip oy varsa kaldır, yoksa ekle
+        const existingVoteIndex = item.votes.findIndex(v => v.owner === vote.owner && v.value === vote.value)
+        if (existingVoteIndex !== -1) {
+          // Oy zaten varsa kaldır (toggle)
+          item.votes.splice(existingVoteIndex, 1)
+        } else {
+          // Önce aynı kullanıcının ters oyunu kaldır
+          const oppositeVoteIndex = item.votes.findIndex(v => v.owner === vote.owner && v.value === -vote.value)
+          if (oppositeVoteIndex !== -1) {
+            item.votes.splice(oppositeVoteIndex, 1)
+          }
+          // Sonra yeni oyu ekle
+          item.votes.push(vote)
+        }
+        // Vue reaktivitesi için yeni bir dizi ata
+        this.items = [...this.items]
+      }
       setVote(this.teamId, this.boardId, this.column, itemId, vote)
     },
-    removeVote(itemId) {
-      removeVote(this.teamId, this.boardId, this.column, itemId, localStorage.getItem("user"))
+    removeVote(itemId, voteValue) {
+      // Optimistic UI: ilgili item'ın votes dizisinden kullanıcıya ait ve voteValue'ya sahip oyu kaldır
+      const user = localStorage.getItem("user")
+      const itemIndex = this.items.findIndex(item => item.id === itemId)
+      if (itemIndex !== -1) {
+        const item = this.items[itemIndex]
+        if (item.votes) {
+          item.votes = item.votes.filter(v => !(v.owner === user && v.value === voteValue))
+          this.items = [...this.items]
+        }
+      }
+      removeVote(this.teamId, this.boardId, this.column, itemId, user)
     },
     removeItem(index) {
       removeRetroBoardItem(this.teamId, this.boardId, this.column, index).then(() => {

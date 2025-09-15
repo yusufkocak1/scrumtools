@@ -148,12 +148,15 @@ export default {
       }
 
       if (voteValue === 1 && this.isThereUpVote) {
-        removeVote(this.teamId, this.boardId, this.column, this.item.id, localStorage.getItem('user'))
+        // Aynı upvote'a tekrar basıldıysa parent'a removeVote emit et
+        this.$emit('removeVote', this.item.id, 1)
       } else if (voteValue === -1 && this.isThereDownVote) {
-        removeVote(this.teamId, this.boardId, this.column, this.item.id, localStorage.getItem('user'))
+        // Aynı downvote'a tekrar basıldıysa parent'a removeVote emit et
+        this.$emit('removeVote', this.item.id, -1)
       } else {
         this.$emit('addVote', this.item.id, vote)
       }
+
     }
   },
   computed: {
