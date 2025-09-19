@@ -4,7 +4,7 @@
       <!-- Header -->
       <div class="mb-12">
         <h1 class="text-4xl font-bold text-gray-900 mb-4">Scrum Tools</h1>
-        <p class="text-xl text-gray-600">Agile team management and collaboration tools</p>
+        <p class="text-xl text-gray-600">{{teamName}} team management and collaboration tools</p>
       </div>
 
       <!-- Tools Grid -->
@@ -104,15 +104,25 @@
           My Teams
         </button>
       </div>
+      <div>
+        <AdBanner />
+      </div>
     </div>
   </div>
 </template>
 
 <script>
+import AdBanner from '../components/AdBanner.vue'
+import {getTeamById} from "../firebase/TeamService.js";
+
 export default {
   name: "Home",
+  components: {
+    AdBanner
+  },
   data: () => ({
     selectedTeam: "",
+    teamName:"",
   }),
   methods: {
     gotoRetrospective() {
@@ -132,6 +142,13 @@ export default {
     },
     handleTeamChanged(event) {
       this.selectedTeam = event.detail.teamId;
+      this.setTeamName()
+    },
+    setTeamName() {
+      const self = this;
+      getTeamById(this.selectedTeam, (team) => {
+        self.teamName = team.teamName;
+      })
     }
   },
   mounted() {
@@ -140,6 +157,7 @@ export default {
     if (storedTeam) {
       this.selectedTeam = storedTeam;
     }
+    this.setTeamName()
 
     // Team değişikliklerini dinle
     window.addEventListener('teamChanged', this.handleTeamChanged);

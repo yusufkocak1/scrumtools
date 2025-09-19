@@ -96,8 +96,12 @@ export default {
     selectTeam(teamId) {
       this.selectedTeam = teamId;
       localStorage.setItem("selectedTeam", teamId);
+      console.log(this.teamList)
       window.dispatchEvent(new CustomEvent('teamChanged', {
-        detail: { teamId: teamId }
+        detail: {
+          teamId: teamId,
+          teamName: this.teamList.find(t => t.id === teamId)?.teamName || ''
+        }
       }));
 
       // Home sayfasına yönlendir
