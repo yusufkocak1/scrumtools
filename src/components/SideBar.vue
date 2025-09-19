@@ -1,5 +1,18 @@
 <template>
   <nav class="flex w-20 flex-col gap-2 py-4 bg-white border-r border-gray-200 shadow-sm">
+    <!-- Work List -->
+    <div @click="gotoWorkList"
+         class="group relative flex items-center justify-center p-3 mx-2 rounded-xl transition-all duration-200 hover:bg-purple-50 focus:bg-purple-50 active:bg-purple-100 cursor-pointer">
+      <div class="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center group-hover:bg-purple-200 transition-colors">
+        <svg class="w-5 h-5 text-purple-600" fill="currentColor" viewBox="0 0 20 20">
+          <path d="M3 4a1 1 0 011-1h12a1 1 0 011 1v2a1 1 0 01-1 1H4a1 1 0 01-1-1V4zM3 10a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H4a1 1 0 01-1-1v-6zM14 9a1 1 0 00-1 1v6a1 1 0 001 1h2a1 1 0 001-1v-6a1 1 0 00-1-1h-2z"></path>
+        </svg>
+      </div>
+      <!-- Tooltip -->
+      <div class="absolute left-full ml-3 px-2 py-1 bg-gray-900 text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-10">
+        Scrum Board
+      </div>
+    </div>
     <!-- Retrospective -->
     <div @click="gotoRetrospective"
          class="group relative flex items-center justify-center p-3 mx-2 rounded-xl transition-all duration-200 hover:bg-blue-50 focus:bg-blue-50 active:bg-blue-100 cursor-pointer">
@@ -29,20 +42,6 @@
       <!-- Tooltip -->
       <div class="absolute left-full ml-3 px-2 py-1 bg-gray-900 text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-10">
         Scrum Poker
-      </div>
-    </div>
-
-    <!-- Work List -->
-    <div @click="gotoWorkList"
-         class="group relative flex items-center justify-center p-3 mx-2 rounded-xl transition-all duration-200 hover:bg-purple-50 focus:bg-purple-50 active:bg-purple-100 cursor-pointer">
-      <div class="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center group-hover:bg-purple-200 transition-colors">
-        <svg class="w-5 h-5 text-purple-600" fill="currentColor" viewBox="0 0 20 20">
-          <path d="M3 4a1 1 0 011-1h12a1 1 0 011 1v2a1 1 0 01-1 1H4a1 1 0 01-1-1V4zM3 10a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H4a1 1 0 01-1-1v-6zM14 9a1 1 0 00-1 1v6a1 1 0 001 1h2a1 1 0 001-1v-6a1 1 0 00-1-1h-2z"></path>
-        </svg>
-      </div>
-      <!-- Tooltip -->
-      <div class="absolute left-full ml-3 px-2 py-1 bg-gray-900 text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-10">
-        Scrum Board
       </div>
     </div>
 

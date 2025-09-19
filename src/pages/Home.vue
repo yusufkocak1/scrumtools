@@ -9,6 +9,27 @@
 
       <!-- Tools Grid -->
       <div v-if="selectedTeam" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+
+        <!-- Work List / Scrum Board Card -->
+        <div @click="gotoWorkList"
+             class="bg-white rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 cursor-pointer transform hover:-translate-y-2 border border-gray-200">
+          <div class="p-8">
+            <div class="w-16 h-16 bg-purple-100 rounded-lg flex items-center justify-center mb-6">
+              <svg class="w-8 h-8 text-purple-600" fill="currentColor" viewBox="0 0 20 20">
+                <path d="M3 4a1 1 0 011-1h12a1 1 0 011 1v2a1 1 0 01-1 1H4a1 1 0 01-1-1V4zM3 10a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H4a1 1 0 01-1-1v-6zM14 9a1 1 0 00-1 1v6a1 1 0 001 1h2a1 1 0 001-1v-6a1 1 0 00-1-1h-2z"></path>
+              </svg>
+            </div>
+            <h3 class="text-2xl font-semibold text-gray-900 mb-3">Scrum Board</h3>
+            <p class="text-gray-600 mb-4">Manage sprint backlog and task tracking</p>
+            <div class="flex items-center text-purple-600 font-medium">
+              <span>Start</span>
+              <svg class="w-4 h-4 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+              </svg>
+            </div>
+          </div>
+        </div>
+
         <!-- Retrospective Card -->
         <div @click="gotoRetrospective"
              class="bg-white rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 cursor-pointer transform hover:-translate-y-2 border border-gray-200">
@@ -50,25 +71,6 @@
           </div>
         </div>
 
-        <!-- Work List / Scrum Board Card -->
-        <div @click="gotoWorkList"
-             class="bg-white rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 cursor-pointer transform hover:-translate-y-2 border border-gray-200">
-          <div class="p-8">
-            <div class="w-16 h-16 bg-purple-100 rounded-lg flex items-center justify-center mb-6">
-              <svg class="w-8 h-8 text-purple-600" fill="currentColor" viewBox="0 0 20 20">
-                <path d="M3 4a1 1 0 011-1h12a1 1 0 011 1v2a1 1 0 01-1 1H4a1 1 0 01-1-1V4zM3 10a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H4a1 1 0 01-1-1v-6zM14 9a1 1 0 00-1 1v6a1 1 0 001 1h2a1 1 0 001-1v-6a1 1 0 00-1-1h-2z"></path>
-              </svg>
-            </div>
-            <h3 class="text-2xl font-semibold text-gray-900 mb-3">Scrum Board</h3>
-            <p class="text-gray-600 mb-4">Manage sprint backlog and task tracking</p>
-            <div class="flex items-center text-purple-600 font-medium">
-              <span>Start</span>
-              <svg class="w-4 h-4 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
-              </svg>
-            </div>
-          </div>
-        </div>
 
         <!-- Code Share Card -->
         <div @click="gotoCodeShare"

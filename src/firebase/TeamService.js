@@ -3,10 +3,8 @@ import {addDoc, collection, deleteDoc, doc, getDoc, getDocs, onSnapshot, query, 
 import {createToast} from "mosha-vue-toastify";
 import {getAuth} from "firebase/auth";
 
-
 const listenTeams = (setterFunc) => {
     let email = localStorage.getItem("user");
-    // Doğru sorgu: memberEmails dizisinde email var mı?
     const q = query(collection(db, "teams"), where("memberEmails", "array-contains", email));
     onSnapshot(q, (querySnapshot) => {
         const teamList= []
@@ -27,7 +25,6 @@ const getTeams = async (setterFunc) => {
     }
 
     const email = user.email;
-
     const q = query(collection(db, "teams"), where("memberEmails", "array-contains", email));
     getDocs(q).then((querySnapshot) => {
         const teamList = []
@@ -44,18 +41,27 @@ const getTeamById = async (teamId, setterFunc) => {
     const docRef = doc(db, "teams", teamId);
     const docSnap = await getDoc(docRef);
     if (docSnap.exists()) {
-        setterFunc( {teamId,...docSnap.data()})
+        setterFunc({teamId,...docSnap.data()})
     }
 }
-const createTeam = async (teamName,email,displayName) => {
+
+const createTeam = async (teamName, teamCode, email, displayName) => {
     const docRef = await addDoc(collection(db, "teams"), {
         teamName: teamName,
+        teamCode: teamCode,
         adminEmail: email,
-        members: {[email]:{displayName:displayName}},
-        memberEmails: [email], // Yeni: email dizisi
+        members: {
+            [email]: {
+                displayName: displayName,
+                role: 'admin',
+                skills: []
+            }
+        },
+        memberEmails: [email],
     });
 }
-const addUserToTeam = async (email,displayName,teamId) => {
+
+const addUserToTeam = async (email, displayName, teamId) => {
     const docRef = doc(db, "teams", teamId);
     const docSnap = await getDoc(docRef);
     if (docSnap.exists()) {
@@ -64,49 +70,111 @@ const addUserToTeam = async (email,displayName,teamId) => {
             data.members = {}
         }
         if (data.members[email]) {
-            createToast('User already in team',{type:'danger',position:'top-center'})
+            createToast('Kullanıcı zaten takımda',{type:'danger',position:'top-center'})
             return
         }
+        // Yeni üye observer rolü ile eklenir
         data.members[email] = {
-            displayName: displayName
+            displayName: displayName,
+            role: 'observer',
+            skills: []
         }
-        // Yeni: memberEmails dizisine ekle
         if (!data.memberEmails) data.memberEmails = [];
         if (!data.memberEmails.includes(email)) data.memberEmails.push(email);
-        setDoc(docRef, data);
+        await setDoc(docRef, data);
+        createToast('Takıma başarıyla katıldınız',{type:'success',position:'top-center'})
     }
 }
 
-const removeUserFromTeam = async (teamId,email) => {
+const updateMemberRole = async (teamId, memberEmail, role, skills = []) => {
     const docRef = doc(db, "teams", teamId);
     const docSnap = await getDoc(docRef);
     if (docSnap.exists()) {
         let data = docSnap.data();
-        delete data.members[email];
-        // Yeni: memberEmails dizisinden çıkar
-        if (data.memberEmails) {
-            data.memberEmails = data.memberEmails.filter(e => e !== email);
+        if (data.members && data.members[memberEmail]) {
+            data.members[memberEmail] = {
+                ...data.members[memberEmail],
+                role: role,
+                skills: skills
+            };
+            await setDoc(docRef, data);
+            createToast('Üye bilgileri güncellendi',{type:'success',position:'top-center'})
         }
-        setDoc(docRef, data);
     }
 }
-const removeTeam = async (teamName) => {
-    const docRef = doc(db, "teams", teamName);
-    await deleteDoc(docRef);
-}
-const updateDisplayNameFromTeam = async (teamId,displayName,email) => {
+
+const removeUserFromTeam = async (teamId, email) => {
     const docRef = doc(db, "teams", teamId);
     const docSnap = await getDoc(docRef);
     if (docSnap.exists()) {
         let data = docSnap.data();
-        if(!data.members){
-            docSnap.data().members = {}
+
+        // Admin kendini kaldıramaz
+        if (email === data.adminEmail) {
+            createToast('Takım yöneticisi kendini takımdan kaldıramaz',{type:'danger',position:'top-center'})
+            return;
         }
-        data.members[email] = {
-            displayName: displayName
+
+        if (data.members && data.members[email]) {
+            delete data.members[email];
         }
-        setDoc(docRef, data);
+
+        if (data.memberEmails && data.memberEmails.includes(email)) {
+            data.memberEmails = data.memberEmails.filter(memberEmail => memberEmail !== email);
+        }
+
+        await setDoc(docRef, data);
     }
 }
 
-export {createTeam,addUserToTeam,removeUserFromTeam,removeTeam,getTeamById,listenTeams,getTeams,updateDisplayNameFromTeam}
+// Rol güncelleme fonksiyonu ekle
+const updateMemberRoleAndSkills = async (teamId, memberEmail, newRole, newSkills = []) => {
+    const docRef = doc(db, "teams", teamId);
+    const docSnap = await getDoc(docRef);
+    if (docSnap.exists()) {
+        let data = docSnap.data();
+        if (data.members && data.members[memberEmail]) {
+            data.members[memberEmail].role = newRole;
+            data.members[memberEmail].skills = newSkills;
+            await setDoc(docRef, data);
+            return true;
+        }
+    }
+    return false;
+}
+
+const updateDisplayNameFromTeam = async (newDisplayName, userEmail) => {
+    try {
+        // Kullanıcının üye olduğu tüm takımları bul
+        const q = query(collection(db, "teams"), where("memberEmails", "array-contains", userEmail));
+        const querySnapshot = await getDocs(q);
+
+        // Her takımda kullanıcının displayName'ini güncelle
+        const updatePromises = [];
+        querySnapshot.forEach((docSnapshot) => {
+            const teamData = docSnapshot.data();
+            if (teamData.members && teamData.members[userEmail]) {
+                teamData.members[userEmail].displayName = newDisplayName;
+                updatePromises.push(setDoc(doc(db, "teams", docSnapshot.id), teamData));
+            }
+        });
+
+        await Promise.all(updatePromises);
+        createToast('Takımlardaki isim bilginiz güncellendi', {type: 'success', position: 'top-center'});
+    } catch (error) {
+        console.error('Error updating display name in teams:', error);
+        createToast('Takımlardaki isim güncellenirken hata oluştu', {type: 'danger', position: 'top-center'});
+    }
+}
+
+export {
+    listenTeams,
+    getTeams,
+    getTeamById,
+    createTeam,
+    addUserToTeam,
+    updateMemberRole,
+    removeUserFromTeam,
+    updateMemberRoleAndSkills,
+    updateDisplayNameFromTeam
+}

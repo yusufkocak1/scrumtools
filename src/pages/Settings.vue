@@ -5,39 +5,39 @@
       <div class="max-w-4xl mx-auto">
         <!-- Header -->
         <div class="mb-8">
-          <h1 class="text-3xl font-bold text-gray-900">Ayarlar</h1>
-          <p class="text-gray-600 mt-2">Profil bilgilerinizi ve güvenlik ayarlarınızı yönetin</p>
+          <h1 class="text-3xl font-bold text-gray-900">Settings</h1>
+          <p class="text-gray-600 mt-2">Manage your profile information and security settings</p>
         </div>
 
         <!-- Profile Section -->
         <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
           <div class="px-6 py-4 border-b border-gray-200 bg-gray-50">
-            <h2 class="text-xl font-semibold text-gray-800">Profil Bilgileri</h2>
+            <h2 class="text-xl font-semibold text-gray-800">Profile Information</h2>
           </div>
 
           <div class="p-6 space-y-6">
             <!-- Email Display -->
             <div class="space-y-2">
               <label class="block text-sm font-medium text-gray-700">
-                E-posta Adresi
+                Email Address
               </label>
               <div class="px-4 py-3 bg-gray-50 rounded-lg border">
                 <span class="text-gray-900 font-medium">{{ email?.toLowerCase() }}</span>
               </div>
-              <p class="text-xs text-gray-500">E-posta adresiniz değiştirilemez</p>
+              <p class="text-xs text-gray-500">Your email address cannot be changed</p>
             </div>
 
             <!-- Display Name -->
             <div class="space-y-2">
               <label class="block text-sm font-medium text-gray-700">
-                Görünen İsim
+                Display Name
               </label>
               <div class="flex gap-3">
                 <input
                   v-model="displayName"
                   :disabled="isUpdatingDisplayName"
                   class="flex-1 px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-50 disabled:cursor-not-allowed transition-colors"
-                  placeholder="Görünen isminizi girin"
+                  placeholder="Enter your display name"
                   type="text"
                 />
                 <button
@@ -49,7 +49,7 @@
                     <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
                     <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                   </svg>
-                  {{ isUpdatingDisplayName ? 'Güncelleniyor...' : 'Güncelle' }}
+                  {{ isUpdatingDisplayName ? 'Updating...' : 'Update' }}
                 </button>
               </div>
             </div>
@@ -57,7 +57,7 @@
             <!-- Password -->
             <div class="space-y-2">
               <label class="block text-sm font-medium text-gray-700">
-                Yeni Şifre
+                New Password
               </label>
               <div class="flex gap-3">
                 <div class="flex-1 relative">
@@ -66,7 +66,7 @@
                     :type="showPassword ? 'text' : 'password'"
                     :disabled="isUpdatingPassword"
                     class="w-full px-4 py-3 pr-12 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-50 disabled:cursor-not-allowed transition-colors"
-                    placeholder="Yeni şifrenizi girin"
+                    placeholder="Enter your new password"
                     autocomplete="new-password"
                   />
                   <button
@@ -92,13 +92,13 @@
                     <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
                     <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                   </svg>
-                  {{ isUpdatingPassword ? 'Güncelleniyor...' : 'Güncelle' }}
+                  {{ isUpdatingPassword ? 'Updating...' : 'Update' }}
                 </button>
               </div>
               <div class="space-y-1 text-xs text-gray-500">
-                <p>• En az 8 karakter olmalıdır</p>
-                <p>• Büyük ve küçük harf içermelidir</p>
-                <p>• En az bir rakam içermelidir</p>
+                <p>• Must be at least 8 characters</p>
+                <p>• Must contain uppercase and lowercase letters</p>
+                <p>• Must contain at least one number</p>
               </div>
             </div>
           </div>
@@ -107,11 +107,11 @@
         <!-- Team Information -->
         <div v-if="teamList.length > 0" class="mt-8 bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
           <div class="px-6 py-4 border-b border-gray-200 bg-gray-50">
-            <h2 class="text-xl font-semibold text-gray-800">Takım Bilgileri</h2>
+            <h2 class="text-xl font-semibold text-gray-800">Team Information</h2>
           </div>
           <div class="p-6">
             <div class="space-y-3">
-              <p class="text-sm text-gray-600">Üye olduğunuz takımlar:</p>
+              <p class="text-sm text-gray-600">Teams you are a member of:</p>
               <div class="grid gap-3">
                 <div
                   v-for="team in teamList"
@@ -120,14 +120,14 @@
                 >
                   <div>
                     <h3 class="font-medium text-gray-900">{{ team.teamName }}</h3>
-                    <p class="text-sm text-gray-500">{{ team.memberEmails?.length || 0 }} üye</p>
+                    <p class="text-sm text-gray-500">{{ team.memberEmails?.length || 0 }} members</p>
                   </div>
                   <div class="flex items-center gap-3">
                     <span
                       v-if="team.id === selectedTeam"
                       class="px-3 py-1 bg-green-100 text-green-800 text-xs font-medium rounded-full"
                     >
-                      Aktif
+                      Active
                     </span>
                     <button
                       v-if="team.adminEmail !== email"
@@ -142,12 +142,12 @@
                       <svg v-else class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
                       </svg>
-                      {{ isLeavingTeam === team.id ? 'Çıkılıyor...' : 'Çık' }}
+                      {{ isLeavingTeam === team.id ? 'Leaving...' : 'Leave' }}
                     </button>
                     <span
                       v-else
                       class="px-3 py-2 bg-gray-100 text-gray-500 text-sm rounded-lg cursor-not-allowed"
-                      title="Admin olduğunuz takımdan çıkamazsınız"
+                      title="You cannot leave a team you admin"
                     >
                       Admin
                     </span>
@@ -223,7 +223,7 @@ export default {
         await new Promise((resolve, reject) => {
           updateDisplayName(this.displayName.trim(), (response) => {
             if (typeof response === 'string' && !response.includes('error')) {
-              createToast('Görünen isim başarıyla güncellendi', {
+              createToast('Display name updated successfully', {
                 type: 'success',
                 position: 'top-center'
               })
@@ -244,7 +244,7 @@ export default {
           })
         })
       } catch (error) {
-        createToast('Görünen isim güncellenirken hata oluştu', {
+        createToast('Error updating display name', {
           type: 'error',
           position: 'top-center'
         })
@@ -260,7 +260,7 @@ export default {
 
       // Basic password validation
       if (this.password.length < 8) {
-        createToast('Şifre en az 8 karakter olmalıdır', {
+        createToast('Password must be at least 8 characters', {
           type: 'warning',
           position: 'top-center'
         })
@@ -273,7 +273,7 @@ export default {
         await new Promise((resolve, reject) => {
           changePassword(this.password, (response) => {
             if (typeof response === 'string' && !response.includes('error')) {
-              createToast('Şifre başarıyla güncellendi', {
+              createToast('Password updated successfully', {
                 type: 'success',
                 position: 'top-center'
               })
@@ -285,7 +285,7 @@ export default {
           })
         })
       } catch (error) {
-        createToast('Şifre güncellenirken hata oluştu', {
+        createToast('Error updating password', {
           type: 'error',
           position: 'top-center'
         })
@@ -304,7 +304,7 @@ export default {
       try {
         await removeUserFromTeam(team.id, this.email)
 
-        createToast('Takımdan başarıyla çıkıldı', {
+        createToast('Successfully left the team', {
           type: 'success',
           position: 'top-center'
         })
@@ -322,7 +322,7 @@ export default {
         }
 
       } catch (error) {
-        createToast('Takımdan çıkarken hata oluştu', {
+        createToast('Error leaving team', {
           type: 'error',
           position: 'top-center'
         })

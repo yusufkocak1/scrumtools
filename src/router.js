@@ -11,6 +11,7 @@ import WorkList from "./pages/WorkList.vue";
 import SprintPage from "./components/work/SprintPage.vue";
 import {authService} from "./firebase/AuthService.js";
 import CodeShare from "./pages/CodeShare.vue";
+import TaskDetail from "./pages/TaskDetail.vue";
 
 const routes = [{
     path: '/',
@@ -68,7 +69,7 @@ const routes = [{
     props: true,
     meta: {requiresAuth: true}
 }, {
-    path: '/sprint/:sprintId',
+    path: '/team/:teamId/sprint/:sprintId',
     name: 'SprintPage',
     component: SprintPage,
     props: true,
@@ -77,6 +78,12 @@ const routes = [{
     path: '/codeShare/:teamId',
     name: 'CodeShare',
     component: CodeShare,
+    props: true,
+    meta: {requiresAuth: true}
+}, {
+    path: '/task/:taskId',
+    name: 'TaskDetail',
+    component: TaskDetail,
     props: true,
     meta: {requiresAuth: true}
 }]
