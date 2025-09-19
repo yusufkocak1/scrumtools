@@ -40,7 +40,7 @@
       v-if="showDropdown && filteredOptions.length > 0"
       class="absolute z-50 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-y-auto"
     >
-      <ul class="py-1">
+      <ul class="py-1 autocomplete-dropdown">
         <li
           v-for="(option, index) in filteredOptions"
           :key="option[valueField] || index"
@@ -282,5 +282,9 @@ export default {
 .dropdown-enter-from, .dropdown-leave-to {
   opacity: 0;
   transform: translateY(-10px);
+}
+.autocomplete-dropdown {
+  position: absolute;
+  z-index: 1050; /* Modal'ın üstünde olacak şekilde yüksek bir değer */
 }
 </style>
