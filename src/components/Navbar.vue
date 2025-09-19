@@ -68,7 +68,7 @@
 
             <!-- Action Buttons -->
               <button
-                  class="group relative flex items-center justify-center w-full px-4 py-3 rounded-xl transition-all duration-200 hover:bg-green-50 focus:bg-green-50 active:bg-green-100 cursor-pointer border border-green-200 hover:border-green-300"
+                  class="group relative flex items-center justify-center px-4 py-2 rounded-xl transition-all duration-200 hover:bg-green-50 focus:bg-green-50 active:bg-green-100 cursor-pointer border border-green-200 hover:border-green-300"
                   type="button"
                   @click="handleJoinTeam">
                 <div class="flex items-center gap-2">
@@ -77,11 +77,11 @@
                       <path d="M8 9a3 3 0 100-6 3 3 0 000 6zM8 11a6 6 0 016 6H2a6 6 0 016-6zM16 7a1 1 0 10-2 0v1h-1a1 1 0 100 2h1v1a1 1 0 102 0v-1h1a1 1 0 100-2h-1V7z"></path>
                     </svg>
                   </div>
-                  <span class="text-sm font-medium text-green-700">Join Team</span>
+                  <span class="text-sm font-medium text-green-700 whitespace-nowrap">Join Team</span>
                 </div>
               </button>
               <button
-                  class="group relative flex items-center justify-center w-full px-4 py-3 rounded-xl transition-all duration-200 hover:bg-blue-50 focus:bg-blue-50 active:bg-blue-100 cursor-pointer border border-blue-200 hover:border-blue-300"
+                  class="group relative flex items-center justify-center px-4 py-2 rounded-xl transition-all duration-200 hover:bg-blue-50 focus:bg-blue-50 active:bg-blue-100 cursor-pointer border border-blue-200 hover:border-blue-300"
                   type="button"
                   @click="handleCreateTeam">
                 <div class="flex items-center gap-2">
@@ -90,7 +90,21 @@
                       <path fill-rule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clip-rule="evenodd"></path>
                     </svg>
                   </div>
-                  <span class="text-sm font-medium text-blue-700">Create Team</span>
+                  <span class="text-sm font-medium text-blue-700 whitespace-nowrap">Create Team</span>
+                </div>
+              </button>
+              <!-- Bağış Butonu -->
+              <button
+                  class="group relative flex items-center justify-center px-4 py-2 rounded-xl transition-all duration-200 bg-white/60 hover:bg-yellow-50 focus:bg-yellow-50 active:bg-yellow-100 cursor-pointer border border-yellow-600 hover:border-yellow-700 focus:ring-2 focus:ring-yellow-400/60 shadow-sm"
+                  type="button"
+                  @click="handleOpenDonationModal">
+                <div class="flex items-center gap-2">
+                  <div class="w-5 h-5 bg-yellow-400 rounded-md flex items-center justify-center group-hover:bg-yellow-500 transition-colors">
+                    <svg class="w-3 h-3 text-yellow-800" fill="currentColor" viewBox="0 0 20 20">
+                      <path d="M3.172 5.172a4 4 0 015.656 0L10 6.343l1.172-1.171a4 4 0 115.656 5.656L10 17.657l-6.828-6.829a4 4 0 010-5.656z"/>
+                    </svg>
+                  </div>
+                  <span class="text-sm font-semibold text-yellow-800 whitespace-nowrap">Donate</span>
                 </div>
               </button>
             </div>
@@ -143,7 +157,7 @@
                   <path d="M8 9a3 3 0 100-6 3 3 0 000 6zM8 11a6 6 0 016 6H2a6 6 0 016-6zM16 7a1 1 0 10-2 0v1h-1a1 1 0 100 2h1v1a1 1 0 102 0v-1h1a1 1 0 100-2h-1V7z"></path>
                 </svg>
               </div>
-              <span class="text-sm font-medium text-green-700">Join Team</span>
+              <span class="text-sm font-medium text-green-700 whitespace-nowrap">Join Team</span>
             </div>
           </button>
           <button
@@ -156,7 +170,21 @@
                   <path fill-rule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clip-rule="evenodd"></path>
                 </svg>
               </div>
-              <span class="text-sm font-medium text-blue-700">Create Team</span>
+              <span class="text-sm font-medium text-blue-700 whitespace-nowrap">Create Team</span>
+            </div>
+          </button>
+          <!-- Bağış Butonu -->
+          <button
+              class="group relative flex items-center justify-center px-4 py-2 rounded-xl transition-all duration-200 bg-white/60 hover:bg-yellow-50 focus:bg-yellow-50 active:bg-yellow-100 cursor-pointer border border-yellow-600 hover:border-yellow-700 focus:ring-2 focus:ring-yellow-400/60 shadow-sm"
+              type="button"
+              @click="handleOpenDonationModal">
+            <div class="flex items-center gap-2">
+              <div class="w-5 h-5 bg-yellow-400 rounded-md flex items-center justify-center group-hover:bg-yellow-500 transition-colors">
+                <svg class="w-3 h-3 text-yellow-800" fill="currentColor" viewBox="0 0 20 20">
+                  <path d="M3.172 5.172a4 4 0 015.656 0L10 6.343l1.172-1.171a4 4 0 115.656 5.656L10 17.657l-6.828-6.829a4 4 0 010-5.656z"/>
+                </svg>
+              </div>
+              <span class="text-sm font-semibold text-yellow-800 whitespace-nowrap">Donate</span>
             </div>
           </button>
         </div>
@@ -276,6 +304,21 @@
           </div>
         </button>
 
+        <!-- Bağış Butonu -->
+        <button
+            @click="handleOpenDonationModal"
+            class="group flex items-center gap-3 w-full px-4 py-3 text-left rounded-xl transition-all duration-200 bg-white/60 hover:bg-yellow-50 focus:bg-yellow-50 active:bg-yellow-100 border border-yellow-500 hover:border-yellow-600 focus:ring-2 focus:ring-yellow-400/50 shadow-sm">
+          <div class="w-8 h-8 bg-yellow-300 rounded-lg flex items-center justify-center group-hover:bg-yellow-400 transition-colors">
+            <svg class="w-4 h-4 text-yellow-700" fill="currentColor" viewBox="0 0 20 20">
+              <path d="M3.172 5.172a4 4 0 015.656 0L10 6.343l1.172-1.171a4 4 0 115.656 5.656L10 17.657l-6.828-6.829a4 4 0 010-5.656z"/>
+            </svg>
+          </div>
+          <div class="flex flex-col">
+            <span class="font-semibold text-yellow-700">Donate</span>
+            <span class="text-xs text-yellow-600">Support the project</span>
+          </div>
+        </button>
+
         <hr class="my-2 border-gray-100">
 
         <button
@@ -329,11 +372,26 @@
             <div class="w-8 h-8 bg-orange-100 rounded-lg flex items-center justify-center group-hover:bg-orange-200 transition-colors">
               <svg class="w-4 h-4 text-orange-600" fill="currentColor" viewBox="0 0 20 20">
                 <path fill-rule="evenodd" d="M11.49 3.17c-.38-1.56-2.6-1.56-2.98 0a1.532 1.532 0 01-2.286.948c-1.372-.836-2.942.734-2.106 2.106.54.886.061 2.042-.947 2.287-1.561.379-1.561 2.6 0 2.978a1.532 1.532 0 01.947 2.287c-.836 1.372.734 2.942 2.106 2.106a1.532 1.532 0 012.287.947c.379 1.561 2.6 1.561 2.978 0a1.533 1.533 0 012.287-.947c1.372.836 2.942-.734 2.106-2.106a1.533 1.533 0 01.947-2.287c1.561-.379 1.561-2.6 0-2.978a1.532 1.532 0 01-.947-2.287c.836-1.372-.734-2.942-2.106-2.106a1.532 1.532 0 01-2.287-.947zM10 13a3 3 0 100-6 3 3 0 000 6z" clip-rule="evenodd"></path>
-              </svg>
+            </svg>
             </div>
             <div class="flex flex-col">
               <span class="font-medium text-gray-900">Settings</span>
               <span class="text-xs text-gray-500">App preferences</span>
+            </div>
+          </button>
+
+          <!-- Bağış Butonu -->
+          <button
+              @click="handleOpenDonationModal"
+              class="group flex items-center gap-3 w-full px-4 py-3 text-left rounded-xl transition-all duration-200 bg-white/60 hover:bg-yellow-50 focus:bg-yellow-50 active:bg-yellow-100 border border-yellow-500 hover:border-yellow-600 focus:ring-2 focus:ring-yellow-400/50 shadow-sm">
+            <div class="w-8 h-8 bg-yellow-300 rounded-lg flex items-center justify-center group-hover:bg-yellow-400 transition-colors">
+              <svg class="w-4 h-4 text-yellow-700" fill="currentColor" viewBox="0 0 20 20">
+                <path d="M3.172 5.172a4 4 0 015.656 0L10 6.343l1.172-1.171a4 4 0 115.656 5.656L10 17.657l-6.828-6.829a4 4 0 010-5.656z"/>
+              </svg>
+            </div>
+            <div class="flex flex-col">
+              <span class="font-semibold text-yellow-700">Donate</span>
+              <span class="text-xs text-yellow-600">Support the project</span>
             </div>
           </button>
 
@@ -355,16 +413,19 @@
         </div>
       </div>
     </div>
+    <DonationModal :isVisible="openDonationModal" @close="()=>openDonationModal = false"></DonationModal>
   </div>
 </template>
 
 <script>
 import TeamList from './team/TeamList.vue'
 import InviteToTheTeam from './team/InviteToTheTeam.vue'
+import DonationModal from "./DonationModal.vue";
 
 export default {
   name: 'Navbar',
   components: {
+    DonationModal,
     TeamList,
     InviteToTheTeam
   },
@@ -391,7 +452,8 @@ export default {
     return {
       showProfileDropdown: false,
       showMobileMenu: false,
-      showMobileLogo: false
+      showMobileLogo: false,
+      openDonationModal: false,
     }
   },
   computed: {
@@ -469,6 +531,13 @@ export default {
     },
     gotoHome() {
       this.$router.push('/');
+      this.showProfileDropdown = false;
+      this.showMobileMenu = false;
+      this.showMobileLogo = false;
+    },
+    handleOpenDonationModal() {
+      this.openDonationModal = true;
+      // Diğer menüleri kapat
       this.showProfileDropdown = false;
       this.showMobileMenu = false;
       this.showMobileLogo = false;
