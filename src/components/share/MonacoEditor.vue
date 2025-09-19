@@ -1,5 +1,5 @@
 <template>
-  <VueMonacoEditor
+  <VueMonacoEditor 
     v-model:value="innerValue"
     :language="language"
     :theme="theme"

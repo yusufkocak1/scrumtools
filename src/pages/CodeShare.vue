@@ -5,8 +5,8 @@
       <div class="mx-auto">
         <!-- Header -->
         <div class="mb-8">
-          <h1 class="text-4xl font-bold text-gray-900 mb-4">Kod Paylaşımı</h1>
-          <p class="text-xl text-gray-600">Takım arkadaşlarınızla kod parçacıklarını paylaşın ve birlikte düzenleyin.</p>
+          <h1 class="text-4xl font-bold text-gray-900 mb-4">Code Sharing</h1>
+          <p class="text-xl text-gray-600">Share code snippets with your teammates and edit collaboratively.</p>
         </div>
 
         <!-- Controls -->
@@ -17,7 +17,7 @@
               <div class="relative">
                 <input id="tag-input" v-model="tag" type="text"
                        class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 bg-white text-gray-900 placeholder-gray-500 transition-all duration-200"
-                       placeholder="Kod parçacığı için bir tag giriniz..." @keyup.enter="handleGetCode" />
+                       placeholder="Enter a tag for the code snippet..." @keyup.enter="handleGetCode" />
                 <div v-if="isLoading" class="absolute right-3 top-1/2 -translate-y-1/2">
                   <div class="animate-spin rounded-full h-5 w-5 border-b-2 border-orange-500"></div>
                 </div>
@@ -29,20 +29,20 @@
                 <svg v-if="!isLoading" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
                 </svg>
-                <span>{{ isLoading ? 'Yükleniyor...' : 'Getir' }}</span>
+                <span>{{ isLoading ? 'Loading...' : 'Fetch' }}</span>
               </button>
               <button @click="handleSaveCode" :disabled="!tag.trim() || !data.trim() || isSaving"
                       class="px-6 py-3 bg-orange-500 hover:bg-orange-600 disabled:bg-gray-400 text-white font-medium rounded-lg transition-all duration-200 focus:ring-2 focus:ring-orange-500 focus:ring-offset-2 disabled:cursor-not-allowed flex items-center gap-2 transform hover:scale-105 active:scale-95">
                 <svg v-if="!isSaving" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.367 2.684 3 3 0 00-5.367-2.684z" />
                 </svg>
-                <span>{{ isSaving ? 'Kaydediliyor...' : 'Paylaş' }}</span>
+                <span>{{ isSaving ? 'Saving...' : 'Share' }}</span>
               </button>
             </div>
           </div>
           <!-- Recent Tags -->
           <div v-if="recentTags.length > 0" class="mt-6 pt-6 border-t border-gray-200">
-            <p class="text-sm font-medium text-gray-900 mb-3">Son kullanılan tag'lar:</p>
+            <p class="text-sm font-medium text-gray-900 mb-3">Recently used tags:</p>
             <div class="flex flex-wrap gap-2">
               <button v-for="recentTag in recentTags" :key="recentTag" @click="selectRecentTag(recentTag)"
                       class="px-4 py-2 text-sm bg-orange-50 text-orange-700 border border-orange-200 rounded-full hover:bg-orange-100 transition-all duration-200 transform hover:scale-105">
@@ -64,17 +64,17 @@
               <span class="text-sm font-medium text-gray-900">{{ tag || 'Untitled' }}</span>
             </div>
             <div class="flex items-center gap-2">
-              <span v-if="lastSaved" class="text-xs text-gray-500">Son kaydedilme: {{ formatTime(lastSaved) }}</span>
+              <span v-if="lastSaved" class="text-xs text-gray-500">Last saved: {{ formatTime(lastSaved) }}</span>
               <select v-model="selectedLanguage" @change="onLanguageChange"
                       class="px-2 py-1 text-xs border border-gray-300 rounded-md bg-white text-gray-700 focus:ring-2 focus:ring-orange-500 focus:border-orange-500">
                 <option v-for="lang in languageOptions" :key="lang.value" :value="lang.value">{{ lang.label }}</option>
               </select>
-              <!-- Yeni Tema Seçici -->
+              <!-- Theme Selector -->
               <select v-model="selectedTheme" @change="onThemeChange"
                       class="px-2 py-1 text-xs border border-gray-300 rounded-md bg-white text-gray-700 focus:ring-2 focus:ring-orange-500 focus:border-orange-500">
                 <option v-for="opt in themeOptions" :key="opt.value" :value="opt.value">{{ opt.label }}</option>
               </select>
-              <button @click="copyToClipboard" class="p-2 text-gray-500 hover:text-orange-600 rounded-lg hover:bg-orange-50 transition-all duration-200 transform hover:scale-110" title="Panoya kopyala">
+              <button @click="copyToClipboard" class="p-2 text-gray-500 hover:text-orange-600 rounded-lg hover:bg-orange-50 transition-all duration-200 transform hover:scale-110" title="Copy to clipboard">
                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
                 </svg>
@@ -85,7 +85,7 @@
             <div v-if="isChangingLanguage" class="absolute inset-0 bg-white bg-opacity-75 flex items-center justify-center z-10">
               <div class="flex items-center gap-2 text-orange-600">
                 <div class="animate-spin rounded-full h-4 w-4 border-b-2 border-orange-500"></div>
-                <span class="text-sm">Dil değiştiriliyor...</span>
+                <span class="text-sm">Changing language...</span>
               </div>
             </div>
             <MonacoEditor
@@ -200,10 +200,10 @@ export default {
         await saveCodeShare(this.teamId, this.data, this.tag)
         this.lastSaved = new Date()
         this.addToRecentTags(this.tag)
-        this.showStatusMessage('Kod başarıyla kaydedildi!', 'success')
+        this.showStatusMessage('Code saved successfully!', 'success')
       } catch (e) {
         console.error(e)
-        this.showStatusMessage('Kaydetme sırasında hata oluştu!', 'error')
+        this.showStatusMessage('Error while saving!', 'error')
       } finally { this.isSaving = false }
     },
     async getCode () {
@@ -217,17 +217,17 @@ export default {
             localStorage.setItem('tag', this.tag)
             this.data = res.data || ''
             this.addToRecentTags(this.tag)
-            this.showStatusMessage('Kod başarıyla yüklendi!', 'success')
+            this.showStatusMessage('Code loaded successfully!', 'success')
           } else {
             this.data = ''
-            this.showStatusMessage('Bu tag için kod bulunamadı.', 'info')
+            this.showStatusMessage('No code found for this tag.', 'info')
           }
         })
       } catch (e) {
         if (requestId === this.currentRequestId) {
           console.error(e)
           this.data = ''
-          this.showStatusMessage('Kod yüklenirken hata oluştu!', 'error')
+          this.showStatusMessage('Error while loading code!', 'error')
         }
       } finally {
         if (requestId === this.currentRequestId) {
@@ -256,16 +256,16 @@ export default {
     async copyToClipboard () {
       try {
         await navigator.clipboard.writeText(this.data || '')
-        this.showStatusMessage('Kod panoya kopyalandı!', 'success')
+        this.showStatusMessage('Code copied to clipboard!', 'success')
       } catch (e) {
-        this.showStatusMessage('Kopyalama başarısız.', 'error')
+        this.showStatusMessage('Copy failed.', 'error')
       }
     },
     formatTime (d) {
       if (!d) return ''
       try {
         const date = (d instanceof Date) ? d : new Date(d)
-        return date.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit', second: '2-digit' })
+        return date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit' })
       } catch { return '' }
     },
     onEditorReady (i) { this.editorInstance = i; this.isEditorLoading = false },
