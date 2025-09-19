@@ -35,6 +35,7 @@ const saveCodeShare = async (teamId, codeShare, tag) => {
 
 const getCodeShare = async (teamId, tag, setterFunc) => {
     try {
+        console.log("getCodeShare called with", { teamId, tag });
         // 1. Aynı doküman referansını kullan
         const docRef = doc(db, "teams", teamId, "codeShare", tag);
 
@@ -43,7 +44,9 @@ const getCodeShare = async (teamId, tag, setterFunc) => {
 
         // 3. State'i güncelle
         if (docSnap.exists()) {
+            console.log("Document data:", docSnap.data());
             setterFunc(docSnap.data());
+
         } else {
             setterFunc(null); // Doküman yoksa null olarak ayarla
         }

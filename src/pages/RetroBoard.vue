@@ -1,6 +1,6 @@
 <template>
-  <div class="flex h-screen bg-gray-50">
-    <!-- SideBar -->
+  <div class="flex flex-row w-screen bg-gray-50 min-h-screen">
+    <SideBar :team-id="teamId" class="hidden lg:flex" />    <!-- SideBar -->
     <!-- Main Content -->
     <div class="flex-1 w-screen overflow-auto">
       <div class="p-6 w-full h-full">
