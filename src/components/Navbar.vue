@@ -95,12 +95,12 @@
               </button>
               <!-- Bağış Butonu -->
               <button
-                  class="group relative flex items-center justify-center px-4 py-2 rounded-xl transition-all duration-200 bg-white/60 hover:bg-yellow-50 focus:bg-yellow-50 active:bg-yellow-100 cursor-pointer border border-yellow-600 hover:border-yellow-700 focus:ring-2 focus:ring-yellow-400/60 shadow-sm"
+                  class="group relative flex items-center justify-center px-4 py-2 rounded-xl transition-all duration-200 bg-white/60 hover:bg-yellow-50 focus:bg-yellow-50 active:bg-yellow-100 cursor-pointer border border-yellow-600 hover:border-yellow-700 focus:ring-2 focus:ring-yellow-400/60 shadow-sm donate-button-anim"
                   type="button"
                   @click="handleOpenDonationModal">
                 <div class="flex items-center gap-2">
                   <div class="w-5 h-5 bg-yellow-400 rounded-md flex items-center justify-center group-hover:bg-yellow-500 transition-colors">
-                    <svg class="w-3 h-3 text-yellow-800" fill="currentColor" viewBox="0 0 20 20">
+                    <svg class="w-3 h-3 text-yellow-800 donate-icon-anim" fill="currentColor" viewBox="0 0 20 20">
                       <path d="M3.172 5.172a4 4 0 015.656 0L10 6.343l1.172-1.171a4 4 0 115.656 5.656L10 17.657l-6.828-6.829a4 4 0 010-5.656z"/>
                     </svg>
                   </div>
@@ -175,16 +175,16 @@
           </button>
           <!-- Bağış Butonu -->
           <button
-              class="group relative flex items-center justify-center px-4 py-2 rounded-xl transition-all duration-200 bg-white/60 hover:bg-yellow-50 focus:bg-yellow-50 active:bg-yellow-100 cursor-pointer border border-yellow-600 hover:border-yellow-700 focus:ring-2 focus:ring-yellow-400/60 shadow-sm"
+              class="group relative flex items-center justify-center px-4 pr-6 py-1 rounded-xl transition-all duration-200 bg-white/60 hover:bg-yellow-50 focus:bg-yellow-50 active:bg-yellow-100 cursor-pointer border border-4 border-yellow-700 hover:border-yellow-700 focus:ring-2 focus:ring-yellow-400/60 shadow-sm donate-button-anim"
               type="button"
               @click="handleOpenDonationModal">
             <div class="flex items-center gap-2">
-              <div class="w-5 h-5 bg-yellow-400 rounded-md flex items-center justify-center group-hover:bg-yellow-500 transition-colors">
-                <svg class="w-3 h-3 text-yellow-800" fill="currentColor" viewBox="0 0 20 20">
+              <div class="w-5 h-5 bg-yellow-400 mr-1 rounded-md flex items-center justify-center group-hover:bg-yellow-500 transition-colors">
+                <svg class="w-3 h-3 text-yellow-900 donate-icon-anim" fill="currentColor" viewBox="0 0 20 20">
                   <path d="M3.172 5.172a4 4 0 015.656 0L10 6.343l1.172-1.171a4 4 0 115.656 5.656L10 17.657l-6.828-6.829a4 4 0 010-5.656z"/>
                 </svg>
               </div>
-              <span class="text-sm font-semibold text-yellow-800 whitespace-nowrap">Donate</span>
+              <span class="text-md font-bold text-yellow-800 whitespace-nowrap">Donate</span>
             </div>
           </button>
         </div>
@@ -307,9 +307,9 @@
         <!-- Bağış Butonu -->
         <button
             @click="handleOpenDonationModal"
-            class="group flex items-center gap-3 w-full px-4 py-3 text-left rounded-xl transition-all duration-200 bg-white/60 hover:bg-yellow-50 focus:bg-yellow-50 active:bg-yellow-100 border border-yellow-500 hover:border-yellow-600 focus:ring-2 focus:ring-yellow-400/50 shadow-sm">
+            class="group flex items-center gap-3 w-full px-4 py-3 text-left rounded-xl transition-all duration-200 bg-white/60 hover:bg-yellow-50 focus:bg-yellow-50 active:bg-yellow-100 border border-yellow-500 hover:border-yellow-600 focus:ring-2 focus:ring-yellow-400/50 shadow-sm donate-button-anim">
           <div class="w-8 h-8 bg-yellow-300 rounded-lg flex items-center justify-center group-hover:bg-yellow-400 transition-colors">
-            <svg class="w-4 h-4 text-yellow-700" fill="currentColor" viewBox="0 0 20 20">
+            <svg class="w-4 h-4 text-yellow-700 donate-icon-anim" fill="currentColor" viewBox="0 0 20 20">
               <path d="M3.172 5.172a4 4 0 015.656 0L10 6.343l1.172-1.171a4 4 0 115.656 5.656L10 17.657l-6.828-6.829a4 4 0 010-5.656z"/>
             </svg>
           </div>
@@ -383,9 +383,9 @@
           <!-- Bağış Butonu -->
           <button
               @click="handleOpenDonationModal"
-              class="group flex items-center gap-3 w-full px-4 py-3 text-left rounded-xl transition-all duration-200 bg-white/60 hover:bg-yellow-50 focus:bg-yellow-50 active:bg-yellow-100 border border-yellow-500 hover:border-yellow-600 focus:ring-2 focus:ring-yellow-400/50 shadow-sm">
+              class="group flex items-center gap-3 w-full px-4 py-3 text-left rounded-xl transition-all duration-200 bg-white/60 hover:bg-yellow-50 focus:bg-yellow-50 active:bg-yellow-100 border border-yellow-500 hover:border-yellow-600 focus:ring-2 focus:ring-yellow-400/50 shadow-sm donate-button-anim">
             <div class="w-8 h-8 bg-yellow-300 rounded-lg flex items-center justify-center group-hover:bg-yellow-400 transition-colors">
-              <svg class="w-4 h-4 text-yellow-700" fill="currentColor" viewBox="0 0 20 20">
+              <svg class="w-4 h-4 text-yellow-700 donate-icon-anim" fill="currentColor" viewBox="0 0 20 20">
                 <path d="M3.172 5.172a4 4 0 015.656 0L10 6.343l1.172-1.171a4 4 0 115.656 5.656L10 17.657l-6.828-6.829a4 4 0 010-5.656z"/>
               </svg>
             </div>
@@ -545,3 +545,35 @@ export default {
   }
 }
 </script>
+
+<style scoped>
+/* ...existing code... */
+.donate-icon-anim {
+  animation: donate-bounce 1.25s ease-in-out infinite;
+  transform-origin: center;
+  will-change: transform;
+}
+@keyframes donate-bounce {
+  0%,100% { transform: scale(1); }
+  35% { transform: scale(1.28); }
+  50% { transform: scale(0.9); }
+  65% { transform: scale(1.18); }
+  80% { transform: scale(0.97); }
+}
+
+.donate-button-anim {
+  animation: donate-button-pulse 2.2s ease-in-out infinite;
+  transform-origin: center;
+  will-change: transform;
+}
+@keyframes donate-button-pulse {
+  0%,100% { transform: scale(1); }
+  30% { transform: scale(1.05); }
+  45% { transform: scale(0.985); }
+  60% { transform: scale(1.04); }
+  75% { transform: scale(0.995); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .donate-button-anim, .donate-icon-anim { animation: none !important; }
+}
+</style>
