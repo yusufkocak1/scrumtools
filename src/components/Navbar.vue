@@ -196,8 +196,8 @@
                   </svg>
                 </div>
                 <div class="flex flex-col items-start">
-                  <span class="font-medium text-gray-900">Teams</span>
-                  <span class="text-xs text-gray-500">Manage your teams</span>
+                  <span class="font-medium text-gray-900">My Team</span>
+                  <span class="text-xs text-gray-500">Manage your team</span>
                 </div>
               </button>
               <button
@@ -257,8 +257,8 @@
             </svg>
           </div>
           <div class="flex flex-col">
-            <span class="font-medium text-gray-900">Teams</span>
-            <span class="text-xs text-gray-500">Manage your teams</span>
+            <span class="font-medium text-gray-900">My Team</span>
+            <span class="text-xs text-gray-500">Manage your team</span>
           </div>
         </button>
 
@@ -318,8 +318,8 @@
               </svg>
             </div>
             <div class="flex flex-col">
-              <span class="font-medium text-gray-900">Teams</span>
-              <span class="text-xs text-gray-500">Manage your teams</span>
+              <span class="font-medium text-gray-900">My Team</span>
+              <span class="text-xs text-gray-500">Manage your team</span>
             </div>
           </button>
 

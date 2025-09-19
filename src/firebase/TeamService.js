@@ -41,11 +41,10 @@ const getTeams = async (setterFunc) => {
 }
 
 const getTeamById = async (teamId, setterFunc) => {
-    console.log(teamId)
     const docRef = doc(db, "teams", teamId);
     const docSnap = await getDoc(docRef);
     if (docSnap.exists()) {
-        setterFunc( docSnap.data())
+        setterFunc( {teamId,...docSnap.data()})
     }
 }
 const createTeam = async (teamName,email,displayName) => {
