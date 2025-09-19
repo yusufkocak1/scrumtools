@@ -2,7 +2,7 @@
   <!-- Modal Arka Planı -->
   <div v-if="isOpen" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[9999]" @click="closeModal">
     <!-- Modal İçeriği -->
-    <div class="bg-white shadow-2xl rounded-xl p-0 w-full max-w-4xl h-[90vh] relative overflow-hidden" @click.stop>
+    <div class="bg-white shadow-2xl rounded-xl p-0 w-full max-w-4xl h-[90vh] relative flex flex-col" @click.stop>
       <!-- Header -->
       <div class="flex items-center justify-between p-6 border-b border-gray-200 bg-gray-50">
         <div class="flex items-center space-x-3">
@@ -27,225 +27,215 @@
       </div>
 
       <!-- Content -->
-      <div class="flex h-full">
+      <div class="flex-1 p-6 overflow-y-auto flex flex-col" style="padding-bottom: 90px;">
+        <!-- Issue Details (eski sidebar'dan alınanlar) -->
+        <div class="flex gap-6 mb-6">
+          <div class="bg-white rounded-lg p-4 border border-gray-200">
+            <div class="text-sm text-gray-500">Created</div>
+            <div class="text-sm font-medium">{{ formatDate(task?.createdAt || new Date()) }}</div>
+          </div>
+          <div v-if="task?.updatedAt" class="bg-white rounded-lg p-4 border border-gray-200">
+            <div class="text-sm text-gray-500">Last Updated</div>
+            <div class="text-sm font-medium">{{ formatDate(task.updatedAt) }}</div>
+          </div>
+        </div>
+
         <!-- Main Form -->
-        <div class="flex-1 p-6 overflow-y-auto">
-          <form class="space-y-6" @submit.prevent="submitTask">
-            <!-- Issue Type & Status -->
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div>
-                <label class="block text-sm font-medium text-gray-700 mb-2">Issue Type</label>
-                <div class="relative">
-                  <select v-model="formData.issueType"
-                          class="w-full px-4 py-3 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white">
-                    <option v-for="type in issueTypes" :key="type.value" :value="type.value">
-                      {{ type.label }}
-                    </option>
-                  </select>
-                </div>
-              </div>
-
-              <div v-if="task">
-                <label class="block text-sm font-medium text-gray-700 mb-2">Status</label>
-                <select v-model="formData.status"
-                        class="w-full px-4 py-3 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white">
-                  <option value="To Do">To Do</option>
-                  <option value="In Progress">In Progress</option>
-                  <option value="Done">Done</option>
-                </select>
-              </div>
-            </div>
-
-            <!-- Title -->
+        <form class="space-y-6 flex-1" @submit.prevent="submitTask">
+          <!-- Issue Type & Status -->
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
-              <label class="block text-sm font-medium text-gray-700 mb-2">Title *</label>
-              <input
-                v-model="formData.title"
-                class="w-full px-4 py-3 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                placeholder="Enter issue title"
-                required
-                type="text"
-              />
-            </div>
-
-            <!-- Description -->
-            <div>
-              <label class="block text-sm font-medium text-gray-700 mb-2">Description</label>
-              <textarea
-                v-model="formData.description"
-                rows="6"
-                class="w-full px-4 py-3 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none"
-                placeholder="Describe the issue in detail..."
-              ></textarea>
-            </div>
-
-            <!-- Priority & Story Points -->
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div>
-                <label class="block text-sm font-medium text-gray-700 mb-2">Priority</label>
-                <select v-model="formData.priority"
+              <label class="block text-sm font-medium text-gray-700 mb-2">Issue Type</label>
+              <div class="relative">
+                <select v-model="formData.issueType"
                         class="w-full px-4 py-3 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white">
-                  <option v-for="priority in priorities" :key="priority.value" :value="priority.value">
-                    {{ priority.label }}
+                  <option v-for="type in issueTypes" :key="type.value" :value="type.value">
+                    {{ type.label }}
                   </option>
                 </select>
               </div>
-
-              <div>
-                <label class="block text-sm font-medium text-gray-700 mb-2">Story Points</label>
-                <input
-                  v-model.number="formData.storyPoints"
-                  type="number"
-                  min="0"
-                  max="100"
-                  class="w-full px-4 py-3 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  placeholder="0"
-                />
-              </div>
             </div>
 
-            <!-- Team Members -->
-            <div class="space-y-4">
-              <h3 class="text-lg font-medium text-gray-900 border-b border-gray-200 pb-2">Team Assignment</h3>
-
-              <!-- Assignee -->
-              <div>
-                <label class="block text-sm font-medium text-gray-700 mb-2">Assignee</label>
-                <AutoCompleteInput
-                  v-model="formData.assignee"
-                  :options="teamMembers"
-                  placeholder="Search and select assignee..."
-                  :displayField="'displayName'"
-                  :valueField="'email'"
-                />
-              </div>
-
-              <!-- Developer -->
-              <div>
-                <label class="block text-sm font-medium text-gray-700 mb-2">Developer</label>
-                <AutoCompleteInput
-                  v-model="formData.developer"
-                  :options="developers"
-                  placeholder="Search and select developer..."
-                  :displayField="'name'"
-                  :valueField="'email'"
-                />
-              </div>
-
-              <!-- Analyst -->
-              <div>
-                <label class="block text-sm font-medium text-gray-700 mb-2">Analyst</label>
-                <AutoCompleteInput
-                  v-model="formData.analyst"
-                  :options="analysts"
-                  placeholder="Search and select analyst..."
-                  :displayField="'name'"
-                  :valueField="'email'"
-                />
-              </div>
-
-              <!-- Tester -->
-              <div>
-                <label class="block text-sm font-medium text-gray-700 mb-2">Tester</label>
-                <AutoCompleteInput
-                  v-model="formData.tester"
-                  :options="testers"
-                  placeholder="Search and select tester..."
-                  :displayField="'name'"
-                  :valueField="'email'"
-                />
-              </div>
+            <div v-if="task">
+              <label class="block text-sm font-medium text-gray-700 mb-2">Status</label>
+              <select v-model="formData.status"
+                      class="w-full px-4 py-3 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white">
+                <option value="To Do">To Do</option>
+                <option value="In Progress">In Progress</option>
+                <option value="Done">Done</option>
+              </select>
             </div>
+          </div>
 
-            <!-- Labels -->
+          <!-- Title -->
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-2">Title *</label>
+            <input
+              v-model="formData.title"
+              class="w-full px-4 py-3 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              placeholder="Enter issue title"
+              required
+              type="text"
+            />
+          </div>
+
+          <!-- Description -->
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-2">Description</label>
+            <textarea
+              v-model="formData.description"
+              rows="6"
+              class="w-full px-4 py-3 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none"
+              placeholder="Describe the issue in detail..."
+            ></textarea>
+          </div>
+
+          <!-- Priority & Story Points -->
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
-              <label class="block text-sm font-medium text-gray-700 mb-2">Labels</label>
-              <div class="space-y-2">
-                <div class="flex flex-wrap gap-2">
-                  <span
-                    v-for="(label, index) in formData.labels || []"
-                    :key="index"
-                    class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-indigo-100 text-indigo-800"
-                  >
-                    {{ label }}
-                    <button
-                      type="button"
-                      @click="removeLabel(index)"
-                      class="ml-2 text-indigo-600 hover:text-indigo-800"
-                    >
-                      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
-                      </svg>
-                    </button>
-                  </span>
-                </div>
-                <div class="flex space-x-2">
-                  <input
-                    v-model="newLabel"
-                    @keyup.enter="addLabel"
-                    type="text"
-                    class="flex-1 px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                    placeholder="Add label..."
-                  />
+              <label class="block text-sm font-medium text-gray-700 mb-2">Priority</label>
+              <select v-model="formData.priority"
+                      class="w-full px-4 py-3 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white">
+                <option v-for="priority in priorities" :key="priority.value" :value="priority.value">
+                  {{ priority.label }}
+                </option>
+              </select>
+            </div>
+
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-2">Story Points</label>
+              <input
+                v-model.number="formData.storyPoints"
+                type="number"
+                min="0"
+                max="100"
+                class="w-full px-4 py-3 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                placeholder="0"
+              />
+            </div>
+          </div>
+
+          <!-- Team Members -->
+          <div class="space-y-4">
+            <h3 class="text-lg font-medium text-gray-900 border-b border-gray-200 pb-2">Team Assignment</h3>
+
+            <!-- Assignee -->
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-2">Assignee</label>
+              <AutoCompleteInput
+                v-model="formData.assignee"
+                :options="teamMembers"
+                placeholder="Search and select assignee..."
+                :displayField="'displayName'"
+                :valueField="'email'"
+              />
+            </div>
+
+            <!-- Developer -->
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-2">Developer</label>
+              <AutoCompleteInput
+                v-model="formData.developer"
+                :options="developers"
+                placeholder="Search and select developer..."
+                :displayField="'name'"
+                :valueField="'email'"
+              />
+            </div>
+
+            <!-- Analyst -->
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-2">Analyst</label>
+              <AutoCompleteInput
+                v-model="formData.analyst"
+                :options="analysts"
+                placeholder="Search and select analyst..."
+                :displayField="'name'"
+                :valueField="'email'"
+              />
+            </div>
+
+            <!-- Tester -->
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-2">Tester</label>
+              <AutoCompleteInput
+                v-model="formData.tester"
+                :options="testers"
+                placeholder="Search and select tester..."
+                :displayField="'name'"
+                :valueField="'email'"
+              />
+            </div>
+          </div>
+
+          <!-- Labels -->
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-2">Labels</label>
+            <div class="space-y-2">
+              <div class="flex flex-wrap gap-2 w-full overflow-visible">
+                <span
+                  v-for="(label, index) in formData.labels || []"
+                  :key="index"
+                  class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-indigo-100 text-indigo-800 w-auto max-w-full break-words"
+                  style="white-space: normal; word-break: break-word;"
+                >
+                  {{ label }}
                   <button
                     type="button"
-                    @click="addLabel"
-                    :disabled="!newLabel.trim()"
-                    class="px-4 py-2 bg-indigo-600 text-white text-sm rounded-lg hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                    @click="removeLabel(index)"
+                    class="ml-2 text-indigo-600 hover:text-indigo-800"
                   >
-                    Add
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                    </svg>
                   </button>
-                </div>
+                </span>
+              </div>
+              <div class="flex space-x-2">
+                <input
+                  v-model="newLabel"
+                  @keyup.enter="addLabel"
+                  type="text"
+                  class="flex-1 px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  placeholder="Add label..."
+                />
+                <button
+                  type="button"
+                  @click="addLabel"
+                  :disabled="!newLabel.trim()"
+                  class="px-4 py-2 bg-indigo-600 text-white text-sm rounded-lg hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Add
+                </button>
               </div>
             </div>
-          </form>
-        </div>
-
-        <!-- Sidebar -->
-        <div class="w-80 bg-gray-50 border-l border-gray-200 p-6 overflow-y-auto">
-          <h3 class="text-lg font-medium text-gray-900 mb-4">Issue Details</h3>
-
-          <!-- Quick Stats -->
-          <div class="space-y-4 mb-6">
-            <div class="bg-white rounded-lg p-4 border border-gray-200">
-              <div class="text-sm text-gray-500">Created</div>
-              <div class="text-sm font-medium">{{ formatDate(task?.createdAt || new Date()) }}</div>
-            </div>
-
-            <div v-if="task?.updatedAt" class="bg-white rounded-lg p-4 border border-gray-200">
-              <div class="text-sm text-gray-500">Last Updated</div>
-              <div class="text-sm font-medium">{{ formatDate(task.updatedAt) }}</div>
-            </div>
           </div>
-
-          <!-- Actions -->
-          <div class="space-y-3">
-            <button
-              type="submit"
-              @click="submitTask"
-              class="w-full bg-blue-600 text-white py-3 px-4 rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors font-medium"
-            >
-              {{ task ? 'Update Issue' : 'Create Issue' }}
-            </button>
-
-            <button
-              type="button"
-              @click="closeModal"
-              class="w-full bg-gray-100 text-gray-700 py-3 px-4 rounded-lg hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 transition-colors font-medium"
-            >
-              Cancel
-            </button>
-
-            <button
-              v-if="task"
-              type="button"
-              @click="deleteTask"
-              class="w-full bg-red-100 text-red-700 py-3 px-4 rounded-lg hover:bg-red-200 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 transition-colors font-medium"
-            >
-              Delete Issue
-            </button>
-          </div>
-        </div>
+        </form>
+      </div>
+      <!-- Footer Action Buttons -->
+      <div class="w-full px-6 py-4 border-t border-gray-200 flex justify-end gap-3 bg-white">
+        <button
+          type="submit"
+          @click="submitTask"
+          class="bg-blue-600 text-white py-3 px-6 rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 font-medium"
+        >
+          {{ task ? 'Update Issue' : 'Create Issue' }}
+        </button>
+        <button
+          type="button"
+          @click="closeModal"
+          class="bg-gray-100 text-gray-700 py-3 px-6 rounded-lg hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-gray-500 font-medium"
+        >
+          Cancel
+        </button>
+        <button
+          v-if="task"
+          type="button"
+          @click="deleteTask"
+          class="bg-red-100 text-red-700 py-3 px-6 rounded-lg hover:bg-red-200 focus:outline-none focus:ring-2 focus:ring-red-500 font-medium"
+        >
+          Delete Issue
+        </button>
       </div>
     </div>
   </div>
@@ -255,6 +245,7 @@
 
 import AutoCompleteInput from "./AutoCompleteInput.vue";
 import {getTeamById} from "../../firebase/TeamService.js";
+import {addTask as addTaskService, updateTask as updateTaskService} from "../../firebase/WorkService.js";
 
 export default {
   name: 'TaskEditForm',
@@ -304,7 +295,8 @@ export default {
         {value: "Medium", label: "🟡 Medium"},
         {value: "High", label: "🟠 High"},
         {value: "Critical", label: "🔴 Critical"}
-      ]
+      ],
+      isSubmitting: false,
     };
   },
   computed: {
@@ -395,26 +387,42 @@ export default {
       }
     },
 
-    submitTask() {
+    async submitTask() {
+      if (this.isSubmitting) return;
+      this.isSubmitting = true;
       try {
-        const taskData = {
-          ...this.formData,
-          updatedAt: new Date().toISOString()
-        };
+        const baseData = { ...this.formData };
+        // id alanını (doc id) form datasından çıkarıyoruz (Firestore updateDoc'ta ayrı kullanacağız)
+        const taskId = this.task?.id;
+        delete baseData.id;
 
         if (this.task) {
           // Edit mode
-          this.$emit('updateTask', taskData);
+            const taskData = {
+              ...baseData,
+              updatedAt: new Date().toISOString()
+            };
+            if (!taskId) {
+              console.error('Güncellenecek task id bulunamadı');
+            } else {
+              await updateTaskService(this.teamId, taskId, taskData);
+              this.$emit('updateTask', { id: taskId, ...taskData });
+            }
         } else {
-          // Create mode
-          taskData.createdAt = new Date().toISOString();
-          taskData.status = "To Do";
-          this.$emit('addTask', taskData);
+            // Create mode
+            const newTaskData = {
+              ...baseData,
+              createdAt: new Date().toISOString(),
+              status: 'To Do'
+            };
+            await addTaskService(this.teamId, newTaskData);
+            this.$emit('addTask', newTaskData);
         }
-
         this.closeModal();
       } catch (error) {
-        console.error('Error submitting task:', error);
+        console.error('Task kaydedilirken hata:', error);
+      } finally {
+        this.isSubmitting = false;
       }
     },
 

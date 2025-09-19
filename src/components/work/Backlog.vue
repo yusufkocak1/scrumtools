@@ -41,9 +41,8 @@
         :task="editingTask"
         :teamId="teamId"
         @close="closeTaskForm"
-        @addTask="createTask"
-        @updateTask="updateTask"
-        @deleteTask="deleteTask"
+        @updateTask="handleUpdateTask"
+        @deleteTask="handleDeleteTask"
       ></AddTaskForm>
 
       <!-- Sprint Oluşturma Formu -->
@@ -284,13 +283,12 @@
 <script>
 import {
   addSprint,
-  addTask,
   addTaskToSprint,
   listenSprints,
   listenTasks,
   updateSprintStatus,
-  updateTask,
-  deleteTask
+  updateTask as updateTaskService,
+  deleteTask as deleteTaskService
 } from "../../firebase/WorkService";
 import AddTaskForm from "./AddTaskForm.vue";
 
@@ -315,13 +313,6 @@ export default {
     };
   },
   methods: {
-    async createTask(newTask) {
-      await addTask(this.teamId, newTask);
-      this.newTaskTitle = "";
-      this.newTaskDescription = "";
-      this.showCreateTask = false;
-    },
-
     async createSprint() {
       const newSprint = {
         name: this.newSprintName,
@@ -378,15 +369,13 @@ export default {
       this.showCreateTask = true;
     },
 
-    async updateTask(updatedTask) {
-      // Güncellenmiş görevi veritabanında güncelle
-      await updateTask(this.teamId, updatedTask);
+    async handleUpdateTask(updatedTask) {
+      await updateTaskService(this.teamId, updatedTask.id, { ...updatedTask, updatedAt: new Date().toISOString() });
       this.closeTaskForm();
     },
 
-    async deleteTask(taskId) {
-      // Görevi sil
-      await deleteTask(this.teamId, taskId);
+    async handleDeleteTask(taskId) {
+      await deleteTaskService(this.teamId, taskId);
       this.closeTaskForm();
     }
   },

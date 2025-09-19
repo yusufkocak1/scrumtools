@@ -48,14 +48,19 @@ const addTaskToSprint = async (teamId, taskId, sprintId) => {
 }
 
 const listenTasks = async (teamId, setterFunc) => {
-    onSnapshot(collection(db, "teams", teamId, "tasks"), (snapshot) => {
-        let tasks = snapshot.docs.map((doc) => ({
-            id: doc.id,
-            ...doc.data(),
-        }));
-        console.log()
-        setterFunc(tasks);
-    });
+    onSnapshot(
+        query(
+            collection(db, "teams", teamId, "tasks"),
+            where("status", "!=", "Cancelled")
+        ),
+        (snapshot) => {
+            let tasks = snapshot.docs.map((doc) => ({
+                id: doc.id,
+                ...doc.data(),
+            }));
+            setterFunc(tasks);
+        }
+    );
 }
 const listenSprints = async (teamId, setterFunc) => {
     onSnapshot(collection(db, "teams", teamId, "sprints"), (snapshot) => {

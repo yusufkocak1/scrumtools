@@ -40,13 +40,13 @@
               Edit
             </button>
             <button
-              @click="deleteTask"
+              @click="cancelTask"
               class="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-red-600 hover:bg-red-700"
             >
               <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
               </svg>
-              Delete
+              Cancel
             </button>
           </div>
         </div>
@@ -67,12 +67,35 @@
         <!-- Main Content -->
         <div class="lg:col-span-2 space-y-6">
           <!-- Description -->
-          <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+          <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6 cursor-text" @click="startEditingDescription">
             <h2 class="text-lg font-medium text-gray-900 mb-4">Description</h2>
-            <div v-if="task.description" class="prose prose-sm max-w-none">
-              <p class="text-gray-700 whitespace-pre-wrap">{{ task.description }}</p>
+            <!-- Edit Mode -->
+            <div v-if="editingDescription">
+              <textarea
+                ref="descriptionTextarea"
+                v-model="tempDescription"
+                rows="6"
+                @blur="saveDescription"
+                @keydown.esc.prevent="cancelDescriptionEdit"
+                @keydown.ctrl.enter.prevent="forceSaveDescription"
+                class="w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-sm resize-y"
+                placeholder="Add a description..."
+              ></textarea>
+              <div class="mt-2 flex items-center justify-between text-xs text-gray-500 select-none">
+                <span>Esc: İptal · Ctrl+Enter: Kaydet</span>
+                <div class="flex items-center space-x-3">
+                  <span v-if="savingDescription" class="text-blue-500">Kaydediliyor...</span>
+                  <span v-else-if="descriptionSavedFlash" class="text-green-600">Kaydedildi</span>
+                </div>
+              </div>
             </div>
-            <div v-else class="text-gray-500 italic">No description provided.</div>
+            <!-- View Mode -->
+            <div v-else>
+              <div v-if="task.description" class="prose prose-sm max-w-none">
+                <p class="text-gray-700 whitespace-pre-wrap">{{ task.description }}</p>
+              </div>
+              <div v-else class="text-gray-500 italic">Açıklama eklemek için tıklayın</div>
+            </div>
           </div>
 
           <!-- Activity/Comments -->
@@ -310,7 +333,12 @@ export default {
       teamData: null,
       loading: true,
       newComment: '',
-      showEditForm: false
+      showEditForm: false,
+      // Inline description edit state
+      editingDescription: false,
+      tempDescription: '',
+      savingDescription: false,
+      descriptionSavedFlash: false
     };
   },
   async mounted() {
@@ -320,11 +348,8 @@ export default {
     async loadTask() {
       try {
         this.loading = true;
-
-        // CustomId ile kullanıcının takımları arasında task ara
         console.log('Searching for task with customId:', this.taskId);
         const result = await findTaskInUserTeams(this.taskId);
-
         if (result) {
           this.task = result.task;
           this.teamId = result.teamId;
@@ -345,32 +370,75 @@ export default {
     async editTask() {
       this.showEditForm = true;
     },
-    async deleteTask() {
-      if (confirm('Are you sure you want to delete this task?')) {
+    cancelTask(){
+      this.updateTaskField('status', "Cancelled");
+    },
+    // Inline Description Editing
+    startEditingDescription() {
+      if (!this.task) return;
+      if (this.editingDescription) return; // zaten edit modunda
+      this.editingDescription = true;
+      this.tempDescription = this.task.description || '';
+      this.$nextTick(() => {
+        if (this.$refs.descriptionTextarea) {
+          this.$refs.descriptionTextarea.focus();
+        }
+      });
+    },
+    async saveDescription() {
+      if (!this.editingDescription) return;
+      const newValue = this.tempDescription.trim();
+      // Değişiklik yoksa sadece çık
+      if (this.task && this.task.description !== newValue) {
+        if(!this.teamId || !this.task?.id){
+          console.error('Description güncelleme için teamId veya task.id eksik', this.teamId, this.task?.id);
+          this.editingDescription = false;
+          return;
+        }
+        this.savingDescription = true;
+        const oldValue = this.task.description;
+        this.task.description = newValue; // optimistik güncelleme
         try {
-          await deleteTaskService(this.task.id);
-          this.$router.push({ name: 'TeamPage', params: { teamId: this.teamId } });
-        } catch (error) {
-          console.error('Error deleting task:', error);
-          alert('Failed to delete task. Please try again.');
+          await updateTask(this.teamId, this.task.id, { description: newValue, updatedAt: new Date().toISOString() });
+          this.descriptionSavedFlash = true;
+          setTimeout(() => { this.descriptionSavedFlash = false; }, 1500);
+        } catch (e) {
+          console.error('Error updating description', e);
+          alert('Açıklama kaydedilemedi.');
+          this.task.description = oldValue; // revert
+        } finally {
+          this.savingDescription = false;
         }
       }
+      this.editingDescription = false;
+    },
+    cancelDescriptionEdit() {
+      this.editingDescription = false;
+      this.tempDescription = '';
+    },
+    forceSaveDescription() {
+      if (this.$refs.descriptionTextarea) {
+        this.$refs.descriptionTextarea.blur();
+      }
+    },
+    getMemberByEmail(email) {
+      return this.teamData?.members[email] || null;
     },
     async addComment() {
       if (!this.newComment.trim()) return;
-
       try {
         const commentData = {
           text: this.newComment.trim(),
           author: this.getCurrentUserName(),
           timestamp: new Date().toISOString()
         };
-
         this.task.comments = this.task.comments || [];
         this.task.comments.push(commentData);
-
-        await updateTask(this.task.id, { comments: this.task.comments });
-
+        if(!this.teamId || !this.task?.id){
+          console.error('Yorum ekleme için teamId veya task.id eksik', this.teamId, this.task?.id);
+            return;
+        }
+        await updateTask(this.teamId, this.task.id, { comments: this.task.comments });
         this.newComment = '';
       } catch (error) {
         console.error('Error adding comment:', error);
@@ -380,23 +448,27 @@ export default {
     updateTaskField(field, value) {
       if (this.task) {
         this.task[field] = value;
-        updateTask(this.task.id, { [field]: value });
+        if(!this.teamId || !this.task?.id){
+          console.error('Alan güncelleme için teamId veya task.id eksik', this.teamId, this.task?.id);
+          return;
+        }
+        updateTask(this.teamId, this.task.id, { [field]: value, updatedAt: new Date().toISOString() });
       }
     },
     onTaskUpdate(updatedTask) {
       this.task = { ...this.task, ...updatedTask };
     },
     getCurrentUserName() {
-      // Replace with actual logic to get the current user's name
-      return 'Current User';
+      return localStorage.getItem('user');
     },
     getCurrentUserInitials() {
-      // Replace with actual logic to get the current user's initials
-      return 'CU';
+      return this.getInitials(this.getCurrentUserName());
     },
-    getInitials(name) {
-      if (!name) return '';
-      const names = name.split(' ');
+    getInitials(email) {
+      if (!email) return '';
+      const member = this.getMemberByEmail(email);
+      if(!member || !member.displayName) return '';
+      const names = member.displayName.toUpperCase().split(' ');
       return names.length > 1 ? names[0][0] + names[1][0] : names[0][0];
     },
     formatDate(dateString) {

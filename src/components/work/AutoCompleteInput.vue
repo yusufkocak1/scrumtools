@@ -36,56 +36,63 @@
     </div>
 
     <!-- Dropdown -->
-    <div
-      v-if="showDropdown && filteredOptions.length > 0"
-      class="absolute z-50 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-y-auto"
-    >
-      <ul class="py-1 autocomplete-dropdown">
-        <li
-          v-for="(option, index) in filteredOptions"
-          :key="option[valueField] || index"
-          :class="[
-            'px-4 py-3 cursor-pointer flex items-center space-x-3 hover:bg-blue-50 transition-colors',
-            { 'bg-blue-100': index === highlightedIndex }
-          ]"
-          @mousedown.prevent="selectOption(option)"
-          @mouseover="highlightedIndex = index"
-        >
-          <!-- Avatar -->
-          <div class="w-8 h-8 rounded-full bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center text-white text-sm font-medium flex-shrink-0">
-            {{ getInitials(option[displayField]) }}
-          </div>
-
-          <!-- User info -->
-          <div class="flex-1 min-w-0">
-            <div class="text-sm font-medium text-gray-900 truncate">
-              {{ option[displayField] }}
+    <teleport to="body">
+      <div
+        v-if="showDropdown && filteredOptions.length > 0"
+        class="autocomplete-teleport-dropdown z-[9999] bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-y-auto"
+        :style="dropdownStyle"
+        :class="{
+          'dropdown-up': dropdownDirection === 'up',
+          'dropdown-down': dropdownDirection === 'down'
+        }"
+      >
+        <ul class="py-1 autocomplete-dropdown">
+          <li
+            v-for="(option, index) in filteredOptions"
+            :key="option[valueField] || index"
+            :class="[
+              'px-4 py-3 cursor-pointer flex items-center space-x-3 hover:bg-blue-50 transition-colors',
+              { 'bg-blue-100': index === highlightedIndex }
+            ]"
+            @mousedown.prevent="selectOption(option)"
+            @mouseover="highlightedIndex = index"
+          >
+            <!-- Avatar -->
+            <div class="w-8 h-8 rounded-full bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center text-white text-sm font-medium flex-shrink-0">
+              {{ getInitials(option[displayField]) }}
             </div>
-            <div class="text-xs text-gray-500 truncate">
-              {{ option.email }}
-            </div>
-            <div v-if="option.role" class="text-xs text-blue-600 truncate">
-              {{ option.role }}
-            </div>
-          </div>
 
-          <!-- Role badge -->
-          <div v-if="option.role" class="flex-shrink-0">
-            <span
-              class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium"
-              :class="getRoleBadgeClass(option.role)"
-            >
-              {{ getRoleIcon(option.role) }} {{ option.role }}
-            </span>
-          </div>
-        </li>
-      </ul>
+            <!-- User info -->
+            <div class="flex-1 min-w-0">
+              <div class="text-sm font-medium text-gray-900 truncate">
+                {{ option[displayField] }}
+              </div>
+              <div class="text-xs text-gray-500 truncate">
+                {{ option.email }}
+              </div>
+              <div v-if="option.role" class="text-xs text-blue-600 truncate">
+                {{ option.role }}
+              </div>
+            </div>
 
-      <!-- No results -->
-      <div v-if="searchTerm && filteredOptions.length === 0" class="px-4 py-3 text-sm text-gray-500 text-center">
-        No results found for "{{ searchTerm }}"
+            <!-- Role badge -->
+            <div v-if="option.role" class="flex-shrink-0">
+              <span
+                class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium"
+                :class="getRoleBadgeClass(option.role)"
+              >
+                {{ getRoleIcon(option.role) }} {{ option.role }}
+              </span>
+            </div>
+          </li>
+        </ul>
+
+        <!-- No results -->
+        <div v-if="searchTerm && filteredOptions.length === 0" class="px-4 py-3 text-sm text-gray-500 text-center">
+          No results found for "{{ searchTerm }}"
+        </div>
       </div>
-    </div>
+    </teleport>
 
     <!-- Selected user display -->
     <div v-if="selectedValue && selectedOption" class="mt-2 flex items-center space-x-2 p-2 bg-blue-50 rounded-lg border border-blue-200">
@@ -141,7 +148,9 @@ export default {
       showDropdown: false,
       highlightedIndex: -1,
       selectedValue: this.modelValue,
-      blurTimeout: null
+      blurTimeout: null,
+      dropdownDirection: 'down', // 'down' veya 'up'
+      dropdownStyle: {},
     };
   },
   computed: {
@@ -184,6 +193,14 @@ export default {
         if (option) {
           this.searchTerm = option[this.displayField];
         }
+      }
+    },
+
+    showDropdown(val) {
+      if (val) {
+        this.$nextTick(() => {
+          this.setDropdownPosition();
+        });
       }
     }
   },
@@ -262,10 +279,47 @@ export default {
         'admin': 'bg-red-100 text-red-800'
       };
       return classes[role?.toLowerCase()] || 'bg-gray-100 text-gray-800';
-    }
+    },
+
+    updateDropdownDirection() {
+      this.$nextTick(() => {
+        const input = this.$refs.input;
+        if (!input) return;
+        const rect = input.getBoundingClientRect();
+        const windowHeight = window.innerHeight;
+        const dropdownHeight = 240; // max-h-60 = 15rem = 240px
+        if (rect.bottom + dropdownHeight > windowHeight && rect.top > dropdownHeight) {
+          this.dropdownDirection = 'up';
+        } else {
+          this.dropdownDirection = 'down';
+        }
+      });
+    },
+
+    showDropdownWithDirection() {
+      this.showDropdown = true;
+      this.updateDropdownDirection();
+    },
+
+    setDropdownPosition() {
+      const input = this.$refs.input;
+      if (input) {
+        const rect = input.getBoundingClientRect();
+        this.dropdownStyle = {
+          position: 'absolute',
+          top: rect.bottom + window.scrollY + 'px',
+          left: rect.left + window.scrollX + 'px',
+          width: rect.width + 'px',
+        };
+      }
+    },
   },
 
+  mounted() {
+    window.addEventListener('resize', this.updateDropdownDirection);
+  },
   beforeUnmount() {
+    window.removeEventListener('resize', this.updateDropdownDirection);
     if (this.blurTimeout) {
       clearTimeout(this.blurTimeout);
     }
@@ -284,7 +338,22 @@ export default {
   transform: translateY(-10px);
 }
 .autocomplete-dropdown {
+  z-index: 9999999999; /* Modal'ın üstünde olacak şekilde çok yüksek bir değer */
+}
+
+.dropdown-up {
+  bottom: 100%;
+  top: auto;
+  transform: translateY(-0.5rem);
+}
+
+.dropdown-down {
+  top: 100%;
+  bottom: auto;
+  transform: translateY(0.5rem);
+}
+
+.autocomplete-teleport-dropdown {
   position: absolute;
-  z-index: 1050; /* Modal'ın üstünde olacak şekilde yüksek bir değer */
 }
 </style>
