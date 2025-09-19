@@ -192,15 +192,23 @@ export default {
     loadAllRetroItems() {
       if (!this.board?.columns) return;
 
+      // Hepsini sıfırla
       this.allRetroItems = [];
 
-      // Throttled loading with batch processing
-      const loadPromises = this.board.columns.map(column => {
+      const columnNames = this.board.columns; // String dizisi
+
+      const loadPromises = columnNames.map(columnName => {
         return new Promise((resolve) => {
-          getRetroItems(this.teamId, this.boardId, column.id, (items) => {
+          // HATALI: columnName.id kullanılıyordu (undefined). Doğru: direkt columnName
+          getRetroItems(this.teamId, this.boardId, columnName, (items) => {
             if (items && Array.isArray(items)) {
-              // Batch update yerine direct assignment
-              this.allRetroItems = [...this.allRetroItems, ...items];
+              // Gelen item'ların column field'ı yoksa ekleyelim
+              const normalized = items.map(it => ({ ...it, column: it.column || columnName }))
+              // Aynı kolona ait eski kayıtları çıkar, yenileri ekle (duplicate engelleme)
+              this.allRetroItems = [
+                ...this.allRetroItems.filter(existing => existing.column !== columnName),
+                ...normalized
+              ]
             }
             resolve();
           });
@@ -208,10 +216,7 @@ export default {
       });
 
       Promise.all(loadPromises).then(() => {
-        // Tüm item'lar yüklendi
-        this.$nextTick(() => {
-          // DOM güncellemelerini bir sonraki tick'e ertele
-        })
+        this.$nextTick(() => { /* gerekirse post-processing */ })
       }).catch(error => {
         console.error('Error loading retro items:', error)
         createToast('Error loading items. Please refresh the page.',{type:'error',position:'top-center'})
