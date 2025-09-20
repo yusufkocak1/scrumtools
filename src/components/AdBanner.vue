@@ -1,6 +1,27 @@
 <template>
   <div class="w-full max-w-6xl mx-auto my-8">
-    <div class="bg-gradient-to-r from-amber-50 to-yellow-50 border-2 border-amber-200 rounded-xl p-6 shadow-lg">
+    <div class="bg-gradient-to-r from-amber-50 to-yellow-50 border-2 border-amber-200 rounded-xl p-6 shadow-lg relative">
+      <!-- Sponsored Badge (desktop only) -->
+      <div
+        class="absolute top-2 right-2 hidden md:block"
+        @mouseenter="showSponsoredTooltip = true"
+        @mouseleave="showSponsoredTooltip = false"
+      >
+        <span
+          class="inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-bold tracking-wide uppercase bg-amber-600 text-white shadow cursor-help"
+          aria-label="Sponsored Banner"
+        >
+                  <span class="rounded-full border px-1 mr-1">?</span> Sponsored
+        </span>
+        <div
+          v-if="showSponsoredTooltip"
+          class="absolute right-0 mt-2 w-56 bg-gray-900 text-white text-xs rounded-lg px-3 py-2 shadow-lg z-20"
+        >
+          Bu alana reklam vermek için iletişime geçin
+          <div class="absolute -top-1 right-4 w-2 h-2 bg-gray-900 rotate-45"></div>
+        </div>
+      </div>
+
       <!-- Reklam Başlığı -->
       <div class="text-center mb-6">
         <h2 class="text-3xl font-bold text-amber-800 mb-2">🐝 Koçak Bal 🍯</h2>
@@ -15,7 +36,7 @@
             <div class="text-4xl mb-3">🍯</div>
             <h3 class="text-xl font-semibold text-gray-800 mb-2 flex items-center justify-center gap-2">
               Kara Kovan Balı
-              <div
+              <span
                 class="relative inline-block"
                 @mouseenter="showTooltip = true"
                 @mouseleave="showTooltip = false"
@@ -31,7 +52,7 @@
                   Sınırlı stok sebebiyle eylül ayı öncesi ön sipariş talebinde bulunulmalı
                   <div class="absolute top-full left-1/2 transform -translate-x-1/2 border-4 border-transparent border-t-gray-800"></div>
                 </div>
-              </div>
+              </span>
             </h3>
             <p class="text-gray-600 text-sm mb-3">Geleneksel yöntemlerle üretilen</p>
             <div class="bg-red-100 text-red-800 px-3 py-1 rounded-full text-sm font-medium">
@@ -98,7 +119,8 @@ export default {
     return {
       initialSuzmeBalStock: 1000,
       initialCitaBalStock: 300,
-      showTooltip: false, // Tooltip görünürlüğü için değişken
+      showTooltip: false, // Kara kovan tooltip
+      showSponsoredTooltip: false, // Sponsored tooltip
     }
   },
   computed: {

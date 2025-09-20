@@ -1,40 +1,42 @@
 <template>
   <div class="min-h-screen bg-gray-50">
     <!-- Header -->
-    <div class="bg-white border-b border-gray-200 px-6 py-4">
-      <div class="flex justify-between items-center">
-        <div class="flex items-center space-x-4">
-          <h1 class="text-2xl font-semibold text-gray-900">Backlog</h1>
-          <div class="flex items-center space-x-2 text-sm text-gray-500">
+    <div class="bg-white border-b border-gray-200 px-4 sm:px-6 py-4">
+      <div class="flex flex-col sm:flex-row sm:justify-between sm:items-center space-y-4 sm:space-y-0">
+        <div class="flex flex-col sm:flex-row sm:items-center sm:space-x-4 space-y-2 sm:space-y-0">
+          <h1 class="text-xl sm:text-2xl font-semibold text-gray-900">Backlog</h1>
+          <div class="flex flex-wrap items-center space-x-2 text-xs sm:text-sm text-gray-500">
             <span>{{ tasks.length }} issues</span>
-            <span>•</span>
-            <span>{{ sprints.filter(s => s.status !== 'done').length }} sprints</span>
+            <span class="hidden sm:inline">•</span>
+            <span>{{ activeSprints.length }} sprints</span>
           </div>
         </div>
-        <div class="flex items-center space-x-3">
+        <div class="flex flex-wrap sm:flex-nowrap items-center gap-2 sm:space-x-3">
           <button
-            class="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+            class="flex-1 sm:flex-none inline-flex items-center justify-center px-3 sm:px-4 py-2 border border-gray-300 rounded-md shadow-sm text-xs sm:text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
             @click="showCreateSprint = !showCreateSprint"
           >
-            <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg class="w-4 h-4 mr-1 sm:mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/>
             </svg>
-            Create Sprint
+            <span class="hidden xs:inline">Create Sprint</span>
+            <span class="xs:hidden">Sprint</span>
           </button>
           <button
-            class="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+            class="flex-1 sm:flex-none inline-flex items-center justify-center px-3 sm:px-4 py-2 border border-transparent rounded-md shadow-sm text-xs sm:text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
             @click="showCreateTask = !showCreateTask"
           >
-            <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg class="w-4 h-4 mr-1 sm:mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/>
             </svg>
-            Create Issue
+            <span class="hidden xs:inline">Create Issue</span>
+            <span class="xs:hidden">Issue</span>
           </button>
         </div>
       </div>
     </div>
 
-    <div class="px-6 py-6">
+    <div class="px-3 sm:px-6 py-6">
       <!-- Task Oluşturma/Düzenleme Formu -->
       <AddTaskForm
         :is-open="showCreateTask || !!editingTask"
@@ -47,24 +49,26 @@
 
       <!-- Sprint Oluşturma Formu -->
       <div v-if="showCreateSprint" class="mb-6 bg-white rounded-lg shadow-sm border border-gray-200 p-4">
-        <div class="flex items-center space-x-4">
+        <div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
           <input
             v-model="newSprintName"
-            class="flex-1 px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+            class="flex-1 px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-sm"
             placeholder="Sprint name"
           />
-          <button
-            class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
-            @click="createSprint"
-          >
-            Create Sprint
-          </button>
-          <button
-            class="px-4 py-2 text-gray-600 hover:text-gray-800"
-            @click="showCreateSprint = false"
-          >
-            Cancel
-          </button>
+          <div class="flex gap-2">
+            <button
+              class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+              @click="createSprint"
+            >
+              Create
+            </button>
+            <button
+              class="px-4 py-2 text-gray-600 hover:text-gray-800 text-sm"
+              @click="showCreateSprint = false"
+            >
+              Cancel
+            </button>
+          </div>
         </div>
       </div>
 
@@ -72,13 +76,13 @@
       <div class="mb-8">
         <div class="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
           <!-- Backlog Header -->
-          <div class="bg-gray-50 px-6 py-4 border-b border-gray-200 flex items-center justify-between">
-            <div class="flex items-center space-x-3">
-              <svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <div class="bg-gray-50 px-4 sm:px-6 py-3 sm:py-4 border-b border-gray-200 flex items-center justify-between">
+            <div class="flex items-center space-x-2 sm:space-x-3">
+              <svg class="w-5 h-5 text-gray-400 hidden sm:block" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/>
               </svg>
-              <h3 class="text-lg font-medium text-gray-900">Backlog</h3>
-              <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
+              <h3 class="text-base sm:text-lg font-medium text-gray-900">Backlog</h3>
+              <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] sm:text-xs font-medium bg-gray-100 text-gray-800">
                 {{ tasks.filter(item => !item.sprintId).length }} issues
               </span>
             </div>
@@ -86,7 +90,7 @@
 
           <!-- Backlog Items -->
           <div
-            class="min-h-[200px] p-4 space-y-2"
+            class="min-h-[200px] p-3 sm:p-4 space-y-2"
             @drop="onDrop(null)"
             @dragover.prevent
             @dragenter.prevent
@@ -94,13 +98,13 @@
             <div
               v-for="task in tasks.filter(item => !item.sprintId)"
               :key="task.id"
-              class="group bg-white border border-gray-200 rounded-lg p-4 hover:shadow-md transition-all duration-200 cursor-pointer"
-              draggable="true"
-              @dragstart="onDragStart(task)"
+              class="group bg-white border border-gray-200 rounded-lg p-3 sm:p-4 hover:shadow-md transition-all duration-200 cursor-pointer"
+              :draggable="!isMobile"
+              @dragstart="!isMobile && onDragStart(task)"
               @click="openTaskDetail(task)"
             >
               <div class="flex items-start space-x-3">
-                <div class="flex-shrink-0">
+                <div class="flex-shrink-0 hidden sm:block">
                   <div class="w-6 h-6 rounded bg-blue-100 flex items-center justify-center">
                     <svg class="w-4 h-4 text-blue-600" fill="currentColor" viewBox="0 0 20 20">
                       <path fill-rule="evenodd" d="M6 2a2 2 0 00-2 2v12a2 2 0 002 2h8a2 2 0 002-2V4a2 2 0 00-2-2H6zm1 2a1 1 0 000 2h6a1 1 0 100-2H7zm6 7a1 1 0 011 1v3a1 1 0 11-2 0v-3a1 1 0 011-1zm-3 3a1 1 0 100 2h.01a1 1 0 100-2H10zm-4 1a1 1 0 011-1h.01a1 1 0 110 2H7a1 1 0 01-1-1zm1-4a1 1 0 100 2h.01a1 1 0 100-2H7zm2 1a1 1 0 011-1h.01a1 1 0 110 2H10a1 1 0 01-1-1zm4-4a1 1 0 100 2h.01a1 1 0 100-2H13z" clip-rule="evenodd"/>
@@ -108,14 +112,14 @@
                   </div>
                 </div>
                 <div class="flex-1 min-w-0">
-                  <div class="flex items-center space-x-2">
-                    <span class="text-xs font-mono text-gray-500">{{ task.customId || task.id }}</span>
-                    <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-800">
+                  <div class="flex flex-wrap items-center gap-2">
+                    <span class="text-[10px] sm:text-xs font-mono text-gray-500">{{ task.customId || task.id }}</span>
+                    <span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] sm:text-xs font-medium bg-gray-100 text-gray-800">
                       {{ task.status }}
                     </span>
                   </div>
-                  <p class="mt-1 text-sm font-medium text-gray-900">{{ task.title }}</p>
-                  <div class="mt-2 flex items-center space-x-4 text-xs text-gray-500">
+                  <p class="mt-1 text-sm font-medium text-gray-900 line-clamp-2">{{ task.title }}</p>
+                  <div class="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-[10px] sm:text-xs text-gray-500">
                     <span v-if="task.assignee" class="flex items-center space-x-1">
                       <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
                         <path fill-rule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clip-rule="evenodd"/>
@@ -123,8 +127,21 @@
                       <span>{{ task.assignee }}</span>
                     </span>
                   </div>
+                  <!-- Mobilde sprint seçimi -->
+                  <div class="mt-3 sm:hidden">
+                    <label class="block text-[10px] uppercase tracking-wide text-gray-400 mb-1">Sprint</label>
+                    <select
+                      class="w-full bg-white border border-gray-300 rounded-md px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-blue-500"
+                      :value="task.sprintId || ''"
+                      @change="e => handleMobileSprintChange(task, e.target.value)"
+                      @click.stop
+                    >
+                      <option value="">Backlog</option>
+                      <option v-for="s in activeSprints" :key="s.id" :value="s.id">{{ s.name }}</option>
+                    </select>
+                  </div>
                 </div>
-                <div class="opacity-0 group-hover:opacity-100 transition-opacity">
+                <div class="opacity-0 group-hover:opacity-100 transition-opacity hidden sm:block">
                   <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z"/>
                   </svg>
@@ -133,7 +150,7 @@
             </div>
 
             <div v-if="tasks.filter(item => !item.sprintId).length === 0" class="text-center py-12 text-gray-500">
-              <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 48 48">
+              <svg class="mx-auto h-10 w-10 sm:h-12 sm:w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 48 48">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M34 40h10v-4a6 6 0 00-10.712-3.714M34 40H14m20 0v-4a9 971 0 00-.712-3.714M14 40H4v-4a6 6 0 0110.713-3.714M14 40v-4c0-1.313.253-2.566.713-3.714m0 0A9.971 9.971 0 0124 24c4.21 0 7.863 2.613 9.288 6.286"/>
               </svg>
               <p class="mt-2 text-sm">No issues in backlog</p>
@@ -145,18 +162,18 @@
 
       <!-- Sprint Sections -->
       <div
-        v-for="sprint in sprints.filter(status => status.status !== 'done')"
+        v-for="sprint in activeSprints"
         :key="sprint.id"
         class="mb-8"
       >
         <div class="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
           <!-- Sprint Header -->
           <div
-            class="px-6 py-4 border-b border-gray-200 flex items-center justify-between cursor-pointer hover:bg-gray-50 transition-colors"
+            class="px-4 sm:px-6 py-3 sm:py-4 border-b border-gray-200 flex flex-col sm:flex-row sm:items-center sm:justify-between cursor-pointer hover:bg-gray-50 transition-colors gap-3"
             :class="{ 'bg-blue-50 border-blue-200': sprint.status === 'open' }"
             @click="showSprintDetails(sprint)"
           >
-            <div class="flex items-center space-x-3" @click="showSprintDetails(sprint)">
+            <div class="flex items-start sm:items-center space-x-3" @click="showSprintDetails(sprint)">
               <div class="flex-shrink-0">
                 <div
                   class="w-8 h-8 rounded-full flex items-center justify-center"
@@ -173,8 +190,8 @@
                 </div>
               </div>
               <div>
-                <h3 class="text-lg font-medium text-gray-900 hover:text-blue-600 transition-colors">{{ sprint.name }}</h3>
-                <div class="flex items-center space-x-4 text-sm text-gray-500">
+                <h3 class="text-base sm:text-lg font-medium text-gray-900 hover:text-blue-600 transition-colors">{{ sprint.name }}</h3>
+                <div class="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs sm:text-sm text-gray-500 mt-1 sm:mt-0">
                   <span class="inline-flex items-center">
                     <span
                       class="w-2 h-2 rounded-full mr-2"
@@ -189,30 +206,32 @@
             <div class="flex items-center space-x-2">
               <button
                 v-if="sprint.status !== 'open'"
-                class="inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
+                class="inline-flex items-center px-2 sm:px-3 py-2 border border-transparent text-xs sm:text-sm leading-4 font-medium rounded-md text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
                 @click.stop="startSprint(sprint.id)"
               >
                 <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.828 14.828a4 4 0 01-5.656 0M9 10h1m4 0h1m-6 4h.01M12 3v1m0 16v1m9-9h-1M3 12h1m15.364-6.364l-.707.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707"/>
                 </svg>
-                Start Sprint
+                <span class="hidden xs:inline">Start Sprint</span>
+                <span class="xs:hidden">Start</span>
               </button>
               <button
                 v-else
-                class="inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
+                class="inline-flex items-center px-2 sm:px-3 py-2 border border-transparent text-xs sm:text-sm leading-4 font-medium rounded-md text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
                 @click.stop="finishSprint(sprint.id)"
               >
                 <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
                 </svg>
-                Finish Sprint
+                <span class="hidden xs:inline">Finish Sprint</span>
+                <span class="xs:hidden">Finish</span>
               </button>
             </div>
           </div>
 
           <!-- Sprint Items -->
           <div
-            class="min-h-[150px] p-4 space-y-2"
+            class="min-h-[150px] p-3 sm:p-4 space-y-2"
             @drop="onDrop(sprint.id)"
             @dragover.prevent
             @dragenter.prevent
@@ -220,13 +239,13 @@
             <div
               v-for="task in tasks.filter(item => item.sprintId === sprint.id)"
               :key="task.id"
-              class="group bg-white border border-gray-200 rounded-lg p-4 hover:shadow-md transition-all duration-200 cursor-pointer"
-              draggable="true"
-              @dragstart="onDragStart(task)"
+              class="group bg-white border border-gray-200 rounded-lg p-3 sm:p-4 hover:shadow-md transition-all duration-200 cursor-pointer"
+              :draggable="!isMobile"
+              @dragstart="!isMobile && onDragStart(task)"
               @click="openTaskDetail(task)"
             >
               <div class="flex items-start space-x-3">
-                <div class="flex-shrink-0">
+                <div class="flex-shrink-0 hidden sm:block">
                   <div class="w-6 h-6 rounded bg-blue-100 flex items-center justify-center">
                     <svg class="w-4 h-4 text-blue-600" fill="currentColor" viewBox="0 0 20 20">
                       <path fill-rule="evenodd" d="M6 2a2 2 0 00-2 2v12a2 2 0 002 2h8a2 2 0 002-2V4a2 2 0 00-2-2H6zm1 2a1 1 0 000 2h6a1 1 0 100-2H7zm6 7a1 1 0 011 1v3a1 1 0 11-2 0v-3a1 1 0 011-1zm-3 3a1 1 0 100 2h.01a1 1 0 100-2H10zm-4 1a1 1 0 011-1h.01a1 1 0 110 2H7a1 1 0 01-1-1zm1-4a1 1 0 100 2h.01a1 1 0 100-2H7zm2 1a1 1 0 011-1h.01a1 1 0 110 2H10a1 1 0 01-1-1zm4-4a1 1 0 100 2h.01a1 1 0 100-2H13z" clip-rule="evenodd"/>
@@ -234,10 +253,10 @@
                   </div>
                 </div>
                 <div class="flex-1 min-w-0">
-                  <div class="flex items-center space-x-2">
-                    <span class="text-xs font-mono text-gray-500">{{ task.customId || task.id }}</span>
+                  <div class="flex flex-wrap items-center gap-2">
+                    <span class="text-[10px] sm:text-xs font-mono text-gray-500">{{ task.customId || task.id }}</span>
                     <span
-                      class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium"
+                      class="inline-flex items-center px-2 py-0.5 rounded text-[10px] sm:text-xs font-medium"
                       :class="{
                         'bg-yellow-100 text-yellow-800': task.status === 'To Do',
                         'bg-blue-100 text-blue-800': task.status === 'In Progress',
@@ -248,8 +267,8 @@
                       {{ task.status }}
                     </span>
                   </div>
-                  <p class="mt-1 text-sm font-medium text-gray-900">{{ task.title }}</p>
-                  <div class="mt-2 flex items-center space-x-4 text-xs text-gray-500">
+                  <p class="mt-1 text-sm font-medium text-gray-900 line-clamp-2">{{ task.title }}</p>
+                  <div class="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-[10px] sm:text-xs text-gray-500">
                     <span v-if="task.assignee" class="flex items-center space-x-1">
                       <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
                         <path fill-rule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clip-rule="evenodd"/>
@@ -257,8 +276,21 @@
                       <span>{{ task.assignee }}</span>
                     </span>
                   </div>
+                  <!-- Mobilde sprint değiştirme -->
+                  <div class="mt-3 sm:hidden">
+                    <label class="block text-[10px] uppercase tracking-wide text-gray-400 mb-1">Move To</label>
+                    <select
+                      class="w-full bg-white border border-gray-300 rounded-md px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-blue-500"
+                      :value="task.sprintId || ''"
+                      @change="e => handleMobileSprintChange(task, e.target.value)"
+                      @click.stop
+                    >
+                      <option value="">Backlog</option>
+                      <option v-for="s in activeSprints" :key="s.id" :value="s.id">{{ s.name }}</option>
+                    </select>
+                  </div>
                 </div>
-                <div class="opacity-0 group-hover:opacity-100 transition-opacity">
+                <div class="opacity-0 group-hover:opacity-100 transition-opacity hidden sm:block">
                   <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z"/>
                   </svg>
@@ -310,12 +342,20 @@ export default {
       newTaskDescription: "",
       newSprintName: "",
       editingTask: null,
+      isMobile: false,
+      draggedTask: null,
     };
+  },
+  computed: {
+    activeSprints() {
+      return this.sprints.filter(s => s.status !== 'done');
+    }
   },
   methods: {
     async createSprint() {
+      if(!this.newSprintName.trim()) return;
       const newSprint = {
-        name: this.newSprintName,
+        name: this.newSprintName.trim(),
         startDate: "",
         endDate: "",
         teamId: this.teamId,
@@ -329,12 +369,17 @@ export default {
 
     async onDragStart(task) {
       this.draggedTask = task;
-      console.log("test")
     },
 
     async onDrop(sprintId) {
-      console.log("drop", this.draggedTask.id)
+      if(!this.draggedTask) return;
       await addTaskToSprint(this.teamId, this.draggedTask.id, sprintId);
+      this.draggedTask = null;
+    },
+
+    async handleMobileSprintChange(task, sprintId) {
+      // sprintId boş ise backlog'a gönder
+      await addTaskToSprint(this.teamId, task.id, sprintId || null);
     },
 
     startSprint(sprintId) {
@@ -350,7 +395,6 @@ export default {
     },
 
     openTaskDetail(task) {
-      // Sadece customId ile yönlendir (teamId olmadan)
       this.$router.push({
         name: 'TaskDetail',
         params: {
@@ -377,9 +421,16 @@ export default {
     async handleDeleteTask(taskId) {
       await deleteTaskService(this.teamId, taskId);
       this.closeTaskForm();
+    },
+
+    handleResize() {
+      this.isMobile = window.innerWidth < 640; // Tailwind sm breakpoint
     }
   },
   mounted() {
+    this.handleResize();
+    window.addEventListener('resize', this.handleResize);
+
     listenTasks(this.teamId, (tasks) => {
       this.tasks = tasks;
     });
@@ -388,6 +439,9 @@ export default {
       this.sprints = sprints;
     });
   },
+  beforeUnmount() {
+    window.removeEventListener('resize', this.handleResize);
+  }
 };
 </script>
 
@@ -398,5 +452,13 @@ export default {
 
 .drag-target {
   @apply ring-2 ring-blue-300 ring-opacity-50;
+}
+
+/* line clamp utility fallback if not available */
+.line-clamp-2 {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 </style>
