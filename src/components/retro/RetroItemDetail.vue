@@ -174,39 +174,39 @@ export default {
     return {
       commentInput: "",
       comments: [],
-      edit: false
+      edit: false,
+      commentsLoadedForItem:""
     }
   },
   methods: {
-    closeDetail() {
-      this.$emit('closeDetail')
-    },
-    removeItem() {
-      this.$emit('removeItem')
-    },
     updateItem() {
       updateRetroItem(this.teamId, this.boardId, this.item.column, this.item.id, this.item.value)
     },
     addComment() {
+      if(!this.commentInput.trim()) return;
       const newComment = {
         value: this.commentInput,
-        owner: localStorage.getItem("user")
+        owner: localStorage.getItem("user"),
+        createdAt: new Date().toISOString()
       }
       createRetroItemComment(this.teamId, this.boardId, this.item.column, this.item.id, newComment).then(() => {
         createToast('Comment added', {type: 'success', position: 'top-center'})
-        this.getRetroItemComments()
+        this.fetchComments(true)
         this.commentInput = ""
       })
     },
     removeComment(commentId) {
       removeRetroItemComment(this.teamId, this.boardId, this.item.column, this.item.id, commentId).then(() => {
         createToast('Comment removed', {type: 'success', position: 'top-center'})
-        this.getRetroItemComments()
+        this.fetchComments(true)
       })
     },
-    getRetroItemComments() {
+    fetchComments(force = false) {
+      if(!this.item?.id) return;
+      if(!force && this.commentsLoadedForItem === this.item.id) return;
       getRetroItemComments(this.teamId, this.boardId, this.item.column, this.item.id, (comments) => {
-        this.comments = comments
+        this.comments = comments;
+        this.commentsLoadedForItem = this.item.id;
       })
     },
     setStatus(status) {
@@ -237,8 +237,18 @@ export default {
       return 'U';
     }
   },
-  created() {
-    this.getRetroItemComments()
+  watch: {
+    'item.id': {
+      handler(newVal, oldVal){
+        if(!newVal) return;
+        if(oldVal && oldVal !== newVal){
+          this.comments = [];
+          this.commentsLoadedForItem = null;
+        }
+        this.fetchComments();
+      },
+      immediate: true
+    }
   }
 }
 </script>

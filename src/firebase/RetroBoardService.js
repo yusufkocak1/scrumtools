@@ -1,7 +1,6 @@
 import {collection, query, getDoc, setDoc, doc, addDoc, getDocs, deleteDoc, where} from 'firebase/firestore';
 import {onSnapshot} from 'firebase/firestore';
 import {db} from "./Firebase.js";
-import {createToast} from "mosha-vue-toastify";
 
 // Connection pool ve throttling için
 const activeListeners = new Map();
@@ -14,6 +13,7 @@ const getRetroBoardsFromTeam = async (teamId, setterFunc) => {
 }
 
 const getRetroBoard= async (teamId,boardId, setterFunc)=>{
+    console.log("Getting retro board:", teamId, boardId);
     const docRef = doc(db, "teams", teamId,"retroBoards",boardId);
     const docSnap = await getDoc(docRef);
     if (docSnap.exists()) {

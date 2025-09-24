@@ -265,7 +265,7 @@
 </template>
 
 <script>
-import {getTeamById, getTeams, listenTeams, removeUserFromTeam, updateMemberRoleAndSkills} from "../firebase/TeamService.js";
+import {getTeamById, removeUserFromTeam, updateMemberRoleAndSkills} from "../firebase/TeamService.js";
 import TeamList from "../components/team/TeamList.vue";
 import SideBar from "../components/SideBar.vue";
 import {auth} from "../firebase/Firebase.js";

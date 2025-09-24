@@ -1,51 +1,63 @@
 <template>
   <div class="relative flex flex-col my-6 bg-white shadow-sm border border-slate-200 rounded-lg w-11/12 lg:w-[32%]">
     <div class="mx-3 mb-0 border-b border-slate-200 pt-3 pb-2 px-1">
-    <span class="text-sm text-slate-600 font-medium">
-      {{ column }}
-    </span>
+      <span class="text-sm text-slate-600 font-medium">{{ column }}</span>
     </div>
 
     <div class="p-4">
-      <RetroItem v-for="item in items" :key="item.id" :ownerName="members[item.owner]?.displayName"
-                 :board-id="boardId" :column="column" :isAdmin="isAdmin" :item="item" :team-id="teamId"
-                 @addVote="addVote" @openDetail="(itemDetail)=>$emit('openDetail', itemDetail, column)"
-                 @removeItem="removeItem" @removeVote="removeVote"></RetroItem>
-      <div
-          class="text-slate-800  flex w-full items-center rounded-md hover:bg-slate-100 focus:bg-slate-100 active:bg-slate-100 py-1 border-b px-2"
-      ><input v-model="item"
-              class="border border-slate-200 rounded-md px-3 py-2 w-full transition duration-300 ease focus:outline-none focus:border-slate-400 hover:border-slate-300 shadow-sm focus:shadow"
-              placeholder="Add new item"
-              type="text"
-              @keydown.enter="addItem(column)"/>
+      <RetroItem
+        v-for="item in items"
+        :key="item.id"
+        :ownerName="resolveOwnerName(item.owner)"
+        :board-id="boardId"
+        :column="column"
+        :isAdmin="isAdmin"
+        :item="item"
+        :team-id="teamId"
+        @addVote="addVote"
+        @openDetail="openItemDetail(item)"
+        @removeItem="removeItem"
+        @removeVote="removeVote"
+      />
+      <div class="text-slate-800 flex w-full items-center rounded-md hover:bg-slate-100 focus:bg-slate-100 active:bg-slate-100 py-1 border-b px-2">
+        <input
+          v-model="item"
+          class="border border-slate-200 rounded-md px-3 py-2 w-full transition duration-300 ease focus:outline-none focus:border-slate-400 hover:border-slate-300 shadow-sm focus:shadow"
+          placeholder="Add new item"
+          type="text"
+          @keydown.enter="addItem()"
+        />
         <div class="ml-auto grid place-items-center justify-self-end">
           <button
-              class="rounded-md border border-transparent  text-center text-xl px-2 font-bold transition-all text-slate-600 hover:bg-slate-200 focus:bg-slate-200 active:bg-slate-200 disabled:pointer-events-none disabled:opacity-50 disabled:shadow-none"
-              type="button"
-              @click="addItem(column)">
+            class="rounded-md border border-transparent text-center text-xl px-2 font-bold transition-all text-slate-600 hover:bg-slate-200 focus:bg-slate-200 active:bg-slate-200 disabled:pointer-events-none disabled:opacity-50 disabled:shadow-none"
+            type="button"
+            @click="addItem()"
+          >
             +
           </button>
         </div>
       </div>
     </div>
   </div>
-
 </template>
 
 <script>
-import {listenRetroItemsChange, removeRetroBoardItem, removeVote, setVote} from "../../firebase/RetroBoardService.js";
+import { listenRetroItemsChange, removeRetroBoardItem, removeVote as fbRemoveVote, setVote } from "../../firebase/RetroBoardService.js";
 import RetroItem from "./RetroItem.vue";
-import {createToast} from "mosha-vue-toastify";
+import { createToast } from "mosha-vue-toastify";
+
+const ADD_ITEM_THROTTLE_MS = 500;
 
 export default {
   name: "RetroColumn",
-  components: {RetroItem},
+  components: { RetroItem },
   props: {
-    column: String,
-    boardId: String,
-    teamId: String,
-    isAdmin: Boolean,
-    members: Array
+    column: { type: String, required: true },
+    boardId: { type: String, required: true },
+    teamId: { type: String, required: true },
+    isAdmin: { type: Boolean, default: false },
+    // members dizisi (veya obje) dışarıdan geliyor, index erişimi güvenli işleniyor
+    members: { type: [Array, Object], default: () => [] }
   },
   data() {
     return {
@@ -54,98 +66,91 @@ export default {
       unsubscribeListener: null,
       lastUpdateTime: 0,
       isDestroyed: false
-    }
+    };
   },
   methods: {
-    getItems(column) {
-      return []//this.item[column].items
+    resolveOwnerName(ownerKey) {
+      if (!ownerKey || !this.members) return "";
+      // Eğer members bir object ise direkt eriş, array ise uygun member'ı bul
+      if (Array.isArray(this.members)) {
+        const found = this.members.find(m => m.email === ownerKey || m.id === ownerKey || m.owner === ownerKey);
+        return found?.displayName || found?.name || ownerKey;
+      }
+      return this.members[ownerKey]?.displayName || this.members[ownerKey]?.name || ownerKey || "";
     },
     addItem() {
-      // Throttle item creation
-      const now = Date.now()
-      if (now - this.lastUpdateTime < 500) {
-        return
-      }
-      this.lastUpdateTime = now
+      const now = Date.now();
+      if (now - this.lastUpdateTime < ADD_ITEM_THROTTLE_MS) return; // throttle
+      this.lastUpdateTime = now;
 
-      if (!this.item.trim()) return
+      const trimmed = this.item.trim();
+      if (!trimmed) return;
 
-      const newRetroItem = {
-        value: this.item,
-        column: this.column
-      }
-      this.$emit('addItem', newRetroItem)
-      this.item = ""
+      this.$emit("addItem", { value: trimmed, column: this.column });
+      this.item = "";
     },
     addVote(itemId, vote) {
-      // Optimistic UI: ilgili item'ın votes dizisini local olarak güncelle
-      const itemIndex = this.items.findIndex(item => item.id === itemId)
-      if (itemIndex !== -1) {
-        const item = this.items[itemIndex]
-        if (!item.votes) item.votes = []
-        // Aynı kullanıcıdan aynı tip oy varsa kaldır, yoksa ekle
-        const existingVoteIndex = item.votes.findIndex(v => v.owner === vote.owner && v.value === vote.value)
-        if (existingVoteIndex !== -1) {
-          // Oy zaten varsa kaldır (toggle)
-          item.votes.splice(existingVoteIndex, 1)
+      const idx = this.items.findIndex(i => i.id === itemId);
+      if (idx !== -1) {
+        const item = this.items[idx];
+        if (!item.votes) item.votes = [];
+        const existingIdx = item.votes.findIndex(v => v.owner === vote.owner && v.value === vote.value);
+        if (existingIdx !== -1) {
+          item.votes.splice(existingIdx, 1); // toggle remove
         } else {
-          // Önce aynı kullanıcının ters oyunu kaldır
-          const oppositeVoteIndex = item.votes.findIndex(v => v.owner === vote.owner && v.value === -vote.value)
-          if (oppositeVoteIndex !== -1) {
-            item.votes.splice(oppositeVoteIndex, 1)
-          }
-          // Sonra yeni oyu ekle
-          item.votes.push(vote)
+          // remove opposite vote first
+            const oppositeIdx = item.votes.findIndex(v => v.owner === vote.owner && v.value === -vote.value);
+          if (oppositeIdx !== -1) item.votes.splice(oppositeIdx, 1);
+          item.votes.push(vote);
         }
-        // Vue reaktivitesi için yeni bir dizi ata
-        this.items = [...this.items]
+        this.items = [...this.items]; // force reactivity
       }
-      setVote(this.teamId, this.boardId, this.column, itemId, vote)
+      setVote(this.teamId, this.boardId, this.column, itemId, vote);
     },
     removeVote(itemId, voteValue) {
-      // Optimistic UI: ilgili item'ın votes dizisinden kullanıcıya ait ve voteValue'ya sahip oyu kaldır
-      const user = localStorage.getItem("user")
-      const itemIndex = this.items.findIndex(item => item.id === itemId)
-      if (itemIndex !== -1) {
-        const item = this.items[itemIndex]
+      const user = localStorage.getItem("user");
+      const idx = this.items.findIndex(i => i.id === itemId);
+      if (idx !== -1) {
+        const item = this.items[idx];
         if (item.votes) {
-          item.votes = item.votes.filter(v => !(v.owner === user && v.value === voteValue))
-          this.items = [...this.items]
+          item.votes = item.votes.filter(v => !(v.owner === user && v.value === voteValue));
+          this.items = [...this.items];
         }
       }
-      removeVote(this.teamId, this.boardId, this.column, itemId, user)
+      fbRemoveVote(this.teamId, this.boardId, this.column, itemId, user);
     },
-    removeItem(index) {
-      removeRetroBoardItem(this.teamId, this.boardId, this.column, index).then(() => {
-        createToast('Item removed. ', {type: 'success', position: 'top-center'})
-      })
+    removeItem(itemId) {
+      removeRetroBoardItem(this.teamId, this.boardId, this.column, itemId)
+        .then(() => createToast("Item removed.", { type: "success", position: "top-center" }))
+        .catch(() => createToast("Failed to remove item.", { type: "danger", position: "top-center" }));
     },
-
-    // Throttled listener update
     updateItems(items) {
-      if (this.isDestroyed) return
-
-      // Batch update with requestAnimationFrame for better performance
+      if (this.isDestroyed) return;
+      // requestAnimationFrame ile batch
       requestAnimationFrame(() => {
         if (!this.isDestroyed) {
-          this.items = items
+          this.items = items;
         }
-      })
+      });
+    },
+    openItemDetail(item) {
+      this.$emit("openDetail", item, this.column);
     }
   },
-
   beforeUnmount() {
-    this.isDestroyed = true
-    // Cleanup listener
-    if (this.unsubscribeListener && typeof this.unsubscribeListener === 'function') {
-      this.unsubscribeListener()
-      this.unsubscribeListener = null
+    this.isDestroyed = true;
+    if (this.unsubscribeListener && typeof this.unsubscribeListener === "function") {
+      this.unsubscribeListener();
+      this.unsubscribeListener = null;
     }
   },
-
   created() {
-    // Store unsubscribe function for cleanup
-    this.unsubscribeListener = listenRetroItemsChange(this.teamId, this.boardId, this.column, this.updateItems)
+    this.unsubscribeListener = listenRetroItemsChange(
+      this.teamId,
+      this.boardId,
+      this.column,
+      this.updateItems
+    );
   }
-}
+};
 </script>

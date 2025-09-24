@@ -107,7 +107,7 @@
         </button>
       </div>
       <div>
-        <AdBanner />
+        <AdBanner v-if="showAddBanner"/>
       </div>
     </div>
   </div>
@@ -125,6 +125,7 @@ export default {
   data: () => ({
     selectedTeam: "",
     teamName:"",
+    showAddBanner: false,
   }),
   methods: {
     gotoRetrospective() {
@@ -150,6 +151,7 @@ export default {
       const self = this;
       getTeamById(this.selectedTeam, (team) => {
         self.teamName = team.teamName;
+        self.showAddBanner = team.showAddBanner;
       })
     }
   },
