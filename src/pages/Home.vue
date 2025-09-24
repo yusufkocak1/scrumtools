@@ -144,6 +144,7 @@ export default {
       this.$router.push(`/teams`)
     },
     handleTeamChanged(event) {
+      console.log("Team changed event received:", event.detail);
       this.selectedTeam = event.detail.teamId;
       this.setTeamName()
     },
@@ -160,9 +161,9 @@ export default {
     const storedTeam = localStorage.getItem("selectedTeam");
     if (storedTeam) {
       this.selectedTeam = storedTeam;
+      this.setTeamName()
     }
-    this.setTeamName()
-
+    console.log("Mounted selectedTeam:", this.selectedTeam);
     // Team değişikliklerini dinle
     window.addEventListener('teamChanged', this.handleTeamChanged);
   },

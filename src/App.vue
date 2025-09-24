@@ -6,15 +6,15 @@
     </div>
 
     <Navbar
-      ref="navbar"
-      :isLogged="isLogged"
-      :name="name"
-      :teamList="teamList"
-      :selectedTeam="selectedTeam"
-      @logout="logout"
-      @team-select="handleTeamSelectRequest"
-      @join-team="showJoinTeam = true"
-      @create-team="showCreateTeam = true"
+        ref="navbar"
+        :isLogged="isLogged"
+        :name="name"
+        :selectedTeam="selectedTeam"
+        :teamList="teamList"
+        @logout="logout"
+        @team-select="handleTeamSelectRequest"
+        @join-team="showJoinTeam = true"
+        @create-team="showCreateTeam = true"
     />
 
     <!-- Modal overlay for team operations -->
@@ -25,15 +25,15 @@
 
       <!-- Team Change Confirmation Dialog -->
       <ConfirmationDialog
-        v-if="showTeamChangeConfirm"
-        title="Switch Team"
-        :message="`Are you sure you want to switch to ${pendingTeamName} team?`"
-        description="You will be redirected to the homepage and your current work may be lost."
-        type="warning"
-        confirm-text="Yes, Switch"
-        cancel-text="Cancel"
-        @confirm="confirmTeamChange"
-        @cancel="cancelTeamChange"
+          v-if="showTeamChangeConfirm"
+          :message="`Are you sure you want to switch to ${pendingTeamName} team?`"
+          cancel-text="Cancel"
+          confirm-text="Yes, Switch"
+          description="You will be redirected to the homepage and your current work may be lost."
+          title="Switch Team"
+          type="warning"
+          @cancel="cancelTeamChange"
+          @confirm="confirmTeamChange"
       />
     </div>
 
@@ -96,7 +96,6 @@ export default {
     selectTeam(teamId) {
       this.selectedTeam = teamId;
       localStorage.setItem("selectedTeam", teamId);
-      console.log(this.teamList)
       window.dispatchEvent(new CustomEvent('teamChanged', {
         detail: {
           teamId: teamId,
@@ -112,17 +111,15 @@ export default {
       getTeams((teamList) => {
         this.teamList = teamList
         if (teamList && teamList.length > 0) {
-          if(localStorage.getItem("selectedTeam")) {
-            if(teamList.find(t=>t.id===localStorage.getItem("selectedTeam"))){
+          if (localStorage.getItem("selectedTeam")) {
+            if (teamList.find(t => t.id === localStorage.getItem("selectedTeam"))) {
               this.selectedTeam = localStorage.getItem("selectedTeam")
             } else {
-              this.selectedTeam = teamList[0].id
-              localStorage.setItem("selectedTeam", teamList[0].id)
-
+              this.selectTeam(teamList[0].id)
             }
           } else {
-            this.selectedTeam = teamList[0].id
-            localStorage.setItem("selectedTeam", teamList[0].id)
+            this.selectTeam(teamList[0].id)
+
           }
         } else {
           this.selectedTeam = ""
@@ -166,10 +163,10 @@ export default {
   created() {
     authService.onAuthStateChanged(async (user) => {
       this.isLogged = !!user;
-      if (!this.isLogged){
+      if (!this.isLogged) {
         localStorage.removeItem("user")
         this.$router.push('/login')
-      }else{
+      } else {
         this.getUserName()
         this.getAllTeams()
       }
