@@ -51,8 +51,8 @@
 </template>
 
 <script>
-import {createRetroItem, getRetroBoard, getRetroItems} from "../firebase/RetroBoardService.js";
-import {getTeamById} from "../firebase/TeamService.js";
+import { getBoard, createItem, getItems } from "../api/RetroBoardApi.js";
+import {getTeamById} from "../api/TeamApi.js";
 import RetroColumn from "../components/retro/RetroColumn.vue";
 import RetroItem from "../components/retro/RetroItem.vue";
 import RetroItemDetail from "../components/retro/RetroItemDetail.vue";
@@ -89,18 +89,19 @@ export default {
   methods: {
     initializeBoard() {
       this.isLoading = true;
-      console.log("Loading board:", this.boardId, "for team:", this.teamId);
       // Board verilerini yükle
-      getRetroBoard(this.teamId, this.boardId, (board) => {
+      getBoard(this.teamId, this.boardId).then(board => {
         this.board = board || {};
         this.loadAllRetroItems();
-        this.isLoading = false;
-      });
+      }).catch(e => {
+        console.error('Board yüklenemedi', e);
+        this.board = {};
+      }).finally(() => { this.isLoading = false; });
 
       // Team verilerini yükle
-      getTeamById(this.teamId, (team) => {
+      getTeamById(this.teamId).then(team => {
         this.team = team || {};
-      });
+      }).catch(e => console.warn('Team yüklenemedi', e));
     },
 
     cleanup() {
@@ -120,7 +121,7 @@ export default {
           votes: []
         };
 
-        createRetroItem(this.teamId, this.boardId, newItem.column, newItem)
+        createItem(this.teamId, this.boardId, newItem.column, newItem.value, newItem.owner)
             .then(() => {
               createToast("Item created.", {type: "success", position: "top-center"});
             })
@@ -204,8 +205,8 @@ export default {
       this.allRetroItems = [];
       const columnNames = this.board.columns;
 
-      const loadPromises = columnNames.map(columnName => new Promise(resolve => {
-        getRetroItems(this.teamId, this.boardId, columnName, (items) => {
+      const loadPromises = columnNames.map(columnName =>
+        getItems(this.teamId, this.boardId, columnName).then(items => {
           if (Array.isArray(items)) {
             const normalized = items.map(it => ({...it, column: it.column || columnName}));
             this.allRetroItems = [
@@ -213,9 +214,8 @@ export default {
               ...normalized
             ];
           }
-          resolve();
-        });
-      }));
+        })
+      );
 
       Promise.all(loadPromises).catch(error => {
         console.error("Error loading retro items:", error);

@@ -242,7 +242,7 @@
 </template>
 
 <script>
-import { listenSprints, listenTasks, updateSprintStatus, updateTaskStatus } from "../../firebase/WorkService";
+import { getSprints, getTasks, updateSprintStatus, updateTaskStatus } from "../../api/WorkApi.js";
 import SideBar from "../SideBar.vue";
 import TaskCard from "./TaskCard.vue";
 
@@ -324,24 +324,27 @@ export default {
     },
 
     handleResize() {
-      this.isMobile = window.innerWidth < 768; // md breakpoint
+      this.isMobile = window.innerWidth < 768;
+    },
+    async fetchData() {
+      const [sprints, tasks] = await Promise.all([
+        getSprints(this.teamId).catch(() => []),
+        getTasks(this.teamId).catch(() => [])
+      ]);
+      this.sprints = sprints;
+      this.sprint = sprints.find(s => s.id === this.sprintId) || {};
+      this.tasks = tasks;
     }
   },
   mounted() {
     this.handleResize();
     window.addEventListener('resize', this.handleResize);
-
-    listenSprints(this.teamId, (sprints) => {
-      this.sprints = sprints;
-      this.sprint = sprints.find(s => s.id === this.sprintId) || {};
-    });
-
-    listenTasks(this.teamId, (tasks) => {
-      this.tasks = tasks;
-    });
+    this.fetchData();
+    this._pollInterval = setInterval(() => this.fetchData(), 10000);
   },
   beforeUnmount() {
     window.removeEventListener('resize', this.handleResize);
+    clearInterval(this._pollInterval);
   }
 };
 </script>

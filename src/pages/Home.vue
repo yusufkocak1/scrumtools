@@ -115,7 +115,7 @@
 
 <script>
 import AdBanner from '../components/AdBanner.vue'
-import {getTeamById} from "../firebase/TeamService.js";
+import {getTeamById} from "../api/TeamApi.js";
 
 export default {
   name: "Home",
@@ -149,11 +149,10 @@ export default {
       this.setTeamName()
     },
     setTeamName() {
-      const self = this;
-      getTeamById(this.selectedTeam, (team) => {
-        self.teamName = team.teamName;
-        self.showAddBanner = team.showAddBanner;
-      })
+      getTeamById(this.selectedTeam).then(team => {
+        this.teamName = team.teamName;
+        this.showAddBanner = team.showAddBanner;
+      }).catch(e => console.warn('Team bilgisi alınamadı:', e))
     }
   },
   mounted() {

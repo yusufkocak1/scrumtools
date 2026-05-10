@@ -26,8 +26,7 @@
 </template>
 
 <script>
-import {addUserToTeam} from "../../firebase/TeamService.js";
-import {auth} from "../../firebase/Firebase.js";
+import { joinTeam as apiJoinTeam } from "../../api/TeamApi.js";
 
 export default {
   name: "JoinTeam",
@@ -37,8 +36,9 @@ export default {
 
   methods: {
     joinTeam() {
-      addUserToTeam(auth.currentUser.email,auth.currentUser.displayName,this.teamId)
-      this.$emit('close')
+      apiJoinTeam(this.teamId)
+        .then(() => this.$emit('close'))
+        .catch(err => console.error('Takıma katılınamadı:', err))
     }
   }
 }

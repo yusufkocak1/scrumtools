@@ -44,12 +44,12 @@
   </div>
 </template>
 <script>
-import {authService, getUserFromDB, logout} from "./firebase/AuthService.js";
+import { me, logout as apiLogout } from "./api/AuthApi.js";
 import Navbar from "./components/Navbar.vue";
 import JoinTeam from "./components/team/JoinTeam.vue";
 import CreateTeam from "./components/team/CreateTeam.vue";
 import ConfirmationDialog from "./components/ConfirmationDialog.vue";
-import {getTeams} from "./firebase/TeamService.js";
+import { getMyTeams } from "./api/TeamApi.js";
 import './scripts/collapse.js'
 
 export default {
@@ -74,16 +74,13 @@ export default {
   }),
   methods: {
     logout() {
-      logout()
+      apiLogout()
       this.isLogged = false
       this.name = ""
       this.$router.push('/login')
     },
     getUserName() {
-      if (!authService.currentUser) return
-      getUserFromDB(authService.currentUser.email, (user) => {
-        this.name = user.name
-      })
+      // Artık name, me() çağrısından geliyor — ayrı bir çağrıya gerek yok
     },
     closeJoinTeam() {
       this.showJoinTeam = false;
@@ -108,7 +105,7 @@ export default {
     },
     getAllTeams() {
       if (!this.isLogged) return;
-      getTeams((teamList) => {
+      getMyTeams().then(teamList => {
         this.teamList = teamList
         if (teamList && teamList.length > 0) {
           if (localStorage.getItem("selectedTeam")) {
@@ -119,12 +116,11 @@ export default {
             }
           } else {
             this.selectTeam(teamList[0].id)
-
           }
         } else {
           this.selectedTeam = ""
         }
-      })
+      }).catch(err => console.error('Takımlar yüklenemedi:', err))
     },
     handleTeamSelectRequest(teamId) {
       // Eğer aynı takım seçildiyse hiçbir şey yapma
@@ -160,19 +156,29 @@ export default {
       this.$refs.navbar.$refs.teamList.resetToSelected();
     }
   },
-  created() {
-    authService.onAuthStateChanged(async (user) => {
-      this.isLogged = !!user;
-      if (!this.isLogged) {
-        localStorage.removeItem("user")
-        this.$router.push('/login')
-      } else {
-        this.getUserName()
+  async created() {
+    const jwt = localStorage.getItem('jwt')
+
+    if (jwt) {
+      try {
+        // Token geçerliliğini backend'de doğrula
+        const user = await me()
+        this.name = user.name
+        this.isLogged = true
         this.getAllTeams()
+      } catch {
+        // Token geçersiz veya süresi dolmuş
+        localStorage.removeItem('jwt')
+        localStorage.removeItem('user')
+        this.isLogged = false
+        this.$router.push('/login')
       }
-      // Loading'i kapat
-      this.loading = false;
-    })
+    } else {
+      this.isLogged = false
+      this.$router.push('/login')
+    }
+
+    this.loading = false
   },
   watch: {
     isLogged() {

@@ -126,7 +126,8 @@ const MonacoEditor = defineAsyncComponent({
   timeout: 20000,
   onError (err, retry, fail, attempts) { if (attempts <= 2) retry(); else fail() }
 })
-import { getCodeShare, saveCodeShare } from '../firebase/codeShareService.js'
+import { saveCodeShare, getCodeShare } from '../api/CodeShareApi.js'
+import { createToast } from 'mosha-vue-toastify'
 
 export default {
   name: 'CodeShare',
@@ -200,9 +201,11 @@ export default {
         await saveCodeShare(this.teamId, this.data, this.tag)
         this.lastSaved = new Date()
         this.addToRecentTags(this.tag)
+        createToast('Başarıyla kaydedildi!', { type: 'success', position: 'top-center' })
         this.showStatusMessage('Code saved successfully!', 'success')
       } catch (e) {
         console.error(e)
+        createToast('Kayıt başarısız: ' + (e.response?.data?.message || e.message), { type: 'error', position: 'top-center' })
         this.showStatusMessage('Error while saving!', 'error')
       } finally { this.isSaving = false }
     },
@@ -211,18 +214,17 @@ export default {
       const requestId = ++this.currentRequestId
       this.isLoading = true
       try {
-        await getCodeShare(this.teamId, this.tag, (res) => {
-          if (requestId !== this.currentRequestId) return
-            if (res) {
-            localStorage.setItem('tag', this.tag)
-            this.data = res.data || ''
-            this.addToRecentTags(this.tag)
-            this.showStatusMessage('Code loaded successfully!', 'success')
-          } else {
-            this.data = ''
-            this.showStatusMessage('No code found for this tag.', 'info')
-          }
-        })
+        const res = await getCodeShare(this.teamId, this.tag)
+        if (requestId !== this.currentRequestId) return
+        if (res) {
+          localStorage.setItem('tag', this.tag)
+          this.data = res.data || ''
+          this.addToRecentTags(this.tag)
+          this.showStatusMessage('Code loaded successfully!', 'success')
+        } else {
+          this.data = ''
+          this.showStatusMessage('No code found for this tag.', 'info')
+        }
       } catch (e) {
         if (requestId === this.currentRequestId) {
           console.error(e)

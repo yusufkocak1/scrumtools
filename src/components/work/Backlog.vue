@@ -314,14 +314,14 @@
 
 <script>
 import {
-  addSprint,
-  addTaskToSprint,
-  listenSprints,
-  listenTasks,
+  createSprint as addSprint,
+  assignTaskToSprint as addTaskToSprint,
+  getSprints,
+  getTasks,
   updateSprintStatus,
   updateTask as updateTaskService,
   deleteTask as deleteTaskService
-} from "../../firebase/WorkService";
+} from "../../api/WorkApi.js";
 import AddTaskForm from "./AddTaskForm.vue";
 
 export default {
@@ -424,23 +424,26 @@ export default {
     },
 
     handleResize() {
-      this.isMobile = window.innerWidth < 640; // Tailwind sm breakpoint
+      this.isMobile = window.innerWidth < 640;
+    },
+    async fetchData() {
+      const [tasks, sprints] = await Promise.all([
+        getTasks(this.teamId).catch(() => []),
+        getSprints(this.teamId).catch(() => [])
+      ]);
+      this.tasks = tasks;
+      this.sprints = sprints;
     }
   },
   mounted() {
     this.handleResize();
     window.addEventListener('resize', this.handleResize);
-
-    listenTasks(this.teamId, (tasks) => {
-      this.tasks = tasks;
-    });
-
-    listenSprints(this.teamId, (sprints) => {
-      this.sprints = sprints;
-    });
+    this.fetchData();
+    this._pollInterval = setInterval(() => this.fetchData(), 10000);
   },
   beforeUnmount() {
     window.removeEventListener('resize', this.handleResize);
+    clearInterval(this._pollInterval);
   }
 };
 </script>

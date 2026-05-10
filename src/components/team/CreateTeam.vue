@@ -48,8 +48,7 @@
 </template>
 
 <script>
-import { createTeam } from "../../firebase/TeamService.js";
-import { auth } from "../../firebase/Firebase.js";
+import { createTeam as apiCreateTeam } from "../../api/TeamApi.js";
 
 export default {
   name: "CreateTeam",
@@ -86,9 +85,10 @@ export default {
       if (!this.teamName.trim() || !this.teamCode.trim() || this.teamCode.length < 2) {
         return;
       }
-
-      createTeam(this.teamName.trim(), this.teamCode.trim().toUpperCase(), auth.currentUser.email, auth.currentUser.displayName);
-      this.$emit('close');
+      const displayName = localStorage.getItem('user');
+      apiCreateTeam(this.teamName.trim(), this.teamCode.trim().toUpperCase(), displayName)
+        .then(() => this.$emit('close'))
+        .catch(err => console.error('Takım oluşturulamadı:', err));
     }
   }
 }

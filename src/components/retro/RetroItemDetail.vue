@@ -79,7 +79,7 @@
             v-for="comment in comments"
             :key="comment.id"
             :comment="comment"
-            :ownerName="members[comment.owner]?.displayName || 'Unknown'"
+              :ownerName="resolveOwnerName(comment.owner)"
             @removeComment="removeComment"
           />
         </div>
@@ -153,11 +153,12 @@
 
 <script>
 import {
-  createRetroItemComment,
-  getRetroItemComments,
-  removeRetroItemComment, updateRetroItem,
-  updateRetroItemStatus
-} from "../../firebase/RetroBoardService.js";
+  addComment as apiAddComment,
+  getComments,
+  deleteComment,
+  updateItem as apiUpdateItem,
+  updateItemStatus
+} from "../../api/RetroBoardApi.js";
 import {createToast} from "mosha-vue-toastify";
 import RetroItemComment from "./RetroItemComment.vue";
 
@@ -180,23 +181,18 @@ export default {
   },
   methods: {
     updateItem() {
-      updateRetroItem(this.teamId, this.boardId, this.item.column, this.item.id, this.item.value)
+      apiUpdateItem(this.teamId, this.boardId, this.item.column, this.item.id, this.item.value)
     },
     addComment() {
       if(!this.commentInput.trim()) return;
-      const newComment = {
-        value: this.commentInput,
-        owner: localStorage.getItem("user"),
-        createdAt: new Date().toISOString()
-      }
-      createRetroItemComment(this.teamId, this.boardId, this.item.column, this.item.id, newComment).then(() => {
+      apiAddComment(this.teamId, this.boardId, this.item.column, this.item.id, this.commentInput.trim()).then(() => {
         createToast('Comment added', {type: 'success', position: 'top-center'})
         this.fetchComments(true)
         this.commentInput = ""
       })
     },
     removeComment(commentId) {
-      removeRetroItemComment(this.teamId, this.boardId, this.item.column, this.item.id, commentId).then(() => {
+      deleteComment(this.teamId, this.boardId, this.item.column, this.item.id, commentId).then(() => {
         createToast('Comment removed', {type: 'success', position: 'top-center'})
         this.fetchComments(true)
       })
@@ -204,16 +200,26 @@ export default {
     fetchComments(force = false) {
       if(!this.item?.id) return;
       if(!force && this.commentsLoadedForItem === this.item.id) return;
-      getRetroItemComments(this.teamId, this.boardId, this.item.column, this.item.id, (comments) => {
+      getComments(this.teamId, this.boardId, this.item.column, this.item.id).then(comments => {
         this.comments = comments;
         this.commentsLoadedForItem = this.item.id;
       })
     },
     setStatus(status) {
-      updateRetroItemStatus(this.teamId, this.boardId, this.item.column, this.item.id, status)
+      updateItemStatus(this.teamId, this.boardId, this.item.column, this.item.id, status)
     },
     getItemOwnerName() {
-      return this.members[this.item.owner]?.displayName || 'Anonymous'
+      return this.resolveOwnerName(this.item?.owner) || 'Anonymous'
+    },
+    resolveOwnerName(ownerKey) {
+      if (!ownerKey) return 'Anonymous'
+      if (!this.members) return ownerKey
+      // members Array veya Object olabilir
+      if (Array.isArray(this.members)) {
+        const m = this.members.find(m => m.email === ownerKey)
+        return m?.displayName || ownerKey
+      }
+      return this.members[ownerKey]?.displayName || ownerKey
     },
     getAvatar(){
       let splitOwnerName = this.getItemOwnerName().split(" ")
@@ -225,16 +231,13 @@ export default {
     },
     getCurrentUserInitials() {
       const currentUser = localStorage.getItem('user')
-      const user = this.members[currentUser]
-      if (!user?.displayName) return 'U'
-
-      const words = user.displayName.trim().split(' ').filter(word => word.length > 0);
-      if (words.length === 1) {
-        return words[0].charAt(0).toUpperCase();
-      } else if (words.length >= 2) {
-        return (words[0].charAt(0) + words[words.length - 1].charAt(0)).toUpperCase();
-      }
-      return 'U';
+      if (!currentUser) return 'U'
+      // email ise @ öncesini al
+      const name = currentUser.includes('@') ? currentUser.split('@')[0] : currentUser
+      const parts = name.replace(/[._-]/g, ' ').trim().split(' ')
+      return parts.length >= 2
+        ? (parts[0][0] + parts[parts.length - 1][0]).toUpperCase()
+        : (parts[0][0] || 'U').toUpperCase()
     }
   },
   watch: {

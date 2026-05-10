@@ -163,10 +163,9 @@
 </template>
 
 <script>
-import { getAuth } from 'firebase/auth'
-import { changePassword, updateDisplayName } from '../firebase/AuthService.js'
+import { changePassword as apiChangePassword, updateName as apiUpdateName, me } from '../api/AuthApi.js'
 import { createToast } from 'mosha-vue-toastify'
-import { listenTeams, updateDisplayNameFromTeam, removeUserFromTeam } from '../firebase/TeamService.js'
+import { getMyTeams, updateDisplayNameAcrossTeams, removeMember } from '../api/TeamApi.js'
 import SideBar from '../components/SideBar.vue'
 
 export default {
@@ -192,24 +191,26 @@ export default {
     this.initializeData()
   },
   methods: {
-    initializeData() {
-      const user = getAuth().currentUser
-      if (user) {
-        this.displayName = user.displayName || ''
-        this.originalDisplayName = user.displayName || ''
-        this.email = user.email || ''
+    async initializeData() {
+      // Kullanıcı bilgilerini localStorage + me() çağrısından al
+      this.email = localStorage.getItem('user') || ''
+
+      try {
+        const user = await me()
+        this.displayName = user.name || ''
+        this.originalDisplayName = user.name || ''
+      } catch (err) {
+        console.warn('Kullanıcı bilgisi alınamadı:', err)
       }
 
-      // Get selected team from localStorage
       const storedTeam = localStorage.getItem('selectedTeam')
       if (storedTeam) {
         this.selectedTeam = storedTeam
       }
 
-      // Listen to teams
-      listenTeams((response) => {
-        this.teamList = response || []
-      })
+      getMyTeams().then(teams => {
+        this.teamList = teams || []
+      }).catch(err => console.warn('Takım listesi alınamadı:', err))
     },
 
     async handleDisplayNameChange() {
@@ -220,29 +221,17 @@ export default {
       this.isUpdatingDisplayName = true
 
       try {
-        await new Promise((resolve, reject) => {
-          updateDisplayName(this.displayName.trim(), (response) => {
-            if (typeof response === 'string' && !response.includes('error')) {
-              createToast('Display name updated successfully', {
-                type: 'success',
-                position: 'top-center'
-              })
+        await apiUpdateName(this.displayName.trim())
 
-              // Update display name in all teams
-              const user = getAuth().currentUser
-              if (user?.email) {
-                this.teamList.forEach(team => {
-                  updateDisplayNameFromTeam(team.id, this.displayName.trim(), user.email)
-                })
-              }
-
-              this.originalDisplayName = this.displayName.trim()
-              resolve(response)
-            } else {
-              reject(new Error(response))
-            }
-          })
+        createToast('Display name updated successfully', {
+          type: 'success',
+          position: 'top-center'
         })
+
+        // Tüm takımlardaki display name'i backend üzerinden güncelle
+        await updateDisplayNameAcrossTeams(this.displayName.trim())
+
+        this.originalDisplayName = this.displayName.trim()
       } catch (error) {
         createToast('Error updating display name', {
           type: 'error',
@@ -270,20 +259,12 @@ export default {
       this.isUpdatingPassword = true
 
       try {
-        await new Promise((resolve, reject) => {
-          changePassword(this.password, (response) => {
-            if (typeof response === 'string' && !response.includes('error')) {
-              createToast('Password updated successfully', {
-                type: 'success',
-                position: 'top-center'
-              })
-              this.password = ''
-              resolve(response)
-            } else {
-              reject(new Error(response))
-            }
-          })
+        await apiChangePassword(this.password)
+        createToast('Password updated successfully', {
+          type: 'success',
+          position: 'top-center'
         })
+        this.password = ''
       } catch (error) {
         createToast('Error updating password', {
           type: 'error',
@@ -302,7 +283,7 @@ export default {
       this.isLeavingTeam = team.id
 
       try {
-        await removeUserFromTeam(team.id, this.email)
+        await removeMember(team.id, this.email)
 
         createToast('Successfully left the team', {
           type: 'success',

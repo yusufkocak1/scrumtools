@@ -150,7 +150,7 @@
                   <div class="bg-gray-50 rounded-lg p-3 sm:p-4">
                     <div class="flex flex-wrap items-center gap-x-2 gap-y-1 mb-2">
                       <span class="text-sm font-medium text-gray-900">{{ comment.author }}</span>
-                      <span class="text-[11px] sm:text-xs text-gray-500">{{ formatDate(comment.timestamp) }}</span>
+                      <span class="text-[11px] sm:text-xs text-gray-500">{{ formatDate(comment.createdAt || comment.timestamp) }}</span>
                     </div>
                     <p class="text-sm text-gray-700 whitespace-pre-wrap">{{ comment.text }}</p>
                   </div>
@@ -318,7 +318,8 @@
 </template>
 
 <script>
-import { updateTask, deleteTask as deleteTaskService, findTaskInUserTeams } from '../firebase/WorkService';
+import { updateTask, deleteTask as deleteTaskService, searchByCustomId } from '../api/WorkApi.js';
+import { addComment } from '../api/WorkApi.js';
 import AddTaskForm from '../components/work/AddTaskForm.vue';
 import SideBar from "../components/SideBar.vue";
 
@@ -353,16 +354,12 @@ export default {
     async loadTask() {
       try {
         this.loading = true;
-        console.log('Searching for task with customId:', this.taskId);
-        const result = await findTaskInUserTeams(this.taskId);
+        const result = await searchByCustomId(this.taskId);
         if (result) {
-          this.task = result.task;
+          this.task = result;
           this.teamId = result.teamId;
-          this.teamData = result.teamData;
-          console.log('Task found:', this.task);
-          console.log('Team found:', this.teamData);
+          this.teamData = null;
         } else {
-          console.error('Task not found with customId:', this.taskId);
           this.task = null;
         }
       } catch (error) {
@@ -426,23 +423,17 @@ export default {
       }
     },
     getMemberByEmail(email) {
-      return this.teamData?.members[email] || null;
+      return null; // teamData artık backend'den gelmiyor
     },
     async addComment() {
       if (!this.newComment.trim()) return;
       try {
-        const commentData = {
-          text: this.newComment.trim(),
-          author: this.getCurrentUserName(),
-          timestamp: new Date().toISOString()
-        };
-        this.task.comments = this.task.comments || [];
-        this.task.comments.push(commentData);
         if(!this.teamId || !this.task?.id){
           console.error('Missing teamId or task.id for adding comment', this.teamId, this.task?.id);
-            return;
+          return;
         }
-        await updateTask(this.teamId, this.task.id, { comments: this.task.comments });
+        const updatedTask = await addComment(this.teamId, this.task.id, this.newComment.trim());
+        this.task.comments = updatedTask.comments || this.task.comments;
         this.newComment = '';
       } catch (error) {
         console.error('Error adding comment:', error);
@@ -468,12 +459,12 @@ export default {
     getCurrentUserInitials() {
       return this.getInitials(this.getCurrentUserName());
     },
-    getInitials(email) {
-      if (!email) return '';
-      const member = this.getMemberByEmail(email);
-      if(!member || !member.displayName) return '';
-      const names = member.displayName.toUpperCase().split(' ');
-      return names.length > 1 ? names[0][0] + names[1][0] : names[0][0];
+    getInitials(emailOrName) {
+      if (!emailOrName) return '?';
+      // email ise @ öncesini al
+      const name = emailOrName.includes('@') ? emailOrName.split('@')[0] : emailOrName;
+      const parts = name.toUpperCase().replace(/[._-]/g, ' ').split(' ');
+      return parts.length > 1 ? parts[0][0] + parts[1][0] : (parts[0][0] || '?');
     },
     formatDate(dateString) {
       if (!dateString) return '';

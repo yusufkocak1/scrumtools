@@ -55,7 +55,7 @@
 
 <script>
 
-import {createRetroBoard} from "../../firebase/RetroBoardService.js";
+import { createBoard } from "../../api/RetroBoardApi.js";
 
 export default {
   name: "CreateRetroBoard",
@@ -70,8 +70,9 @@ export default {
 
   methods: {
     createRetroBoard() {
-      createRetroBoard(this.selectedTeam,this.boardName,this.columnList)
-      this.$emit('close')
+      createBoard(this.selectedTeam, this.boardName, this.columnList)
+        .then(() => this.$emit('close'))
+        .catch(err => console.error('Board oluşturulamadı:', err))
     },
     removeColumn(index) {
     this.columnList.splice(index, 1)

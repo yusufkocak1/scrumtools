@@ -9,7 +9,6 @@ import Teams from "./pages/Teams.vue";
 import Settings from "./pages/Settings.vue";
 import WorkList from "./pages/WorkList.vue";
 import SprintPage from "./components/work/SprintPage.vue";
-import {authService} from "./firebase/AuthService.js";
 import CodeShare from "./pages/CodeShare.vue";
 import TaskDetail from "./pages/TaskDetail.vue";
 
@@ -93,19 +92,14 @@ const router = createRouter({
 })
 router.beforeEach((to, from, next) => {
     if (to.meta.requiresAuth) {
-        const unsubscribe = authService.onAuthStateChanged((user) => {
-            unsubscribe(); // Bir defaya mahsus dinlemeyi sonlandırıyoruz.
-            if (user) {
-                // Kullanıcı oturum açmış, route'a devam et.
-                next();
-            } else {
-                // Kullanıcı oturum açmamış, login sayfasına yönlendir.
-                next('/login');
-            }
-        });
+        const jwt = localStorage.getItem('jwt')
+        if (jwt) {
+            next()
+        } else {
+            next('/login')
+        }
     } else {
-        // Non-protected route, allow access
-        next();
+        next()
     }
 });
 export default router

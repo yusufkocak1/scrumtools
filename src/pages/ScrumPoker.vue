@@ -33,17 +33,13 @@
   </div>
 </template>
 <script>
-import { ref, reactive, computed, onMounted, onUnmounted, nextTick } from 'vue'
+import { ref, reactive, computed, onMounted, onUnmounted } from 'vue'
 import PokerTable from "../components/poker/pokerTable.vue";
 import PokerCard from "../components/poker/pokerCard.vue";
 import SideBar from "../components/SideBar.vue";
-import {getTeamById} from "../firebase/TeamService.js";
-import {
-  joinScrumPoker, leaveScrumPoker, listenScrumPoker, listenVotesVisible, setVotesVisible,
-  updateScrumPokerVote,
-  cleanupListeners
-} from "../firebase/ScrumPokerService.js";
-import {auth} from "../firebase/Firebase.js";
+import { getTeamById } from "../api/TeamApi.js";
+import * as ScrumPokerApi from "../api/ScrumPokerApi.js";
+import { connect, subscribe, unsubscribe } from "../api/websocket.js";
 
 export default {
   name: "ScrumPoker",
@@ -54,70 +50,71 @@ export default {
   setup(props) {
     const maintenance = ref(false)
     const team = reactive({})
-    const votes = ref(new Map()) // Map kullanarak O(1) erişim
+    const votes = ref(new Map())
     const isVotesVisible = ref(false)
     const selectedPokerCardNumber = ref(null)
     const fibonacciNumbers = ["1", "2", "3", "5", "8", "13", "21", "34", "55", "89", "?"]
 
-    // Debounce için
-    let updateTimeout = null
-    let unsubscribeVotes = null
-    let unsubscribeVisibility = null
+    const votesTopicKey = `/topic/poker/${props.teamId}/votes`
+    const visibilityTopicKey = `/topic/poker/${props.teamId}/visibility`
 
-    // Computed property for votes array (sadece gerektiğinde hesaplanır)
+    let updateTimeout = null
+
     const votesArray = computed(() => Array.from(votes.value.values()))
 
+    const applyVotes = (newVotes) => {
+      const voteMap = new Map()
+      newVotes.forEach(v => voteMap.set(v.email, v))
+      votes.value = voteMap
+    }
+
     const selectPokerCard = (pokerCard) => {
-      if(selectedPokerCardNumber.value === pokerCard) {
+      if (selectedPokerCardNumber.value === pokerCard) {
         pokerCard = "-"
       }
-      
-      // Debounce uygula
-      if (updateTimeout) {
-        clearTimeout(updateTimeout)
-      }
-      
+
+      if (updateTimeout) clearTimeout(updateTimeout)
+
       updateTimeout = setTimeout(() => {
-        updateScrumPokerVote(props.teamId, auth.currentUser.email, pokerCard)
-      }, 300) // 300ms debounce
-      
+        ScrumPokerApi.vote(props.teamId, pokerCard).catch(console.error)
+      }, 300)
+
       selectedPokerCardNumber.value = pokerCard
     }
-    
-    const newRound = async () => {
-      if(isVotesVisible.value) {
-        isVotesVisible.value = false
-        // Batch update yapmak için Promise.all kullan
-        const updates = Array.from(votes.value.values()).map((vote) =>
-          updateScrumPokerVote(props.teamId, vote.email, "-")
-        )
-        await Promise.all(updates)
+
+    const handleNewRound = async () => {
+      if (isVotesVisible.value) {
+        // Yeni tur: backend tüm oyları sıfırlar + visibility=false yapar + broadcast eder
+        await ScrumPokerApi.newRound(props.teamId)
         selectedPokerCardNumber.value = null
       } else {
-        isVotesVisible.value = true
+        // Oyları göster
+        await ScrumPokerApi.setVotesVisible(props.teamId, true)
       }
-      await setVotesVisible(props.teamId, isVotesVisible.value)
     }
-    
+
     onMounted(async () => {
       try {
-        await getTeamById(props.teamId, (teamData) => {
-          Object.assign(team, teamData)
-        })
+        // Takım bilgisini çek
+        const teamData = await getTeamById(props.teamId)
+        Object.assign(team, teamData)
 
-        await joinScrumPoker(props.teamId, auth.currentUser.email)
+        // Oturuma katıl + mevcut oyları al
+        const session = await ScrumPokerApi.joinPoker(props.teamId)
+        isVotesVisible.value = session.votesVisible
+        applyVotes(session.votes)
 
-        // Optimize listener - Map kullanarak veri yapısını iyileştir
-        unsubscribeVotes = listenScrumPoker(props.teamId, (newVotes) => {
-          const voteMap = new Map()
-          newVotes.forEach(vote => {
-            voteMap.set(vote.email, vote)
+        // WebSocket bağlantısını kur ve topic'lere subscribe ol
+        connect(() => {
+          // Votes topic — Data-Carrying: gelen mesaj doğrudan oy listesi
+          subscribe(votesTopicKey, (data) => {
+            applyVotes(data)
           })
-          votes.value = voteMap
-        })
 
-        unsubscribeVisibility = listenVotesVisible(props.teamId, (visible) => {
-          isVotesVisible.value = visible
+          // Visibility topic — Data-Carrying: { votesVisible: bool }
+          subscribe(visibilityTopicKey, (data) => {
+            isVotesVisible.value = data.votesVisible
+          })
         })
       } catch (error) {
         console.error("Error mounting ScrumPoker:", error)
@@ -125,31 +122,25 @@ export default {
     })
 
     onUnmounted(() => {
-      // Cleanup işlemleri
-      if (updateTimeout) {
-        clearTimeout(updateTimeout)
-      }
+      if (updateTimeout) clearTimeout(updateTimeout)
 
-      // Listener'ları temizle
-      if (unsubscribeVotes) unsubscribeVotes()
-      if (unsubscribeVisibility) unsubscribeVisibility()
+      // WebSocket subscription'larını temizle
+      unsubscribe(votesTopicKey)
+      unsubscribe(visibilityTopicKey)
 
-      // Global cleanup
-      cleanupListeners()
-
-      // Firebase'den ayrıl
-      leaveScrumPoker(props.teamId, auth.currentUser.email).catch(console.error)
+      // Oturumdan ayrıl
+      ScrumPokerApi.leavePoker(props.teamId).catch(console.error)
     })
 
     return {
       maintenance,
       team,
-      votes: votesArray, // computed property döndür
+      votes: votesArray,
       isVotesVisible,
       selectedPokerCardNumber,
-        fibonacciNumbers,
+      fibonacciNumbers,
       selectPokerCard,
-      newRound
+      newRound: handleNewRound
     }
   }
 }

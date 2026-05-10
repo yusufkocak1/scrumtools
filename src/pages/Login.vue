@@ -168,39 +168,36 @@
 </template>
 
 <script>
-import {login, resetPassword, signUp} from "../firebase/AuthService.js";
+import { login, register as registerApi } from "../api/AuthApi.js";
 import {createToast} from "mosha-vue-toastify";
 export default {
   name: "Login",
   methods: {
-    login() {
-      login(this.email, this.password,(isLoggingSuccess)=>{
-        if(isLoggingSuccess){
-          this.isLogged = true
-          this.$router.push('/')
-        }else {
-          this.isLogged = true
-          this.$router.push('/')
-          createToast('Username or password is incorrect.',{type:'danger',position:'top-center'})
-        }
-      })
+    async login() {
+      try {
+        await login(this.email, this.password)
+        this.$router.push('/')
+      } catch (err) {
+        const msg = err.response?.data?.error || 'Email veya şifre hatalı.'
+        createToast(msg, { type: 'danger', position: 'top-center' })
+      }
     },
-    signUp() {
-      signUp(this.email, this.password,this.name,()=>{
-        createToast("Sign up successfull",{type:'success',position:'top-center'})
-        this.mode = "login"
-      })
+    async signUp() {
+      try {
+        await registerApi(this.email, this.password, this.name)
+        createToast("Kayıt başarılı! Giriş yapılıyor...", { type: 'success', position: 'top-center' })
+        this.$router.push('/')
+      } catch (err) {
+        const msg = err.response?.data?.error || 'Kayıt sırasında bir hata oluştu.'
+        createToast(msg, { type: 'danger', position: 'top-center' })
+      }
     },
     forgotPassword() {
-      if(this.email){
-        resetPassword(this.email)
-      }
+      createToast('Şifre sıfırlama özelliği yakında eklenecek.', { type: 'info', position: 'top-center' })
     }
   },
   mounted() {
-
-    if (localStorage.getItem("user")) {
-      this.isLogged = true
+    if (localStorage.getItem("jwt")) {
       this.$router.push('/')
     }
   },

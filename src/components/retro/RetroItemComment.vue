@@ -40,7 +40,6 @@
 </template>
 
 <script>
-import {getUserFromDB} from "../../firebase/AuthService.js";
 
 export default {
   name: "RetroItemComment",

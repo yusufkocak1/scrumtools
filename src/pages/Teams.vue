@@ -265,10 +265,9 @@
 </template>
 
 <script>
-import {getTeamById, removeUserFromTeam, updateMemberRoleAndSkills} from "../firebase/TeamService.js";
+import { getTeamById, removeMember, updateMemberRole } from "../api/TeamApi.js";
 import TeamList from "../components/team/TeamList.vue";
 import SideBar from "../components/SideBar.vue";
-import {auth} from "../firebase/Firebase.js";
 import {createToast} from "mosha-vue-toastify";
 
 export default {
@@ -301,11 +300,10 @@ export default {
       this.currentTeam = storedTeam;
     }
     this.loading = true;
-    const self = this;
-    getTeamById(this.currentTeam, (team) => {
-      self.selectTeam(team);
-      self.loading = false;
-    });
+    getTeamById(this.currentTeam).then(team => {
+      this.selectTeam(team);
+      this.loading = false;
+    }).catch(() => { this.loading = false; });
   },
   methods: {
     selectTeam(selectedTeam) {
@@ -326,13 +324,11 @@ export default {
       if (this.isAdmin) {
         try {
           console.log(`Removing ${this.emailToRemove} from team ${this.selectedTeamId}`);
-          await removeUserFromTeam(this.selectedTeamId, this.emailToRemove);
+          await removeMember(this.selectedTeamId, this.emailToRemove);
 
           // Takım verilerini yeniden yükle
-          const self = this;
-          await getTeamById(this.selectedTeamId, (team) => {
-            self.selectTeam(team);
-          });
+          const team = await getTeamById(this.selectedTeamId);
+          this.selectTeam(team);
 
           createToast('Member removed successfully', {
             type: 'success',
@@ -449,20 +445,18 @@ export default {
       }
 
       try {
-        // TeamService'den rol ve skill güncelleme fonksiyonunu çağır
-        const success = await updateMemberRoleAndSkills(
+        // TeamApi ile rol ve skill güncelleme
+        const success = await updateMemberRole(
           this.selectedTeamId,
           this.editingMember.email,
           this.editingMember.role,
           this.editingMember.skills || []
-        );
+        ).then(() => true).catch(() => false);
 
         if (success) {
           // Takım verilerini yeniden yükle
-          const self = this;
-          await getTeamById(this.selectedTeamId, (team) => {
-            self.selectTeam(team);
-          });
+          const team = await getTeamById(this.selectedTeamId);
+          this.selectTeam(team);
 
           createToast('Member information updated successfully', {
             type: 'success',
@@ -489,7 +483,8 @@ export default {
   },
   computed: {
     isAdmin() {
-      return auth.currentUser?.email === this.selectedTeam?.adminEmail;
+      const userEmail = localStorage.getItem('user');
+      return userEmail === this.selectedTeam?.adminEmail;
     },
     sortedMembers() {
       const membersArray = Object.entries(this.selectedTeam.members || {}).map(([email, member]) => ({ email, ...member }));

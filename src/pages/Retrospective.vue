@@ -19,7 +19,7 @@
 </template>
 
 <script>
-import {getRetroBoardsFromTeam, removeRetroBoardFromTeam, updateRetroBoard} from "../firebase/RetroBoardService.js";
+import { getBoards, deleteBoard as apiDeleteBoard, renameBoard } from "../api/RetroBoardApi.js";
 import RetroBoardList from "../components/retro/RetroBoardList.vue";
 import CreateRetroBoard from "../components/retro/CreateRetroBoard.vue";
 import SideBar from "../components/SideBar.vue";
@@ -34,12 +34,10 @@ export default {
   }),
   methods: {
     deleteBoard(boardId) {
-      removeRetroBoardFromTeam(this.selectedTeam, boardId)
-      this.getBoardsByTeamId(this.selectedTeam)
+      apiDeleteBoard(this.selectedTeam, boardId).then(() => this.getBoardsByTeamId(this.selectedTeam))
     },
     editBoard(boardData) {
-      updateRetroBoard(this.selectedTeam, boardData.id, boardData.name)
-      this.getBoardsByTeamId(this.selectedTeam)
+      renameBoard(this.selectedTeam, boardData.id, boardData.name).then(() => this.getBoardsByTeamId(this.selectedTeam))
     },
     confirmDelete(boardId) {
       if (confirm('Are you sure you want to delete this board?')) {
@@ -52,9 +50,13 @@ export default {
     },
     getBoardsByTeamId(teamId) {
       if (!teamId) return;
-      getRetroBoardsFromTeam(teamId, (boardList) => {
-        this.boardList = boardList.sort((a, b) => a.createdDate.seconds - b.createdDate.seconds);
-      })
+      getBoards(teamId).then(boardList => {
+        this.boardList = (boardList || []).sort((a, b) => {
+          const aTime = a.createdAt ? new Date(a.createdAt).getTime() : (a.createdDate?.seconds || 0) * 1000;
+          const bTime = b.createdAt ? new Date(b.createdAt).getTime() : (b.createdDate?.seconds || 0) * 1000;
+          return aTime - bTime;
+        });
+      }).catch(e => console.error('Board listesi yüklenemedi:', e));
     },
     handleTeamChanged(event) {
       this.selectedTeam = event.detail.teamId;

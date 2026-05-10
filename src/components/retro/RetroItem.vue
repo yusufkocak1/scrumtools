@@ -81,8 +81,6 @@
 </template>
 
 <script>
-import {getUserFromDB} from "../../firebase/AuthService.js";
-import {getVotes, removeVote} from "../../firebase/RetroBoardService.js";
 
 export default {
   name: "RetroItem",

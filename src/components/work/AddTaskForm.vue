@@ -241,11 +241,10 @@
   </div>
 </template>
 
-<script>var email;
-
+<script>
 import AutoCompleteInput from "./AutoCompleteInput.vue";
-import {getTeamById} from "../../firebase/TeamService.js";
-import {addTask as addTaskService, updateTask as updateTaskService} from "../../firebase/WorkService.js";
+import { getTeamById } from "../../api/TeamApi.js";
+import { createTask, updateTask as apiUpdateTask } from "../../api/WorkApi.js";
 
 export default {
   name: 'TaskEditForm',
@@ -375,13 +374,13 @@ export default {
   methods: {
     async loadTeamMembers() {
       try {
-        await getTeamById(this.teamId, (team) => {
-          this.teamMembers = Object.entries(team.members || {}).map(([email, member]) => ({
-            email,
-            ...member,
-            displayName: member.displayName
-          }));
-        });
+        const team = await getTeamById(this.teamId);
+        // TeamResponse.members: { email: { displayName, role, skills } }
+        this.teamMembers = Object.entries(team.members || {}).map(([email, member]) => ({
+          email,
+          ...member,
+          displayName: member.displayName
+        }));
       } catch (error) {
         console.error('Error loading team members:', error);
       }
@@ -405,7 +404,7 @@ export default {
             if (!taskId) {
               console.error('Güncellenecek task id bulunamadı');
             } else {
-              await updateTaskService(this.teamId, taskId, taskData);
+              await apiUpdateTask(this.teamId, taskId, taskData);
               this.$emit('updateTask', { id: taskId, ...taskData });
             }
         } else {
@@ -415,7 +414,7 @@ export default {
               createdAt: new Date().toISOString(),
               status: 'To Do'
             };
-            await addTaskService(this.teamId, newTaskData);
+            await createTask(this.teamId, newTaskData);
             this.$emit('addTask', newTaskData);
         }
         this.closeModal();
