@@ -18,7 +18,6 @@
         </div>
         <div v-else class="bg-white rounded-2xl shadow-sm border border-gray-200 w-full">
           <div class="flex flex-wrap gap-4 justify-center p-4">
-            <!-- Hatalı :isAdmin=isAdmin bağlaması düzeltildi -->
             <RetroColumn
                 v-for="(column, index) in board?.columns"
                 :key="index"
@@ -27,6 +26,7 @@
                 :is-admin="isAdmin"
                 :members="team?.members"
                 :team-id="teamId"
+                :items="itemsByColumn[column] || []"
                 @addItem="addItem"
                 @openDetail="openDetail"
             />
@@ -38,6 +38,7 @@
       <div v-if="showItemDetail"
            class="fixed inset-0 z-[999] grid h-screen w-screen place-items-center bg-black bg-opacity-60 backdrop-blur-sm transition-opacity duration-300">
         <RetroItemDetail
+            ref="itemDetailRef"
             :board-id="boardId"
             :item="selectedItem"
             :members="team?.members"
@@ -52,20 +53,22 @@
 
 <script>
 import { getBoard, createItem, getItems } from "../api/RetroBoardApi.js";
-import {getTeamById} from "../api/TeamApi.js";
+import { getTeamById } from "../api/TeamApi.js";
+import { connect, subscribe, unsubscribe } from "../api/websocket.js";
+import { createBoardSync } from "../api/retroBoardSync.js";
 import RetroColumn from "../components/retro/RetroColumn.vue";
 import RetroItem from "../components/retro/RetroItem.vue";
 import RetroItemDetail from "../components/retro/RetroItemDetail.vue";
 import RetroBoardHeader from "../components/retro/RetroBoardHeader.vue";
 import SideBar from "../components/SideBar.vue";
-import {createToast} from "mosha-vue-toastify";
+import { createToast } from "mosha-vue-toastify";
 
 export default {
   name: "RetroBoard",
-  components: {SideBar, RetroBoardHeader, RetroItemDetail, RetroItem, RetroColumn},
+  components: { SideBar, RetroBoardHeader, RetroItemDetail, RetroItem, RetroColumn },
   props: {
-    boardId: {type: String, required: true},
-    teamId: {type: String, required: true}
+    boardId: { type: String, required: true },
+    teamId: { type: String, required: true }
   },
   data() {
     return {
@@ -77,7 +80,13 @@ export default {
       allRetroItems: [],
       debounceTimer: null,
       isLoading: false,
-      lastUpdateTime: Date.now()
+      lastUpdateTime: Date.now(),
+      // Kolon adı → items array haritası (reaktif)
+      itemsByColumn: {},
+      // WS sync motoru instance
+      syncEngine: null,
+      // WS topic
+      wsTopic: null
     };
   },
   created() {
@@ -89,56 +98,181 @@ export default {
   methods: {
     initializeBoard() {
       this.isLoading = true;
-      // Board verilerini yükle
-      getBoard(this.teamId, this.boardId).then(board => {
-        this.board = board || {};
-        this.loadAllRetroItems();
-      }).catch(e => {
-        console.error('Board yüklenemedi', e);
-        this.board = {};
-      }).finally(() => { this.isLoading = false; });
+      this.wsTopic = `/topic/retro/${this.teamId}/${this.boardId}`;
 
-      // Team verilerini yükle
-      getTeamById(this.teamId).then(team => {
-        this.team = team || {};
-      }).catch(e => console.warn('Team yüklenemedi', e));
+      getBoard(this.teamId, this.boardId)
+        .then(board => {
+          this.board = board || {};
+          return this.loadAllColumnItems(board?.columns || []);
+        })
+        .then(() => {
+          // Board ve tüm kolonlar yüklendikten sonra WS sync'i başlat
+          this.initSync();
+        })
+        .catch(e => {
+          console.error('Board yüklenemedi', e);
+          this.board = {};
+        })
+        .finally(() => { this.isLoading = false; });
+
+      getTeamById(this.teamId)
+        .then(team => { this.team = team || {}; })
+        .catch(e => console.warn('Team yüklenemedi', e));
+    },
+
+    /**
+     * Verilen kolon listesi için paralel getItems çağrısı yapar.
+     * itemsByColumn reactive haritasını günceller.
+     */
+    async loadAllColumnItems(columns) {
+      if (!columns || columns.length === 0) return;
+
+      const results = await Promise.allSettled(
+        columns.map(col =>
+          getItems(this.teamId, this.boardId, col).then(items => ({ col, items }))
+        )
+      );
+
+      const updated = { ...this.itemsByColumn };
+      results.forEach(res => {
+        if (res.status === 'fulfilled') {
+          const { col, items } = res.value;
+          updated[col] = Array.isArray(items) ? items : [];
+        }
+      });
+      this.itemsByColumn = updated;
+
+      // allRetroItems export için senkronize et
+      this.allRetroItems = Object.values(this.itemsByColumn).flat();
+    },
+
+    /**
+     * Debounce sync motorunu başlatır ve WS subscription açar.
+     */
+    initSync() {
+      const currentUser = localStorage.getItem('user') || '';
+
+      // Sync motoru: flush geldiğinde etkilenen kolonları yenile
+      this.syncEngine = createBoardSync(this.teamId, this.boardId, async (columns, events) => {
+        // Hangi kolonlar etkilendi?
+        const allColumns = this.board?.columns || [];
+        const toRefresh = columns.has('__ALL__') ? allColumns : [...columns].filter(c => allColumns.includes(c));
+
+        if (toRefresh.length === 0) return;
+
+        // Sadece etkilenen kolonları getir
+        const results = await Promise.allSettled(
+          toRefresh.map(col =>
+            getItems(this.teamId, this.boardId, col).then(items => ({ col, items }))
+          )
+        );
+
+        const updated = { ...this.itemsByColumn };
+        results.forEach(res => {
+          if (res.status === 'fulfilled') {
+            const { col, items } = res.value;
+            updated[col] = Array.isArray(items) ? items : [];
+          }
+        });
+        this.itemsByColumn = updated;
+        this.allRetroItems = Object.values(this.itemsByColumn).flat();
+
+        // Açık olan item detail modal'ını da güncelle
+        const commentEvents = ['COMMENT_ADDED', 'COMMENT_DELETED'];
+        const hasCommentEvent = events.some(e => commentEvents.includes(e.event));
+        if (hasCommentEvent && this.showItemDetail && this.selectedItem) {
+          const changesForCurrentItem = events.some(
+            e => commentEvents.includes(e.event) && e.itemId === this.selectedItem.id
+          );
+          if (changesForCurrentItem && this.$refs.itemDetailRef) {
+            this.$refs.itemDetailRef.fetchComments(true);
+          }
+        }
+
+        // Başka birinin değişikliği ise toast göster
+        const foreignEvent = events.find(e => e.triggeredBy && e.triggeredBy !== currentUser);
+        if (foreignEvent) {
+          createToast("Board updated by a team member.", {
+            type: "info",
+            position: "top-right",
+            timeout: 3000,
+            showIcon: true
+          });
+        }
+      });
+
+      // Tek WS subscription: tüm board değişiklikleri buraya gelir
+      connect(() => {
+        subscribe(this.wsTopic, (msg) => {
+          this.syncEngine.push(msg);
+        });
+      });
     },
 
     cleanup() {
       if (this.debounceTimer) clearTimeout(this.debounceTimer);
+      if (this.syncEngine) {
+        this.syncEngine.destroy();
+        this.syncEngine = null;
+      }
+      if (this.wsTopic) {
+        unsubscribe(this.wsTopic);
+        this.wsTopic = null;
+      }
     },
 
-    // Debounced item creation
     addItem(item) {
       if (!item) return;
       if (this.debounceTimer) clearTimeout(this.debounceTimer);
 
       this.debounceTimer = setTimeout(() => {
-        const newItem = {
-          ...item,
-          owner: this.anonymousMode ? "Anonymous" : localStorage.getItem("user"),
-          createdAt: new Date().toISOString(),
-          votes: []
-        };
+        const owner = this.anonymousMode ? "Anonymous" : localStorage.getItem("user");
 
-        createItem(this.teamId, this.boardId, newItem.column, newItem.value, newItem.owner)
-            .then(() => {
-              createToast("Item created.", {type: "success", position: "top-center"});
-            })
-            .catch((error) => {
-              console.error("Error creating item:", error);
-              createToast("Error creating item. Please try again.", {type: "error", position: "top-center"});
-            });
-      }, 300); // 300ms debounce
+        // Optimistik ekleme: WS debounce süresi dolmadan kendi item'ını anında göster
+        const tempItem = {
+          id: `temp-${Date.now()}`,
+          value: item.value,
+          column: item.column,
+          owner,
+          votes: [],
+          comments: [],
+          createdAt: new Date().toISOString(),
+          _isOptimistic: true
+        };
+        const updated = { ...this.itemsByColumn };
+        updated[item.column] = [...(updated[item.column] || []), tempItem];
+        this.itemsByColumn = updated;
+
+        createItem(this.teamId, this.boardId, item.column, item.value, owner)
+          .then((createdItem) => {
+            // Temp item'ı gerçek item ile değiştir
+            const col = item.column;
+            const colItems = [...(this.itemsByColumn[col] || [])];
+            const tempIdx = colItems.findIndex(i => i.id === tempItem.id);
+            if (tempIdx !== -1 && createdItem) {
+              colItems[tempIdx] = { ...createdItem, column: col };
+            } else if (tempIdx !== -1) {
+              colItems.splice(tempIdx, 1);
+            }
+            this.itemsByColumn = { ...this.itemsByColumn, [col]: colItems };
+            this.allRetroItems = Object.values(this.itemsByColumn).flat();
+            createToast("Item created.", { type: "success", position: "top-center" });
+          })
+          .catch((error) => {
+            console.error("Error creating item:", error);
+            // Optimistik item'ı geri al
+            const col = item.column;
+            const colItems = (this.itemsByColumn[col] || []).filter(i => i.id !== tempItem.id);
+            this.itemsByColumn = { ...this.itemsByColumn, [col]: colItems };
+            createToast("Error creating item. Please try again.", { type: "error", position: "top-center" });
+          });
+      }, 300);
     },
 
-    // Rate limited detail opening
     openDetail(item) {
       if (!item) return;
       const now = Date.now();
-      if (now - this.lastUpdateTime < 120) { // 120ms rate limit
-        return;
-      }
+      if (now - this.lastUpdateTime < 120) return;
       this.lastUpdateTime = now;
       this.selectedItem = item;
       this.showItemDetail = true;
@@ -150,7 +284,7 @@ export default {
 
     handleExportResults() {
       if (this.allRetroItems.length === 0) {
-        createToast("No retro items to export!", {type: "warning", position: "top-center"});
+        createToast("No retro items to export!", { type: "warning", position: "top-center" });
         return;
       }
 
@@ -185,7 +319,7 @@ export default {
 
       try {
         const jsonString = JSON.stringify(exportData, null, 2);
-        const blob = new Blob([jsonString], {type: "application/json"});
+        const blob = new Blob([jsonString], { type: "application/json" });
         const url = URL.createObjectURL(blob);
         const link = document.createElement("a");
         link.href = url;
@@ -196,34 +330,12 @@ export default {
         URL.revokeObjectURL(url);
       } catch (e) {
         console.error("Export failed", e);
-        createToast("Export failed.", {type: "error", position: "top-center"});
+        createToast("Export failed.", { type: "error", position: "top-center" });
       }
     },
 
-    loadAllRetroItems() {
-      if (!this.board?.columns) return;
-      this.allRetroItems = [];
-      const columnNames = this.board.columns;
-
-      const loadPromises = columnNames.map(columnName =>
-        getItems(this.teamId, this.boardId, columnName).then(items => {
-          if (Array.isArray(items)) {
-            const normalized = items.map(it => ({...it, column: it.column || columnName}));
-            this.allRetroItems = [
-              ...this.allRetroItems.filter(existing => existing.column !== columnName),
-              ...normalized
-            ];
-          }
-        })
-      );
-
-      Promise.all(loadPromises).catch(error => {
-        console.error("Error loading retro items:", error);
-        createToast("Error loading items. Please refresh the page.", {type: "error", position: "top-center"});
-      });
-    },
-    handleOpenSettings(){
-      createToast("Settings feature is coming soon!", {type: "info", position: "top-center"});
+    handleOpenSettings() {
+      createToast("Settings feature is coming soon!", { type: "info", position: "top-center" });
     }
   },
   computed: {

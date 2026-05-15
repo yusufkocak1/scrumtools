@@ -1,16 +1,39 @@
 <template>
   <div class="min-h-screen bg-gray-50 p-8">
     <div class="max-w-7xl mx-auto">
-      <!-- Header -->
-      <div class="mb-12">
-        <h1 class="text-4xl font-bold text-gray-900 mb-4">Scrum Tools</h1>
-        <p class="text-xl text-gray-600">{{teamName}} team management and collaboration tools</p>
+      <!-- Dashboard Featured Banner -->
+      <div v-if="selectedTeam" @click="gotoDashboard"
+           class="mb-8 cursor-pointer rounded-2xl bg-gradient-to-r from-indigo-600 via-purple-600 to-violet-700 p-6 flex items-center justify-between shadow-xl hover:shadow-2xl transition-all duration-300 hover:scale-[1.01] group overflow-hidden relative">
+        <!-- Decorative circles -->
+        <div class="absolute -top-8 -right-8 w-40 h-40 rounded-full bg-white/10 pointer-events-none"></div>
+        <div class="absolute bottom-0 right-24 w-24 h-24 rounded-full bg-white/5 pointer-events-none"></div>
+
+        <div class="flex items-center gap-5 z-10">
+          <div class="w-14 h-14 bg-white/20 rounded-xl flex items-center justify-center flex-shrink-0 group-hover:bg-white/30 transition-colors">
+            <svg class="w-7 h-7 text-white" fill="currentColor" viewBox="0 0 20 20">
+              <path d="M2 10a8 8 0 018-8v8h8a8 8 0 11-16 0z"/>
+              <path d="M12 2.252A8.014 8.014 0 0117.748 8H12V2.252z"/>
+            </svg>
+          </div>
+          <div>
+            <p class="text-white/70 text-xs font-semibold uppercase tracking-widest mb-0.5">Genel Bakış</p>
+            <h2 class="text-white text-2xl font-bold leading-tight">Dashboard</h2>
+            <p class="text-white/70 text-sm mt-1">Takım istatistikleri, sprint durumu ve widget'larını incele</p>
+          </div>
+        </div>
+
+        <div class="z-10 flex items-center gap-2 bg-white/20 hover:bg-white/30 transition-colors text-white font-semibold text-sm px-5 py-2.5 rounded-xl flex-shrink-0">
+          <span>Aç</span>
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+          </svg>
+        </div>
       </div>
 
       <!-- Tools Grid -->
-      <div v-if="selectedTeam" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+      <div v-if="selectedTeam" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 mb-10">
 
-        <!-- Work List / Scrum Board Card -->
+        <!-- Board Card -->
         <div @click="gotoWorkList"
              class="bg-white rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 cursor-pointer transform hover:-translate-y-2 border border-gray-200">
           <div class="p-8">
@@ -19,9 +42,29 @@
                 <path d="M3 4a1 1 0 011-1h12a1 1 0 011 1v2a1 1 0 01-1 1H4a1 1 0 01-1-1V4zM3 10a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H4a1 1 0 01-1-1v-6zM14 9a1 1 0 00-1 1v6a1 1 0 001 1h2a1 1 0 001-1v-6a1 1 0 00-1-1h-2z"></path>
               </svg>
             </div>
-            <h3 class="text-2xl font-semibold text-gray-900 mb-3">Scrum Board</h3>
+            <h3 class="text-2xl font-semibold text-gray-900 mb-3">Board</h3>
             <p class="text-gray-600 mb-4">Manage sprint backlog and task tracking</p>
             <div class="flex items-center text-purple-600 font-medium">
+              <span>Start</span>
+              <svg class="w-4 h-4 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+              </svg>
+            </div>
+          </div>
+        </div>
+
+        <!-- Docs Card -->
+        <div @click="gotoDocs"
+             class="bg-white rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 cursor-pointer transform hover:-translate-y-2 border border-gray-200">
+          <div class="p-8">
+            <div class="w-16 h-16 bg-teal-100 rounded-lg flex items-center justify-center mb-6">
+              <svg class="w-8 h-8 text-teal-600" fill="currentColor" viewBox="0 0 20 20">
+                <path fill-rule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4z" clip-rule="evenodd"/>
+              </svg>
+            </div>
+            <h3 class="text-2xl font-semibold text-gray-900 mb-3">Docs</h3>
+            <p class="text-gray-600 mb-4">Proje dokümantasyonu, bilgi paylaşımı ve markdown wiki</p>
+            <div class="flex items-center text-teal-600 font-medium">
               <span>Start</span>
               <svg class="w-4 h-4 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
@@ -91,6 +134,35 @@
             </div>
           </div>
         </div>
+
+        <!-- Quiz Card -->
+        <div @click="gotoQuiz"
+             class="bg-white rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 cursor-pointer transform hover:-translate-y-2 border border-gray-200">
+          <div class="p-8">
+            <div class="w-16 h-16 bg-yellow-100 rounded-lg flex items-center justify-center mb-6">
+              <svg class="w-8 h-8 text-yellow-600" fill="currentColor" viewBox="0 0 20 20">
+                <path d="M10 2L13.09 8.26L20 9.27L15 14.14L16.18 21.02L10 17.77L3.82 21.02L5 14.14L0 9.27L6.91 8.26L10 2Z"/>
+              </svg>
+            </div>
+            <h3 class="text-2xl font-semibold text-gray-900 mb-3">Quiz</h3>
+            <p class="text-gray-600 mb-4">Run Kahoot-style team quizzes and knowledge competitions</p>
+            <div class="flex items-center text-yellow-600 font-medium">
+              <span>Start</span>
+              <svg class="w-4 h-4 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+              </svg>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Summary Widget Section -->
+      <div v-if="selectedTeam" class="mb-8">
+        <div class="flex items-center gap-2 mb-4">
+          <div class="w-1 h-6 bg-indigo-500 rounded-full"></div>
+          <h2 class="text-lg font-semibold text-gray-800">Takım Özeti</h2>
+        </div>
+        <SummaryWidget :key="selectedTeam" :team-id="selectedTeam" />
       </div>
 
       <!-- No Team Selected -->
@@ -109,18 +181,22 @@
       <div>
         <AdBanner v-if="showAddBanner"/>
       </div>
+
+      <!-- Docs Proje Seçim Modalı kaldırıldı — Docs.vue kendi proje seçimini içeriyor -->
     </div>
   </div>
 </template>
 
 <script>
 import AdBanner from '../components/AdBanner.vue'
+import SummaryWidget from '../components/dashboard/SummaryWidget.vue'
 import {getTeamById} from "../api/TeamApi.js";
 
 export default {
   name: "Home",
   components: {
-    AdBanner
+    AdBanner,
+    SummaryWidget
   },
   data: () => ({
     selectedTeam: "",
@@ -128,6 +204,9 @@ export default {
     showAddBanner: false,
   }),
   methods: {
+    gotoDashboard() {
+      this.$router.push('/dashboard')
+    },
     gotoRetrospective() {
       this.$router.push(`/retrospective`)
     },
@@ -139,6 +218,17 @@ export default {
     },
     gotoCodeShare() {
       this.$router.push(`/codeShare/${this.selectedTeam}`)
+    },
+    gotoQuiz() {
+      this.$router.push(`/quiz/${this.selectedTeam}`)
+    },
+    gotoDocs() {
+      const lastProjectId = localStorage.getItem('docs_last_project_id')
+      if (lastProjectId) {
+        this.$router.push(`/projects/${lastProjectId}/docs`)
+      } else {
+        this.$router.push('/docs')
+      }
     },
     gotoTeams() {
       this.$router.push(`/teams`)

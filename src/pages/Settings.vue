@@ -164,6 +164,7 @@
 
 <script>
 import { changePassword as apiChangePassword, updateName as apiUpdateName, me } from '../api/AuthApi.js'
+import { useAuth } from '../composables/useAuth.js'
 import { createToast } from 'mosha-vue-toastify'
 import { getMyTeams, updateDisplayNameAcrossTeams, removeMember } from '../api/TeamApi.js'
 import SideBar from '../components/SideBar.vue'
@@ -172,6 +173,11 @@ export default {
   name: 'Settings',
   components: {
     SideBar
+  },
+  setup() {
+    // useAuth — merkezi auth kaynağından okuyoruz
+    const { user: authUser, userEmail, name: authName } = useAuth()
+    return { authUser, userEmail, authName }
   },
   data() {
     return {
@@ -192,15 +198,21 @@ export default {
   },
   methods: {
     async initializeData() {
-      // Kullanıcı bilgilerini localStorage + me() çağrısından al
-      this.email = localStorage.getItem('user') || ''
+      // Önce useAuth'tan oku — daha hızlı (localStorage zaten sync'lenmiş)
+      this.email = this.userEmail.value || localStorage.getItem('user') || ''
+      this.displayName = this.authName.value || ''
+      this.originalDisplayName = this.authName.value || ''
 
-      try {
-        const user = await me()
-        this.displayName = user.name || ''
-        this.originalDisplayName = user.name || ''
-      } catch (err) {
-        console.warn('Kullanıcı bilgisi alınamadı:', err)
+      // Gerekirse me() ile tazele (token doğrulama için)
+      if (!this.displayName) {
+        try {
+          const user = await me()
+          this.displayName = user.name || ''
+          this.originalDisplayName = user.name || ''
+          if (!this.email) this.email = user.email || ''
+        } catch (err) {
+          console.warn('Kullanıcı bilgisi alınamadı:', err)
+        }
       }
 
       const storedTeam = localStorage.getItem('selectedTeam')

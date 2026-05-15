@@ -6,7 +6,7 @@
 
     <div class="p-4">
       <RetroItem
-        v-for="item in items"
+        v-for="item in localItems"
         :key="item.id"
         :ownerName="resolveOwnerName(item.owner)"
         :board-id="boardId"
@@ -42,8 +42,7 @@
 </template>
 
 <script>
-import { getItems, deleteItem, toggleVote } from "../../api/RetroBoardApi.js";
-import { connect, subscribe, unsubscribe } from "../../api/websocket.js";
+import { deleteItem, toggleVote } from "../../api/RetroBoardApi.js";
 import RetroItem from "./RetroItem.vue";
 import { createToast } from "mosha-vue-toastify";
 
@@ -57,22 +56,28 @@ export default {
     boardId: { type: String, required: true },
     teamId: { type: String, required: true },
     isAdmin: { type: Boolean, default: false },
-    // members dizisi (veya obje) dışarıdan geliyor, index erişimi güvenli işleniyor
-    members: { type: [Array, Object], default: () => [] }
+    members: { type: [Array, Object], default: () => [] },
+    items: { type: Array, default: () => [] }
   },
   data() {
     return {
       item: "",
-      items: [],
-      unsubscribeListener: null,
-      lastUpdateTime: 0,
-      isDestroyed: false
+      localItems: [],
+      lastAddTime: 0
     };
+  },
+  watch: {
+    items: {
+      handler(newItems) {
+        this.localItems = newItems ? [...newItems] : [];
+      },
+      immediate: true,
+      deep: false
+    }
   },
   methods: {
     resolveOwnerName(ownerKey) {
       if (!ownerKey || !this.members) return "";
-      // Eğer members bir object ise direkt eriş, array ise uygun member'ı bul
       if (Array.isArray(this.members)) {
         const found = this.members.find(m => m.email === ownerKey || m.id === ownerKey || m.owner === ownerKey);
         return found?.displayName || found?.name || ownerKey;
@@ -81,8 +86,8 @@ export default {
     },
     addItem() {
       const now = Date.now();
-      if (now - this.lastUpdateTime < ADD_ITEM_THROTTLE_MS) return; // throttle
-      this.lastUpdateTime = now;
+      if (now - this.lastAddTime < ADD_ITEM_THROTTLE_MS) return;
+      this.lastAddTime = now;
 
       const trimmed = this.item.trim();
       if (!trimmed) return;
@@ -93,77 +98,76 @@ export default {
     async addVote(itemId, vote) {
       try {
         const voteValue = typeof vote === 'object' ? vote.value : vote;
+        this._applyOptimisticVote(itemId, voteValue, vote.owner || localStorage.getItem('user'));
+
         const updatedItem = await toggleVote(this.teamId, this.boardId, this.column, itemId, voteValue);
         if (updatedItem) {
-          const idx = this.items.findIndex(i => i.id === itemId);
+          const idx = this.localItems.findIndex(i => i.id === itemId);
           if (idx !== -1) {
-            this.items[idx] = { ...this.items[idx], votes: updatedItem.votes, voteScore: updatedItem.voteScore };
-            this.items = [...this.items];
+            this.localItems[idx] = { ...this.localItems[idx], votes: updatedItem.votes, voteScore: updatedItem.voteScore };
+            this.localItems = [...this.localItems];
           }
         }
       } catch(e) {
         console.error('addVote error', e);
+        this.localItems = this.items ? [...this.items] : [];
       }
     },
     async removeVote(itemId, voteValue) {
       try {
         const val = typeof voteValue === 'object' ? voteValue.value : voteValue;
+        this._applyOptimisticVote(itemId, val, localStorage.getItem('user'), true);
+
         const updatedItem = await toggleVote(this.teamId, this.boardId, this.column, itemId, val);
         if (updatedItem) {
-          const idx = this.items.findIndex(i => i.id === itemId);
+          const idx = this.localItems.findIndex(i => i.id === itemId);
           if (idx !== -1) {
-            this.items[idx] = { ...this.items[idx], votes: updatedItem.votes, voteScore: updatedItem.voteScore };
-            this.items = [...this.items];
+            this.localItems[idx] = { ...this.localItems[idx], votes: updatedItem.votes, voteScore: updatedItem.voteScore };
+            this.localItems = [...this.localItems];
           }
         }
       } catch(e) {
         console.error('removeVote error', e);
+        this.localItems = this.items ? [...this.items] : [];
       }
     },
+    _applyOptimisticVote(itemId, voteValue, owner, isRemove = false) {
+      const idx = this.localItems.findIndex(i => i.id === itemId);
+      if (idx === -1) return;
+      const item = { ...this.localItems[idx] };
+      let votes = Array.isArray(item.votes) ? [...item.votes] : [];
+
+      if (isRemove) {
+        votes = votes.filter(v => !(v.owner === owner && v.value === voteValue));
+      } else {
+        const existingIdx = votes.findIndex(v => v.owner === owner);
+        if (existingIdx !== -1) {
+          if (votes[existingIdx].value === voteValue) {
+            votes.splice(existingIdx, 1);
+          } else {
+            votes[existingIdx] = { ...votes[existingIdx], value: voteValue };
+          }
+        } else {
+          votes.push({ owner, value: voteValue });
+        }
+      }
+
+      item.votes = votes;
+      this.localItems[idx] = item;
+      this.localItems = [...this.localItems];
+    },
     removeItem(itemId) {
+      this.localItems = this.localItems.filter(i => i.id !== itemId);
       deleteItem(this.teamId, this.boardId, this.column, itemId)
         .then(() => createToast("Item removed.", { type: "success", position: "top-center" }))
-        .catch(() => createToast("Failed to remove item.", { type: "danger", position: "top-center" }));
-    },
-    updateItems(items) {
-      if (this.isDestroyed) return;
-      // requestAnimationFrame ile batch
-      requestAnimationFrame(() => {
-        if (!this.isDestroyed) {
-          this.items = items;
-        }
-      });
+        .catch(() => {
+          createToast("Failed to remove item.", { type: "danger", position: "top-center" });
+          this.localItems = this.items ? [...this.items] : [];
+        });
     },
     openItemDetail(item) {
       this.$emit("openDetail", item, this.column);
     }
-  },
-  beforeUnmount() {
-    this.isDestroyed = true;
-    unsubscribe(`/topic/retro/${this.teamId}/${this.boardId}`);
-    this.unsubscribeListener = null;
-  },
-  created() {
-    // İlk yükleme: REST ile kayıtları getir
-    getItems(this.teamId, this.boardId, this.column).then(items => {
-      if (!this.isDestroyed) this.items = items;
-    });
-
-    // WebSocket notification-only: değişiklik bildirimi gelince ilgili sütunu yenile
-    const topic = `/topic/retro/${this.teamId}/${this.boardId}`;
-    const doSubscribe = () => {
-      subscribe(topic, (msg) => {
-        if (this.isDestroyed) return;
-        // Mesaj bu sütunla ilgiliyse veya sütun belirtilmemişse yenile
-        if (!msg.columnName || msg.columnName === this.column) {
-          getItems(this.teamId, this.boardId, this.column).then(items => {
-            if (!this.isDestroyed) this.updateItems(items);
-          });
-        }
-      });
-    };
-
-    connect(doSubscribe);
   }
 };
 </script>

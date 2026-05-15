@@ -2,10 +2,19 @@
  * TeamApi.js
  *
  * Spring Boot Team REST API ile iletişim kurar.
- * Firebase TeamService.js'in yerini alır.
+ * Takımlar artık organizasyona zorunlu bağlıdır.
  */
 
 import apiClient from './axios.js'
+
+// ─── Get Teams By Organisation (search) ──────────────────────────────────────
+
+export const getTeamsByOrg = async (orgId, query = '') => {
+    const { data } = await apiClient.get(`/api/organizations/${orgId}/teams`, {
+        params: query ? { q: query } : {}
+    })
+    return data
+}
 
 // ─── Get My Teams ─────────────────────────────────────────────────────────────
 
@@ -21,10 +30,10 @@ export const getTeamById = async (teamId) => {
     return data
 }
 
-// ─── Create Team ──────────────────────────────────────────────────────────────
+// ─── Create Team (org admin/owner only) ───────────────────────────────────────
 
-export const createTeam = async (teamName, teamCode, displayName) => {
-    const { data } = await apiClient.post('/api/teams', {
+export const createTeam = async (orgId, teamName, teamCode, displayName) => {
+    const { data } = await apiClient.post(`/api/organizations/${orgId}/teams`, {
         teamName,
         teamCode,
         displayName
@@ -32,10 +41,14 @@ export const createTeam = async (teamName, teamCode, displayName) => {
     return data
 }
 
-// ─── Join Team (by teamId) ────────────────────────────────────────────────────
+// ─── Add Member To Team (org üyesi olmak zorunda) ─────────────────────────────
 
-export const joinTeam = async (teamId) => {
-    const { data } = await apiClient.post(`/api/teams/${teamId}/members`)
+export const addMemberToTeam = async (orgId, teamId, email) => {
+    const { data } = await apiClient.post(
+        `/api/organizations/${orgId}/teams/${teamId}/members`,
+        null,
+        { params: { email } }
+    )
     return data
 }
 
@@ -56,9 +69,19 @@ export const updateMemberRole = async (teamId, email, role, skills = []) => {
     return data
 }
 
+// ─── Update Team Info (name, code) ────────────────────────────────────────────
+
+export const updateTeam = async (teamId, teamName, teamCode) => {
+    const { data } = await apiClient.put(`/api/teams/${teamId}`, {
+        teamName,
+        teamCode,
+        displayName: null
+    })
+    return data
+}
+
 // ─── Update Display Name Across All Teams ─────────────────────────────────────
 
 export const updateDisplayNameAcrossTeams = async (displayName) => {
     await apiClient.put('/api/teams/display-name', { displayName })
 }
-

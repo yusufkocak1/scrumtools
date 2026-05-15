@@ -205,7 +205,6 @@ export default {
         this.showStatusMessage('Code saved successfully!', 'success')
       } catch (e) {
         console.error(e)
-        createToast('Kayıt başarısız: ' + (e.response?.data?.message || e.message), { type: 'error', position: 'top-center' })
         this.showStatusMessage('Error while saving!', 'error')
       } finally { this.isSaving = false }
     },

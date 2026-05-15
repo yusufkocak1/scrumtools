@@ -1,6 +1,7 @@
 import withMT from "@material-tailwind/html/utils/withMT";
 
 module.exports = withMT({
+    darkMode: 'class',
     content: ["./index.html", "./src/**/*.{vue,js,ts,jsx,tsx}",],
     theme: {
         // xs breakpoint mobilde buton metni kısaltmaları için kullanılıyor
@@ -14,6 +15,6 @@ module.exports = withMT({
         },
         extend: {},
     },
-    plugins: [],
+    plugins: [require('@tailwindcss/typography')],
 
 });

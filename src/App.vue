@@ -11,19 +11,13 @@
         :name="name"
         :selectedTeam="selectedTeam"
         :teamList="teamList"
-        @logout="logout"
+        @logout="handleLogout"
         @team-select="handleTeamSelectRequest"
-        @join-team="showJoinTeam = true"
-        @create-team="showCreateTeam = true"
     />
 
-    <!-- Modal overlay for team operations -->
-    <div v-if="showJoinTeam || showCreateTeam || showTeamChangeConfirm"
+    <!-- Team Change Confirmation Dialog -->
+    <div v-if="showTeamChangeConfirm"
          class="fixed inset-0 z-[999] grid h-screen w-screen place-items-center bg-black bg-opacity-60 backdrop-blur-sm transition-opacity duration-300">
-      <JoinTeam v-if="showJoinTeam" @close="closeJoinTeam" @showCreateTeam="showCreateTeam = true"/>
-      <CreateTeam v-if="showCreateTeam" @close="closeCreateTeam" @showJoinTeam="showJoinTeam = true"/>
-
-      <!-- Team Change Confirmation Dialog -->
       <ConfirmationDialog
           v-if="showTeamChangeConfirm"
           :message="`Are you sure you want to switch to ${pendingTeamName} team?`"
@@ -37,17 +31,16 @@
       />
     </div>
 
-
-    <div class="flex justify-center">
+    <div class="w-full min-w-0">
       <RouterView/>
     </div>
   </div>
 </template>
+
 <script>
 import { me, logout as apiLogout } from "./api/AuthApi.js";
+import { useAuth } from "./composables/useAuth.js";
 import Navbar from "./components/Navbar.vue";
-import JoinTeam from "./components/team/JoinTeam.vue";
-import CreateTeam from "./components/team/CreateTeam.vue";
 import ConfirmationDialog from "./components/ConfirmationDialog.vue";
 import { getMyTeams } from "./api/TeamApi.js";
 import './scripts/collapse.js'
@@ -56,39 +49,30 @@ export default {
   name: "App",
   components: {
     Navbar,
-    JoinTeam,
-    CreateTeam,
     ConfirmationDialog
   },
+  setup() {
+    const auth = useAuth()
+    return { auth }
+  },
   data: () => ({
-    isLogged: false,
-    name: "",
     loading: true,
-    showJoinTeam: false,
-    showCreateTeam: false,
     teamList: [],
     selectedTeam: "",
     showTeamChangeConfirm: false,
     pendingTeamId: "",
     pendingTeamName: "",
   }),
+  computed: {
+    isLogged() { return this.auth.isAuthenticated.value },
+    name() { return this.auth.name.value }
+  },
   methods: {
-    logout() {
+    handleLogout() {
       apiLogout()
-      this.isLogged = false
-      this.name = ""
+      this.teamList = []
+      this.selectedTeam = ''
       this.$router.push('/login')
-    },
-    getUserName() {
-      // Artık name, me() çağrısından geliyor — ayrı bir çağrıya gerek yok
-    },
-    closeJoinTeam() {
-      this.showJoinTeam = false;
-      this.getAllTeams();
-    },
-    closeCreateTeam() {
-      this.showCreateTeam = false;
-      this.getAllTeams();
     },
     selectTeam(teamId) {
       this.selectedTeam = teamId;
@@ -99,8 +83,6 @@ export default {
           teamName: this.teamList.find(t => t.id === teamId)?.teamName || ''
         }
       }));
-
-      // Home sayfasına yönlendir
       this.$router.push('/');
     },
     getAllTeams() {
@@ -123,21 +105,15 @@ export default {
       }).catch(err => console.error('Takımlar yüklenemedi:', err))
     },
     handleTeamSelectRequest(teamId) {
-      // Eğer aynı takım seçildiyse hiçbir şey yapma
-      if (this.selectedTeam === teamId) {
-        return;
-      }
-
-      // Eğer selectedTeam boşsa (ilk seçim) direkt değiştir
+      if (this.selectedTeam === teamId) return;
       if (!this.selectedTeam) {
         this.selectTeam(teamId);
         return;
       }
-
-      // Onay popup'ı göster
       const selectedTeam = this.teamList.find(team => team.id === teamId);
       if (selectedTeam) {
         this.pendingTeamId = selectedTeam.id;
+        this.pendingTeamName = selectedTeam.teamName || '';
         this.showTeamChangeConfirm = true;
       }
     },
@@ -151,38 +127,33 @@ export default {
       this.showTeamChangeConfirm = false;
       this.pendingTeamId = "";
       this.pendingTeamName = "";
-
-      // TeamList component'ine eski değere dönmesini söyle
       this.$refs.navbar.$refs.teamList.resetToSelected();
     }
   },
   async created() {
     const jwt = localStorage.getItem('jwt')
-
     if (jwt) {
       try {
-        // Token geçerliliğini backend'de doğrula
         const user = await me()
-        this.name = user.name
-        this.isLogged = true
+        this.auth.setUser({
+          ...( this.auth.user.value || {} ),
+          name: user.name,
+          email: user.email,
+        })
         this.getAllTeams()
+        this.auth.fetchProfile().catch(() => {})
       } catch {
-        // Token geçersiz veya süresi dolmuş
-        localStorage.removeItem('jwt')
-        localStorage.removeItem('user')
-        this.isLogged = false
+        this.auth.logout()
         this.$router.push('/login')
       }
     } else {
-      this.isLogged = false
       this.$router.push('/login')
     }
-
     this.loading = false
   },
   watch: {
-    isLogged() {
-      if (!this.isLogged) {
+    isLogged(val) {
+      if (!val) {
         this.$router.push('/login')
       } else {
         this.getAllTeams()
@@ -191,3 +162,4 @@ export default {
   }
 }
 </script>
+

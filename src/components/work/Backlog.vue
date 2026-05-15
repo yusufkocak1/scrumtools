@@ -43,32 +43,60 @@
         :task="editingTask"
         :teamId="teamId"
         @close="closeTaskForm"
+        @addTask="handleTaskAdded"
         @updateTask="handleUpdateTask"
         @deleteTask="handleDeleteTask"
       ></AddTaskForm>
 
       <!-- Sprint Oluşturma Formu -->
-      <div v-if="showCreateSprint" class="mb-6 bg-white rounded-lg shadow-sm border border-gray-200 p-4">
+      <div v-if="showCreateSprint" class="mb-6 bg-white rounded-lg shadow-sm border border-gray-200 p-4 space-y-3">
         <div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
           <input
             v-model="newSprintName"
             class="flex-1 px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-sm"
-            placeholder="Sprint name"
+            placeholder="Sprint adı"
           />
-          <div class="flex gap-2">
-            <button
-              class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-              @click="createSprint"
-            >
-              Create
-            </button>
-            <button
-              class="px-4 py-2 text-gray-600 hover:text-gray-800 text-sm"
-              @click="showCreateSprint = false"
-            >
-              Cancel
-            </button>
+        </div>
+        <div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+          <div class="flex-1">
+            <label class="block text-xs text-gray-500 mb-1">Başlangıç Tarihi</label>
+            <input
+              v-model="newSprintStartDate"
+              type="date"
+              class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-sm"
+            />
           </div>
+          <div class="flex-1">
+            <label class="block text-xs text-gray-500 mb-1">Bitiş Tarihi</label>
+            <input
+              v-model="newSprintEndDate"
+              type="date"
+              class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-sm"
+            />
+          </div>
+        </div>
+        <div>
+          <label class="block text-xs text-gray-500 mb-1">Sprint Hedefi</label>
+          <textarea
+            v-model="newSprintGoal"
+            rows="2"
+            class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-sm resize-none"
+            placeholder="Bu sprint'te neyi başarmayı hedefliyorsunuz?"
+          ></textarea>
+        </div>
+        <div class="flex gap-2 justify-end">
+          <button
+            class="px-4 py-2 text-gray-600 hover:text-gray-800 text-sm"
+            @click="showCreateSprint = false"
+          >
+            İptal
+          </button>
+          <button
+            class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+            @click="createSprint"
+          >
+            Sprint Oluştur
+          </button>
         </div>
       </div>
 
@@ -200,7 +228,13 @@
                     {{ sprint.status === 'open' ? 'Active Sprint' : 'Sprint' }}
                   </span>
                   <span>{{ tasks.filter(item => item.sprintId === sprint.id).length }} issues</span>
+                  <span v-if="sprint.startDate" class="text-xs text-gray-400">
+                    {{ formatSprintDate(sprint.startDate) }} — {{ formatSprintDate(sprint.endDate) }}
+                  </span>
                 </div>
+                <p v-if="sprint.goal" class="text-xs text-indigo-600 mt-1 italic">
+                  <span class="font-semibold not-italic">Hedef:</span> {{ sprint.goal }}
+                </p>
               </div>
             </div>
             <div class="flex items-center space-x-2">
@@ -341,6 +375,9 @@ export default {
       newTaskTitle: "",
       newTaskDescription: "",
       newSprintName: "",
+      newSprintStartDate: "",
+      newSprintEndDate: "",
+      newSprintGoal: "",
       editingTask: null,
       isMobile: false,
       draggedTask: null,
@@ -356,15 +393,17 @@ export default {
       if(!this.newSprintName.trim()) return;
       const newSprint = {
         name: this.newSprintName.trim(),
-        startDate: "",
-        endDate: "",
-        teamId: this.teamId,
-        status: "backlog",
-        tasks: [],
+        startDate: this.newSprintStartDate || null,
+        endDate: this.newSprintEndDate || null,
+        goal: this.newSprintGoal.trim() || null,
       };
       await addSprint(this.teamId, newSprint);
       this.newSprintName = "";
+      this.newSprintStartDate = "";
+      this.newSprintEndDate = "";
+      this.newSprintGoal = "";
       this.showCreateSprint = false;
+      await this.fetchData();
     },
 
     async onDragStart(task) {
@@ -375,23 +414,27 @@ export default {
       if(!this.draggedTask) return;
       await addTaskToSprint(this.teamId, this.draggedTask.id, sprintId);
       this.draggedTask = null;
+      await this.fetchData();
     },
 
     async handleMobileSprintChange(task, sprintId) {
       // sprintId boş ise backlog'a gönder
       await addTaskToSprint(this.teamId, task.id, sprintId || null);
+      await this.fetchData();
     },
 
-    startSprint(sprintId) {
-      updateSprintStatus(this.teamId,sprintId, "open");
+    async startSprint(sprintId) {
+      await updateSprintStatus(this.teamId, sprintId, "open");
+      await this.fetchData();
     },
 
-    finishSprint(sprintId) {
-      updateSprintStatus(this.teamId,sprintId,  "done");
+    async finishSprint(sprintId) {
+      await updateSprintStatus(this.teamId, sprintId, "done");
+      await this.fetchData();
     },
 
     showSprintDetails(sprint) {
-      this.$router.push(`/team/${this.teamId}/sprint/${sprint.id}`);
+      this.$router.push({ path: `/workList/${this.teamId}`, query: { view: 'board' } });
     },
 
     openTaskDetail(task) {
@@ -408,6 +451,11 @@ export default {
       this.editingTask = null;
     },
 
+    async handleTaskAdded() {
+      this.closeTaskForm();
+      await this.fetchData();
+    },
+
     editTask(task) {
       this.editingTask = { ...task };
       this.showCreateTask = true;
@@ -416,15 +464,21 @@ export default {
     async handleUpdateTask(updatedTask) {
       await updateTaskService(this.teamId, updatedTask.id, { ...updatedTask, updatedAt: new Date().toISOString() });
       this.closeTaskForm();
+      await this.fetchData();
     },
 
     async handleDeleteTask(taskId) {
       await deleteTaskService(this.teamId, taskId);
       this.closeTaskForm();
+      await this.fetchData();
     },
 
     handleResize() {
       this.isMobile = window.innerWidth < 640;
+    },
+    formatSprintDate(d) {
+      if (!d) return '';
+      return new Date(d).toLocaleDateString('tr-TR');
     },
     async fetchData() {
       const [tasks, sprints] = await Promise.all([

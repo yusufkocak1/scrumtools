@@ -2,17 +2,28 @@
  * AuthApi.js
  *
  * Spring Boot auth servisiyle iletişim kurar.
+ * useAuth composable'ı ile entegredir — tüm auth state buradan beslenir.
  */
 
 import apiClient from './axios.js'
+import { useAuth } from '../composables/useAuth.js'
 
 // ─── Login ──────────────────────────────────────────────────────────────────
 
 export const login = async (email, password) => {
     const { data } = await apiClient.post('/api/auth/login', { email, password })
+    const auth = useAuth()
 
-    localStorage.setItem('jwt', data.jwt)
-    localStorage.setItem('user', data.email)
+    // jwt token'ı ve kullanıcı bilgisini reaktif store'a yaz
+    auth.setToken(data.jwt)
+    auth.setUser({
+        name: data.name,
+        email: data.email,
+        // Profil henüz tam değil — systemRole vb. /users/profile'dan gelecek
+        // Şimdilik defaults ile çalış, fetchProfile ile zenginleştirilebilir
+        systemRole: 'USER',
+        status: 'ACTIVE',
+    })
 
     return data
 }
@@ -21,9 +32,15 @@ export const login = async (email, password) => {
 
 export const register = async (email, password, name) => {
     const { data } = await apiClient.post('/api/auth/register', { email, password, name })
+    const auth = useAuth()
 
-    localStorage.setItem('jwt', data.jwt)
-    localStorage.setItem('user', data.email)
+    auth.setToken(data.jwt)
+    auth.setUser({
+        name: data.name,
+        email: data.email,
+        systemRole: 'USER',
+        status: 'ACTIVE',
+    })
 
     return data
 }
@@ -31,9 +48,8 @@ export const register = async (email, password, name) => {
 // ─── Logout ──────────────────────────────────────────────────────────────────
 
 export const logout = () => {
-    localStorage.removeItem('jwt')
-    localStorage.removeItem('user')
-    localStorage.removeItem('selectedTeam')
+    const auth = useAuth()
+    auth.logout() // jwt + user + selectedTeam temizle
 }
 
 // ─── Me (oturum kontrolü) ────────────────────────────────────────────────────
@@ -54,6 +70,11 @@ export const changePassword = async (newPassword) => {
 export const updateName = async (name) => {
     const { data } = await apiClient.put('/api/auth/update-name', { name })
 
+    // Mevcut kullanıcı adını güncelle
+    const auth = useAuth()
+    if (auth.user.value) {
+        auth.setUser({ ...auth.user.value, name: data.name })
+    }
+
     return data
 }
-

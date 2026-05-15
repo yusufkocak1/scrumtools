@@ -185,25 +185,54 @@ export default {
     },
     addComment() {
       if(!this.commentInput.trim()) return;
-      apiAddComment(this.teamId, this.boardId, this.item.column, this.item.id, this.commentInput.trim()).then(() => {
-        createToast('Comment added', {type: 'success', position: 'top-center'})
-        this.fetchComments(true)
-        this.commentInput = ""
-      })
+      const value = this.commentInput.trim();
+      this.commentInput = "";
+
+      apiAddComment(this.teamId, this.boardId, this.item.column, this.item.id, value)
+        .then((updatedItem) => {
+          // addComment response'u güncel comments listesini içeriyor → anında güncelle
+          if (updatedItem?.comments && Array.isArray(updatedItem.comments)) {
+            this.comments = updatedItem.comments;
+            this.commentsLoadedForItem = this.item.id;
+          } else {
+            // fallback: ayrı GET ile çek
+            this.fetchComments(true);
+          }
+          createToast('Comment added', {type: 'success', position: 'top-center'});
+        })
+        .catch((err) => {
+          console.error('addComment error', err);
+          this.commentInput = value; // input'u geri koy
+          createToast('Failed to add comment.', {type: 'danger', position: 'top-center'});
+        });
     },
     removeComment(commentId) {
-      deleteComment(this.teamId, this.boardId, this.item.column, this.item.id, commentId).then(() => {
-        createToast('Comment removed', {type: 'success', position: 'top-center'})
-        this.fetchComments(true)
-      })
+      deleteComment(this.teamId, this.boardId, this.item.column, this.item.id, commentId)
+        .then(() => {
+          // Optimistik: listeden hemen kaldır
+          this.comments = this.comments.filter(c => c.id !== commentId);
+          createToast('Comment removed', {type: 'success', position: 'top-center'});
+        })
+        .catch((err) => {
+          console.error('removeComment error', err);
+          createToast('Failed to remove comment.', {type: 'danger', position: 'top-center'});
+          this.fetchComments(true); // Hata durumunda DB'den taze çek
+        });
     },
+    /**
+     * Yorumları yeniden çeker.
+     * force=true: önbellek kontrolü yapmadan zorla yeniler.
+     * RetroBoard.vue tarafından ref üzerinden public olarak çağrılabilir.
+     */
     fetchComments(force = false) {
       if(!this.item?.id) return;
       if(!force && this.commentsLoadedForItem === this.item.id) return;
-      getComments(this.teamId, this.boardId, this.item.column, this.item.id).then(comments => {
-        this.comments = comments;
-        this.commentsLoadedForItem = this.item.id;
-      })
+      getComments(this.teamId, this.boardId, this.item.column, this.item.id)
+        .then(comments => {
+          this.comments = comments;
+          this.commentsLoadedForItem = this.item.id;
+        })
+        .catch(err => console.error('fetchComments error', err));
     },
     setStatus(status) {
       updateItemStatus(this.teamId, this.boardId, this.item.column, this.item.id, status)

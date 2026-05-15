@@ -1,6 +1,19 @@
 <template>
   <nav class="flex w-20 flex-col gap-2 py-4 bg-white border-r border-gray-200 shadow-sm">
-    <!-- Work List -->
+    <!-- 1. Dashboard (Faz 6) -->
+    <div @click="gotoDashboard"
+         class="group relative flex items-center justify-center p-3 mx-2 rounded-xl transition-all duration-200 hover:bg-indigo-50 focus:bg-indigo-50 active:bg-indigo-100 cursor-pointer">
+      <div class="w-10 h-10 bg-indigo-100 rounded-lg flex items-center justify-center group-hover:bg-indigo-200 transition-colors">
+        <svg class="w-5 h-5 text-indigo-600" fill="currentColor" viewBox="0 0 20 20">
+          <path d="M2 10a8 8 0 018-8v8h8a8 8 0 11-16 0z"/>
+          <path d="M12 2.252A8.014 8.014 0 0117.748 8H12V2.252z"/>
+        </svg>
+      </div>
+      <div class="absolute left-full ml-3 px-2 py-1 bg-gray-900 text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-10">
+        Dashboard
+      </div>
+    </div>
+    <!-- 2. Work List / Board -->
     <div @click="gotoWorkList"
          class="group relative flex items-center justify-center p-3 mx-2 rounded-xl transition-all duration-200 hover:bg-purple-50 focus:bg-purple-50 active:bg-purple-100 cursor-pointer">
       <div class="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center group-hover:bg-purple-200 transition-colors">
@@ -8,12 +21,23 @@
           <path d="M3 4a1 1 0 011-1h12a1 1 0 011 1v2a1 1 0 01-1 1H4a1 1 0 01-1-1V4zM3 10a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H4a1 1 0 01-1-1v-6zM14 9a1 1 0 00-1 1v6a1 1 0 001 1h2a1 1 0 001-1v-6a1 1 0 00-1-1h-2z"></path>
         </svg>
       </div>
-      <!-- Tooltip -->
       <div class="absolute left-full ml-3 px-2 py-1 bg-gray-900 text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-10">
-        Scrum Board
+        Board
       </div>
     </div>
-    <!-- Retrospective -->
+    <!-- 3. Docs -->
+    <div @click="gotoDocs"
+         class="group relative flex items-center justify-center p-3 mx-2 rounded-xl transition-all duration-200 hover:bg-teal-50 focus:bg-teal-50 active:bg-teal-100 cursor-pointer">
+      <div class="w-10 h-10 bg-teal-100 rounded-lg flex items-center justify-center group-hover:bg-teal-200 transition-colors">
+        <svg class="w-5 h-5 text-teal-600" fill="currentColor" viewBox="0 0 20 20">
+          <path fill-rule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4z" clip-rule="evenodd"/>
+        </svg>
+      </div>
+      <div class="absolute left-full ml-3 px-2 py-1 bg-gray-900 text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-10">
+        Docs
+      </div>
+    </div>
+    <!-- 4. Retrospective -->
     <div @click="gotoRetrospective"
          class="group relative flex items-center justify-center p-3 mx-2 rounded-xl transition-all duration-200 hover:bg-blue-50 focus:bg-blue-50 active:bg-blue-100 cursor-pointer">
       <div class="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center group-hover:bg-blue-200 transition-colors">
@@ -24,13 +48,12 @@
           <path d="M9 14l-2 2h6l-2-2H9z"/>
         </svg>
       </div>
-      <!-- Tooltip -->
       <div class="absolute left-full ml-3 px-2 py-1 bg-gray-900 text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-10">
         Retrospective
       </div>
     </div>
 
-    <!-- Scrum Poker -->
+    <!-- 5. Scrum Poker -->
     <div @click="gotoScrumPoker"
          class="group relative flex items-center justify-center p-3 mx-2 rounded-xl transition-all duration-200 hover:bg-green-50 focus:bg-green-50 active:bg-green-100 cursor-pointer">
       <div class="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center group-hover:bg-green-200 transition-colors">
@@ -45,7 +68,7 @@
       </div>
     </div>
 
-    <!-- Code Share -->
+    <!-- 6. Code Share -->
     <div @click="gotoShare"
          class="group relative flex items-center justify-center p-3 mx-2 rounded-xl transition-all duration-200 hover:bg-orange-50 focus:bg-orange-50 active:bg-orange-100 cursor-pointer">
       <div class="w-10 h-10 bg-orange-100 rounded-lg flex items-center justify-center group-hover:bg-orange-200 transition-colors">
@@ -58,6 +81,20 @@
         Code Share
       </div>
     </div>
+
+    <!-- 7. Quiz -->
+    <div @click="gotoQuiz"
+         class="group relative flex items-center justify-center p-3 mx-2 rounded-xl transition-all duration-200 hover:bg-yellow-50 focus:bg-yellow-50 active:bg-yellow-100 cursor-pointer">
+      <div class="w-10 h-10 bg-yellow-100 rounded-lg flex items-center justify-center group-hover:bg-yellow-200 transition-colors">
+        <svg class="w-5 h-5 text-yellow-600" fill="currentColor" viewBox="0 0 20 20">
+          <path d="M10 2L13.09 8.26L20 9.27L15 14.14L16.18 21.02L10 17.77L3.82 21.02L5 14.14L0 9.27L6.91 8.26L10 2Z"/>
+        </svg>
+      </div>
+      <!-- Tooltip -->
+      <div class="absolute left-full ml-3 px-2 py-1 bg-gray-900 text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-10">
+        Quiz
+      </div>
+    </div>
   </nav>
 </template>
 
@@ -67,9 +104,13 @@ import {createToast} from "mosha-vue-toastify";
 export default {
   name: "SideBar",
   props: {
-    teamId: String
+    teamId: String,
+    projectId: String
   },
   methods: {
+    gotoDashboard() {
+      this.$router.push('/dashboard')
+    },
     gotoSettings() {
       this.$router.push(`/Settings`)
     },
@@ -85,8 +126,19 @@ export default {
     gotoShare() {
       this.$router.push(`/codeShare/${this.teamId}`)
     },
+    gotoQuiz() {
+      this.$router.push(`/quiz/${this.teamId}`)
+    },
     gotoRetrospective() {
       this.$router.push(`/retrospective`)
+    },
+    gotoDocs() {
+      const lastProjectId = this.projectId || localStorage.getItem('docs_last_project_id')
+      if (lastProjectId) {
+        this.$router.push(`/projects/${lastProjectId}/docs`)
+      } else {
+        this.$router.push('/docs')
+      }
     }
   }
 }

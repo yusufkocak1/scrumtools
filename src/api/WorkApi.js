@@ -119,3 +119,142 @@ export const updateSprintStatus = async (teamId, sprintId, status) => {
     return data
 }
 
+export const updateSprint = async (teamId, sprintId, sprintData) => {
+    const { data } = await apiClient.put(`/api/teams/${teamId}/sprints/${sprintId}`, sprintData)
+    return data
+}
+
+// ─── Attachments (MinIO) ──────────────────────────────────────────────────────
+
+/**
+ * Task'a dosya yükle.
+ * @param {string} teamId
+ * @param {string} taskId
+ * @param {File} file — tarayıcı File nesnesi
+ * @param {function} onProgress — yükleme progress callback (opsiyonel)
+ * @returns {Promise<{id, fileName, fileSize, mimeType, uploadedBy, downloadUrl, createdAt}>}
+ */
+export const uploadAttachment = async (teamId, taskId, file, onProgress) => {
+    const formData = new FormData()
+    formData.append('file', file)
+
+    const { data } = await apiClient.post(
+        `/api/teams/${teamId}/tasks/${taskId}/attachments`,
+        formData,
+        {
+            headers: { 'Content-Type': 'multipart/form-data' },
+            onUploadProgress: onProgress
+                ? (e) => onProgress(Math.round((e.loaded * 100) / e.total))
+                : undefined
+        }
+    )
+    return data
+}
+
+/**
+ * Task'ın dosyalarını listele (pre-signed URL ile).
+ */
+export const getAttachments = async (teamId, taskId) => {
+    const { data } = await apiClient.get(`/api/teams/${teamId}/tasks/${taskId}/attachments`)
+    return data
+}
+
+/**
+ * Dosya indirme URL'i oluştur (backend proxy).
+ */
+export const getAttachmentDownloadUrl = (teamId, taskId, attachmentId) => {
+    return `${apiClient.defaults.baseURL}/api/teams/${teamId}/tasks/${taskId}/attachments/${attachmentId}/download`
+}
+
+/**
+ * Dosya sil.
+ */
+export const deleteAttachment = async (teamId, taskId, attachmentId) => {
+    await apiClient.delete(`/api/teams/${teamId}/tasks/${taskId}/attachments/${attachmentId}`)
+}
+
+// ─── Subtasks (Faz 3) ─────────────────────────────────────────────────────────
+
+export const getSubtasks = async (teamId, taskId) => {
+    const { data } = await apiClient.get(`/api/teams/${teamId}/tasks/${taskId}/subtasks`)
+    return data
+}
+
+export const createSubtask = async (teamId, parentTaskId, taskData) => {
+    const { data } = await apiClient.post(`/api/teams/${teamId}/tasks`, {
+        ...taskData,
+        parentTaskId
+    })
+    return data
+}
+
+// ─── Task Links (Faz 3) ───────────────────────────────────────────────────────
+
+export const getLinks = async (teamId, taskId) => {
+    const { data } = await apiClient.get(`/api/teams/${teamId}/tasks/${taskId}/links`)
+    return data
+}
+
+export const createLink = async (teamId, taskId, targetTaskId, linkType) => {
+    const { data } = await apiClient.post(`/api/teams/${teamId}/tasks/${taskId}/links`, {
+        targetTaskId,
+        linkType
+    })
+    return data
+}
+
+export const deleteLink = async (teamId, taskId, linkId) => {
+    await apiClient.delete(`/api/teams/${teamId}/tasks/${taskId}/links/${linkId}`)
+}
+
+// ─── Task History (Faz 3) ─────────────────────────────────────────────────────
+
+export const getHistory = async (teamId, taskId) => {
+    const { data } = await apiClient.get(`/api/teams/${teamId}/tasks/${taskId}/history`)
+    return data
+}
+
+// ─── Watchers (Faz 3) ─────────────────────────────────────────────────────────
+
+export const addWatcher = async (teamId, taskId, email) => {
+    const { data } = await apiClient.post(`/api/teams/${teamId}/tasks/${taskId}/watchers`, { email })
+    return data
+}
+
+export const removeWatcher = async (teamId, taskId, email) => {
+    const { data } = await apiClient.delete(`/api/teams/${teamId}/tasks/${taskId}/watchers/${email}`)
+    return data
+}
+
+// ─── Custom Fields (Faz 3) ────────────────────────────────────────────────────
+
+export const getCustomFields = async (teamId) => {
+    const { data } = await apiClient.get(`/api/teams/${teamId}/custom-fields`)
+    return data
+}
+
+export const createCustomField = async (teamId, fieldData) => {
+    const { data } = await apiClient.post(`/api/teams/${teamId}/custom-fields`, fieldData)
+    return data
+}
+
+export const updateCustomField = async (fieldId, fieldData) => {
+    const { data } = await apiClient.put(`/api/custom-fields/${fieldId}`, fieldData)
+    return data
+}
+
+export const deleteCustomField = async (fieldId) => {
+    await apiClient.delete(`/api/custom-fields/${fieldId}`)
+}
+
+// ─── Faz 4: Task Filter ───────────────────────────────────────────────────────
+
+/**
+ * Dinamik task filtresi (Board, ListView için)
+ * @param {string} teamId
+ * @param {Object} filterRequest - { filters, sortBy, sortDir, page, size }
+ */
+export const filterTasks = async (teamId, filterRequest) => {
+    const { data } = await apiClient.post(`/api/teams/${teamId}/tasks/filter`, filterRequest)
+    return data
+}

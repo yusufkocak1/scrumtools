@@ -18,9 +18,23 @@
             <div class="px-6 py-4 border-b border-gray-200 bg-gray-50">
               <div class="flex items-center justify-between">
                 <div>
-                  <h3 class="text-lg font-semibold text-gray-900">Team Members</h3>
+                  <div class="flex items-center gap-3">
+                    <h3 class="text-lg font-semibold text-gray-900">{{ selectedTeam.teamName }}</h3>
+                    <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-600 font-mono">
+                      {{ selectedTeam.teamCode }}
+                    </span>
+                    <!-- Edit Team Button (admin only) -->
+                    <button v-if="isAdmin"
+                            @click="openTeamEditModal"
+                            class="p-1.5 rounded-lg text-gray-400 hover:text-blue-600 hover:bg-blue-50 transition-colors duration-200"
+                            title="Takımı Düzenle">
+                      <svg class="h-4 w-4" fill="none" stroke="currentColor" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
+                      </svg>
+                    </button>
+                  </div>
                   <p class="text-sm text-gray-600 mt-1">
-                    {{ Object.keys(selectedTeam.members || {}).length }} members
+                    {{ Object.keys(selectedTeam.members || {}).length }} üye
                   </p>
                 </div>
                 <div class="flex items-center space-x-2">
@@ -230,6 +244,60 @@
       </div>
     </div>
 
+    <!-- Team Edit Modal -->
+    <div v-if="showTeamEditModal"
+         class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50 flex items-center justify-center p-4">
+      <div class="bg-white rounded-2xl shadow-xl max-w-md w-full mx-auto transform transition-all">
+        <div class="p-6">
+          <div class="flex items-center justify-between mb-4">
+            <h3 class="text-lg font-semibold text-gray-900">Takımı Düzenle</h3>
+            <button @click="closeTeamEditModal" class="text-gray-400 hover:text-gray-600">
+              <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+              </svg>
+            </button>
+          </div>
+
+          <div class="space-y-4">
+            <!-- Team Name -->
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">Takım Adı</label>
+              <input type="text"
+                     v-model="editingTeam.teamName"
+                     placeholder="Takım adını girin"
+                     class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+            </div>
+
+            <!-- Team Code -->
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">Takım Kodu <span class="text-gray-400 font-normal">(2-4 karakter)</span></label>
+              <input type="text"
+                     v-model="editingTeam.teamCode"
+                     placeholder="Ör: DEV"
+                     maxlength="4"
+                     class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono uppercase">
+            </div>
+          </div>
+
+          <div class="flex space-x-3 mt-6">
+            <button @click="closeTeamEditModal"
+                    class="flex-1 px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 border border-gray-300 rounded-lg hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-gray-500 transition-colors">
+              İptal
+            </button>
+            <button @click="saveTeamChanges"
+                    :disabled="teamEditLoading"
+                    class="flex-1 px-4 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2">
+              <svg v-if="teamEditLoading" class="animate-spin h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+              </svg>
+              {{ teamEditLoading ? 'Kaydediliyor...' : 'Kaydet' }}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <!-- Confirmation Modal -->
     <div v-if="showConfirmModal"
          class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50 flex items-center justify-center p-4">
@@ -265,7 +333,7 @@
 </template>
 
 <script>
-import { getTeamById, removeMember, updateMemberRole } from "../api/TeamApi.js";
+import { getTeamById, removeMember, updateMemberRole, updateTeam } from "../api/TeamApi.js";
 import TeamList from "../components/team/TeamList.vue";
 import SideBar from "../components/SideBar.vue";
 import {createToast} from "mosha-vue-toastify";
@@ -287,7 +355,11 @@ export default {
       editingMember: null,
       newSkill: "",
       selectedSkillToAdd: "",
-      availableSkills: ["Development", "Analysis", "Testing", "Reporting"]
+      availableSkills: ["Development", "Analysis", "Testing", "Reporting"],
+      // Team Edit
+      showTeamEditModal: false,
+      editingTeam: { teamName: "", teamCode: "" },
+      teamEditLoading: false
     }
   },
   created() {
@@ -308,7 +380,7 @@ export default {
   methods: {
     selectTeam(selectedTeam) {
       console.log("Selected team:", selectedTeam);
-      this.selectedTeamId = selectedTeam.teamId;
+      this.selectedTeamId = selectedTeam.id;
       this.selectedTeam = selectedTeam;
     },
     getInitials(name) {
@@ -432,6 +504,46 @@ export default {
     removeSkill(index) {
       if (this.editingMember.skills) {
         this.editingMember.skills.splice(index, 1);
+      }
+    },
+    openTeamEditModal() {
+      this.editingTeam = {
+        teamName: this.selectedTeam.teamName || "",
+        teamCode: this.selectedTeam.teamCode || ""
+      };
+      this.showTeamEditModal = true;
+    },
+    closeTeamEditModal() {
+      this.showTeamEditModal = false;
+      this.editingTeam = { teamName: "", teamCode: "" };
+    },
+    async saveTeamChanges() {
+      if (!this.isAdmin) {
+        createToast('Sadece takım yöneticisi takım bilgilerini güncelleyebilir', {
+          type: 'danger', position: 'top-center', timeout: 3000
+        });
+        return;
+      }
+      if (!this.editingTeam.teamName.trim()) {
+        createToast('Takım adı boş olamaz', { type: 'warning', position: 'top-center', timeout: 3000 });
+        return;
+      }
+      const code = this.editingTeam.teamCode.trim();
+      if (!code || code.length < 2 || code.length > 4) {
+        createToast('Takım kodu 2-4 karakter olmalıdır', { type: 'warning', position: 'top-center', timeout: 3000 });
+        return;
+      }
+      this.teamEditLoading = true;
+      try {
+        await updateTeam(this.selectedTeamId, this.editingTeam.teamName.trim(), code);
+        const team = await getTeamById(this.selectedTeamId);
+        this.selectTeam(team);
+        createToast('Takım bilgileri güncellendi', { type: 'success', position: 'top-center', timeout: 3000 });
+        this.closeTeamEditModal();
+      } catch (error) {
+        createToast('Takım bilgileri güncellenirken hata oluştu', { type: 'danger', position: 'top-center', timeout: 3000 });
+      } finally {
+        this.teamEditLoading = false;
       }
     },
     async saveMemberChanges() {

@@ -82,12 +82,13 @@
           <!-- Description -->
           <div>
             <label class="block text-sm font-medium text-gray-700 mb-2">Description</label>
-            <textarea
-              v-model="formData.description"
-              rows="6"
-              class="w-full px-4 py-3 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none"
-              placeholder="Describe the issue in detail..."
-            ></textarea>
+            <div class="border border-gray-300 rounded-lg overflow-hidden focus-within:ring-2 focus-within:ring-blue-500 focus-within:border-blue-500">
+              <TiptapEditor
+                v-model="formData.description"
+                placeholder="Açıklamayı detaylı yazın..."
+                :compact="true"
+              />
+            </div>
           </div>
 
           <!-- Priority & Story Points -->
@@ -210,6 +211,88 @@
               </div>
             </div>
           </div>
+
+          <!-- ─── Faz 3: Tarihler & Zaman Takibi ─── -->
+          <div>
+            <h3 class="text-lg font-medium text-gray-900 border-b border-gray-200 pb-2 mb-4">Tarihler & Zaman</h3>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <!-- Başlangıç Tarihi -->
+              <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">Başlangıç Tarihi</label>
+                <input
+                  v-model="formData.startDate"
+                  type="date"
+                  class="w-full px-4 py-3 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                />
+              </div>
+
+              <!-- Bitiş Tarihi -->
+              <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">Bitiş Tarihi (Due Date)</label>
+                <input
+                  v-model="formData.dueDate"
+                  type="date"
+                  class="w-full px-4 py-3 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                />
+              </div>
+
+              <!-- Tahmini Süre -->
+              <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">Tahmini Süre (saat)</label>
+                <input
+                  v-model.number="formData.estimatedHours"
+                  type="number"
+                  min="0"
+                  step="0.5"
+                  class="w-full px-4 py-3 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  placeholder="0.0"
+                />
+              </div>
+
+              <!-- Çevre -->
+              <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">Ortam</label>
+                <select
+                  v-model="formData.environment"
+                  class="w-full px-4 py-3 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
+                >
+                  <option value="">— Seçiniz —</option>
+                  <option value="Production">Production</option>
+                  <option value="Staging">Staging</option>
+                  <option value="Dev">Dev</option>
+                </select>
+              </div>
+            </div>
+          </div>
+
+          <!-- ─── Reporter & Üst Görev ─── -->
+          <div>
+            <h3 class="text-lg font-medium text-gray-900 border-b border-gray-200 pb-2 mb-4">İlişkiler</h3>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <!-- Reporter -->
+              <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">Reporter</label>
+                <AutoCompleteInput
+                  v-model="formData.reporter"
+                  :options="teamMembers"
+                  placeholder="Rapor eden kişi..."
+                  :displayField="'displayName'"
+                  :valueField="'email'"
+                />
+              </div>
+
+              <!-- Parent Task -->
+              <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">Üst Görev (Parent Task)</label>
+                <input
+                  v-model="formData.parentTaskId"
+                  type="text"
+                  class="w-full px-4 py-3 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  placeholder="Üst görev ID'si (opsiyonel)"
+                />
+              </div>
+            </div>
+          </div>
         </form>
       </div>
       <!-- Footer Action Buttons -->
@@ -243,13 +326,15 @@
 
 <script>
 import AutoCompleteInput from "./AutoCompleteInput.vue";
+import TiptapEditor from "../docs/TiptapEditor.vue";
 import { getTeamById } from "../../api/TeamApi.js";
 import { createTask, updateTask as apiUpdateTask } from "../../api/WorkApi.js";
 
 export default {
   name: 'TaskEditForm',
   components: {
-    AutoCompleteInput
+    AutoCompleteInput,
+    TiptapEditor
   },
   props: {
     isOpen: {
@@ -464,7 +549,13 @@ export default {
         developer: "",
         analyst: "",
         tester: "",
-        labels: []
+        labels: [],
+        // Faz 3 alanları
+        dueDate: null,
+        startDate: null,
+        estimatedHours: null,
+        parentTaskId: null,
+        environment: "",
       };
       this.newLabel = "";
     },
