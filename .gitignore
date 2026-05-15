@@ -24,3 +24,17 @@ dist-ssr
 *.sw?
 *.env
 
+# Hassas dosyalar
+src/main/resources/serviceAccountKey.json
+
+# Derleme çıktıları
+target/
+
+# IDE
+*.iml
+.vscode/
+
+# OS
+.DS_Store
+Thumbs.db
+
