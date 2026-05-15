@@ -1,0 +1,16 @@
+# Hassas dosyalar
+.env
+src/main/resources/serviceAccountKey.json
+
+# Derleme çıktıları
+target/
+
+# IDE
+.idea/
+*.iml
+.vscode/
+
+# OS
+.DS_Store
+Thumbs.db
+

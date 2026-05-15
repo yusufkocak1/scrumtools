@@ -1,0 +1,24 @@
+package com.scrumtools.entity.enums;
+
+public enum NotificationType {
+    // Task ile ilgili
+    TASK_ASSIGNED,          // Task sana atandı
+    TASK_UNASSIGNED,        // Task ataması kaldırıldı
+    TASK_STATUS_CHANGED,    // Task durumu değişti
+    TASK_PRIORITY_CHANGED,  // Task önceliği değişti
+    TASK_COMMENTED,         // Task'a yorum yapıldı
+    TASK_DUE_SOON,          // Bitiş tarihi yaklaşıyor
+    TASK_OVERDUE,           // Bitiş tarihi geçti
+
+    // Watcher ile ilgili
+    WATCHED_TASK_UPDATED,   // İzlediğin task güncellendi
+
+    // Davet ile ilgili
+    INVITATION_RECEIVED,    // Takıma/projeye davet edildin
+    INVITATION_ACCEPTED,    // Davetini kabul etti
+
+    // Genel
+    MENTION,                // @mention ile bahsedildin
+    SYSTEM                  // Sistem bildirimi
+}
+
