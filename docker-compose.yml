@@ -20,7 +20,7 @@ services:
       MINIO_ACCESS_KEY: ${MINIO_ROOT_USER}
       MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD}
       MINIO_BUCKET: ${MINIO_BUCKET:-scrumtools-attachments}
-      APP_CORS_ALLOWED_ORIGINS: ${APP_CORS_ALLOWED_ORIGINS:-http://localhost:8096,http://localhost:3000,http://localhost:5173}
+      APP_CORS_ALLOWED_ORIGINS: ${APP_CORS_ALLOWED_ORIGINS:-https://195.85.207.116,http://195.85.207.116:8096,http://localhost:8096,http://localhost:3000,http://localhost:5173}
       JWT_SECRET: ${JWT_SECRET:-ScrumToolsSuperSecretKeyForJWTSigningMustBe256Bits1yusuf}
     expose:
       - "8080"
