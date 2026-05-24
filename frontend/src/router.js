@@ -156,7 +156,7 @@ const routes = [{
 }]
 
 const router = createRouter({
-    history: createWebHistory(), routes,
+    history: createWebHistory(import.meta.env.BASE_URL), routes,
 })
 
 router.beforeEach((to, from, next) => {

@@ -1,8 +1,11 @@
 import axios from 'axios'
 import { createToast } from 'mosha-vue-toastify'
 
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/'
+const APP_BASE_URL = import.meta.env.BASE_URL || '/'
+
 const instance = axios.create({
-    baseURL: 'http://localhost:8080',
+    baseURL: API_BASE_URL,
     headers: {
         'Content-Type': 'application/json'
     }
@@ -64,7 +67,7 @@ instance.interceptors.response.use(
         if (error.response?.status === 401) {
             localStorage.removeItem('jwt')
             localStorage.removeItem('user')
-            window.location.href = '/login'
+            window.location.href = new URL('login', window.location.origin + APP_BASE_URL).toString()
             return Promise.reject(error)
         }
 

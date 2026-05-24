@@ -1,0 +1,63 @@
+services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    env_file:
+      - .env
+    container_name: scrumtools-backend
+    restart: always
+    depends_on:
+      minio:
+        condition: service_healthy
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://${DB_HOST}:${DB_PORT}/${DB_NAME}?currentSchema=${DB_SCHEMA}
+      SPRING_DATASOURCE_USERNAME: ${DB_USER}
+      SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD}
+      MINIO_ENDPOINT: http://minio:9000
+      MINIO_ACCESS_KEY: ${MINIO_ROOT_USER}
+      MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD}
+      MINIO_BUCKET: ${MINIO_BUCKET:-scrumtools-attachments}
+      APP_CORS_ALLOWED_ORIGINS: ${APP_CORS_ALLOWED_ORIGINS:-http://localhost:8096,http://localhost:3000,http://localhost:5173}
+      JWT_SECRET: ${JWT_SECRET:-ScrumToolsSuperSecretKeyForJWTSigningMustBe256Bits1yusuf}
+    expose:
+      - "8080"
+
+  minio:
+    image: minio/minio:latest
+    container_name: scrumtools-minio
+    restart: always
+    ports:
+      - "9000:9000"   # S3 API
+      - "9001:9001"   # Web Console
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+    volumes:
+      - scrumtools-minio-data:/data
+    command: server /data --console-address ":9001"
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        VITE_API_BASE_URL: ${VITE_API_BASE_URL:-/scrumtools/api}
+        VITE_WS_BASE_URL: ${VITE_WS_BASE_URL:-/scrumtools/ws}
+        VITE_APP_BASE_PATH: ${VITE_APP_BASE_PATH:-/scrumtools/}
+    container_name: scrumtools-frontend
+    restart: always
+    depends_on:
+      - backend
+    ports:
+      - "8096:80"
+
+volumes:
+  scrumtools-postgres-data:
+  scrumtools-minio-data:
+

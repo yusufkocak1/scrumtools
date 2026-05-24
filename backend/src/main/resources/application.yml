@@ -1,8 +1,8 @@
 spring:
   datasource:
-    url: jdbc:postgresql://localhost:5432/scrumtools
-    username: scrumtools
-    password: scrumtools123
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/scrumtools}
+    username: ${SPRING_DATASOURCE_USERNAME:scrumtools}
+    password: ${SPRING_DATASOURCE_PASSWORD:scrumtools123}
     driver-class-name: org.postgresql.Driver
   jpa:
     hibernate:
@@ -35,6 +35,9 @@ minio:
   bucket: ${MINIO_BUCKET:scrumtools-attachments}
 
 app:
+  cors:
+    # Virgulle ayrilmis origin listesi (ornek: http://localhost:3000,http://SUNUCU_IP:8096)
+    allowed-origins: ${APP_CORS_ALLOWED_ORIGINS:http://localhost:3000,http://localhost:5173}
   jwt:
     # Prod ortamında JWT_SECRET env variable kullanın (min 32 karakter)
     secret: ${JWT_SECRET:ScrumToolsSuperSecretKeyForJWTSigningMustBe256Bits1yusuf}
