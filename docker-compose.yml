@@ -10,6 +10,8 @@ services:
     depends_on:
       minio:
         condition: service_healthy
+    networks:
+      - shared-net
     environment:
       SPRING_DATASOURCE_URL: jdbc:postgresql://${DB_HOST}:${DB_PORT}/${DB_NAME}?currentSchema=${DB_SCHEMA}
       SPRING_DATASOURCE_USERNAME: ${DB_USER}
@@ -22,6 +24,7 @@ services:
       JWT_SECRET: ${JWT_SECRET:-ScrumToolsSuperSecretKeyForJWTSigningMustBe256Bits1yusuf}
     expose:
       - "8080"
+
 
   minio:
     image: minio/minio:latest
@@ -41,6 +44,8 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+    networks:
+      - shared-net
 
   frontend:
     build:
@@ -56,8 +61,13 @@ services:
       - backend
     ports:
       - "8096:80"
+    networks:
+      - shared-net
 
 volumes:
   scrumtools-postgres-data:
   scrumtools-minio-data:
 
+networks:
+  shared-net:
+    external: true
