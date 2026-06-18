@@ -48,9 +48,9 @@ public class SecurityConfig {
                 )
                 .authorizeHttpRequests(auth -> auth
                         // Public endpoint'ler
-                        .requestMatchers("/api/auth/login", "/api/auth/register").permitAll()
+                        .requestMatchers("/scrumtools/api/auth/login", "/scrumtools/api/auth/register").permitAll()
                         // WebSocket endpoint'i
-                        .requestMatchers("/ws/**").permitAll()
+                        .requestMatchers("/scrumtools/ws/**").permitAll()
                         // Diğer tüm istekler token gerektirir
                         .anyRequest().authenticated()
                 )
