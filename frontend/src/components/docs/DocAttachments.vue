@@ -44,7 +44,7 @@
                class="text-gray-500 hover:text-gray-700 p-1 rounded hover:bg-gray-100">
               ⬇️
             </a>
-            <button @click="deleteAttachment(att)" title="Sil"
+            <button @click="deleteTarget = att" title="Sil"
                     class="text-red-500 hover:text-red-700 p-1 rounded hover:bg-red-50">
               🗑️
             </button>
@@ -52,12 +52,23 @@
         </div>
       </div>
     </div>
+
+    <ConfirmDialog
+        v-if="deleteTarget"
+        title="Dosyayı sil"
+        :message="`&quot;${deleteTarget.fileName}&quot; dosyası kalıcı olarak silinecek.`"
+        confirmText="Sil"
+        variant="danger"
+        @confirm="deleteAttachment"
+        @cancel="deleteTarget = null"
+    />
   </div>
 </template>
 
 <script setup>
 import {ref, watch} from 'vue'
 import DocApi from '../../api/DocApi.js'
+import ConfirmDialog from '../common/ConfirmDialog.vue'
 
 const props = defineProps({
   projectId: {type: String, required: true},
@@ -70,6 +81,7 @@ const emit = defineEmits(['inserted', 'close'])
 const attachments = ref([])
 const loading = ref(false)
 const uploading = ref(false)
+const deleteTarget = ref(null)
 
 watch(() => props.pageId, loadAttachments, {immediate: true})
 
@@ -106,8 +118,10 @@ function insertIntoEditor(att) {
   emit('inserted', att.downloadUrl)
 }
 
-async function deleteAttachment(att) {
-  if (!confirm(`"${att.fileName}" dosyasını silmek istediğinize emin misiniz?`)) return
+async function deleteAttachment() {
+  const att = deleteTarget.value
+  deleteTarget.value = null
+  if (!att) return
   try {
     await DocApi.deleteAttachment(props.projectId, att.id)
     attachments.value = attachments.value.filter(a => a.id !== att.id)

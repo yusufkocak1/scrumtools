@@ -224,6 +224,41 @@
       </div>
     </teleport>
 
+    <!-- Link Modal -->
+    <teleport to="body">
+      <div v-if="showLinkModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
+           @click.self="showLinkModal = false">
+        <div class="bg-white rounded-xl shadow-2xl w-full max-w-md mx-4 overflow-hidden">
+          <div class="px-6 py-4 border-b flex items-center justify-between">
+            <h3 class="font-semibold text-gray-800 text-lg">🔗 Link Ekle</h3>
+            <button @click="showLinkModal = false" class="text-gray-400 hover:text-gray-600 text-xl">✕</button>
+          </div>
+          <div class="p-6 space-y-3">
+            <div>
+              <label class="text-sm text-gray-600 block mb-1">URL</label>
+              <input v-model="linkUrl" type="url" placeholder="https://example.com"
+                     class="w-full border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-300 focus:border-indigo-400 outline-none"
+                     @keyup.enter="applyLink"/>
+            </div>
+            <div class="flex gap-2 justify-end">
+              <button v-if="editor?.isActive('link')" @click="removeLink"
+                      class="px-4 py-2 text-sm text-red-600 hover:bg-red-50 rounded-lg transition mr-auto">
+                Linki Kaldır
+              </button>
+              <button @click="showLinkModal = false"
+                      class="px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-lg transition">
+                İptal
+              </button>
+              <button @click="applyLink" :disabled="!linkUrl.trim()"
+                      class="px-4 py-2 bg-indigo-500 text-white text-sm font-medium rounded-lg hover:bg-indigo-600 disabled:opacity-50 disabled:cursor-not-allowed transition">
+                Ekle
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </teleport>
+
     <!-- Markdown Import Modal -->
     <teleport to="body">
       <div v-if="showMarkdownImport" class="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
@@ -334,6 +369,10 @@ const imageTab = ref('upload')
 const imageUrl = ref('')
 const imagePreviewError = ref(false)
 const imageUploading = ref(false)
+
+// Link modal state
+const showLinkModal = ref(false)
+const linkUrl = ref('')
 
 // Markdown import modal state
 const showMarkdownImport = ref(false)
@@ -475,10 +514,23 @@ function toolBtnClass(isActive) {
 }
 
 function setLink() {
-  const url = prompt('URL girin:')
+  linkUrl.value = editor.value?.getAttributes('link')?.href || ''
+  showLinkModal.value = true
+}
+
+function applyLink() {
+  const url = linkUrl.value.trim()
   if (url) {
-    editor.value.chain().focus().setLink({href: url}).run()
+    editor.value?.chain().focus().setLink({href: url}).run()
   }
+  showLinkModal.value = false
+  linkUrl.value = ''
+}
+
+function removeLink() {
+  editor.value?.chain().focus().unsetLink().run()
+  showLinkModal.value = false
+  linkUrl.value = ''
 }
 
 // ─── Image Functions ──────────────────────────────────────────────────────────

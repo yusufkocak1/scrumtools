@@ -38,7 +38,7 @@
                 </div>
                 <p class="text-xs text-gray-400 mt-1">{{ perm.grantedByName }} tarafından verildi</p>
               </div>
-              <button @click="revoke(perm)" class="text-red-500 hover:text-red-700 text-sm">Kaldır</button>
+              <button @click="revokeTarget = perm" class="text-red-500 hover:text-red-700 text-sm">Kaldır</button>
             </div>
           </div>
         </div>
@@ -111,12 +111,23 @@
         </button>
       </div>
     </div>
+
+    <ConfirmDialog
+        v-if="revokeTarget"
+        title="Yetkiyi kaldır"
+        :message="`${revokeTarget.targetName} için tanımlı ${revokeTarget.accessLevel} yetkisi kaldırılacak.`"
+        confirmText="Kaldır"
+        variant="danger"
+        @confirm="revoke"
+        @cancel="revokeTarget = null"
+    />
   </div>
 </template>
 
 <script setup>
 import {ref, computed, onMounted} from 'vue'
 import DocApi from '../../api/DocApi.js'
+import ConfirmDialog from '../common/ConfirmDialog.vue'
 
 const props = defineProps({
   projectId: {type: String, required: true},
@@ -128,6 +139,7 @@ const emit = defineEmits(['close'])
 
 const tab = ref('list')
 const permissions = ref([])
+const revokeTarget = ref(null)
 const form = ref({
   scope: 'space',
   targetType: 'USER',
@@ -184,8 +196,10 @@ async function grant() {
   }
 }
 
-async function revoke(perm) {
-  if (!confirm('Bu yetkiyi kaldırmak istediğinize emin misiniz?')) return
+async function revoke() {
+  const perm = revokeTarget.value
+  revokeTarget.value = null
+  if (!perm) return
   try {
     await DocApi.revokePermission(props.projectId, perm.id)
     permissions.value = permissions.value.filter(p => p.id !== perm.id)

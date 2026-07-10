@@ -34,11 +34,21 @@
       </div>
       <div class="max-h-40 overflow-y-auto text-xs bg-gray-50 rounded p-2 prose prose-sm"
            v-html="previewHtml"></div>
-      <button @click="restore"
+      <button @click="showRestoreConfirm = true"
               class="w-full bg-amber-500 hover:bg-amber-600 text-white text-sm px-3 py-2 rounded-lg transition">
         ↩️ Bu versiyona geri dön
       </button>
     </div>
+
+    <ConfirmDialog
+        v-if="showRestoreConfirm"
+        title="Versiyona geri dön"
+        :message="`Sayfa v${selectedVersion?.versionNumber} versiyonuna geri döndürülecek. Devam etmek istiyor musunuz?`"
+        confirmText="Geri Dön"
+        variant="warning"
+        @confirm="restore"
+        @cancel="showRestoreConfirm = false"
+    />
   </div>
 </template>
 
@@ -47,6 +57,7 @@ import {ref, watch, computed} from 'vue'
 import {marked} from 'marked'
 import DOMPurify from 'dompurify'
 import DocApi from '../../api/DocApi.js'
+import ConfirmDialog from '../common/ConfirmDialog.vue'
 
 const props = defineProps({
   projectId: {type: String, required: true},
@@ -59,6 +70,7 @@ const emit = defineEmits(['restore', 'close'])
 const versions = ref([])
 const loading = ref(false)
 const selectedVersion = ref(null)
+const showRestoreConfirm = ref(false)
 
 const previewHtml = computed(() => {
   if (!selectedVersion.value) return ''
@@ -85,8 +97,8 @@ function previewVersion(v) {
 }
 
 async function restore() {
+  showRestoreConfirm.value = false
   if (!selectedVersion.value) return
-  if (!confirm(`v${selectedVersion.value.versionNumber} versiyonuna geri dönmek istediğinize emin misiniz?`)) return
 
   try {
     await DocApi.restoreVersion(props.projectId, props.spaceId, props.pageId, selectedVersion.value.versionNumber)

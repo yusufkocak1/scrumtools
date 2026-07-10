@@ -30,9 +30,23 @@
     <main class="flex-1 flex flex-col overflow-hidden">
       <!-- Üst Bar -->
       <header v-if="currentPage" class="bg-white border-b px-6 py-3 flex items-center justify-between">
-        <div class="flex items-center gap-3">
-          <h1 class="text-lg font-semibold text-gray-800">{{ currentPage.title }}</h1>
-          <span class="text-xs bg-gray-100 text-gray-500 px-2 py-0.5 rounded">v{{ currentPage.versionNumber }}</span>
+        <div class="flex items-center gap-3 min-w-0 flex-1 mr-4">
+          <template v-if="renamingTitle">
+            <input ref="titleInput" v-model="titleDraft" type="text"
+                   class="text-lg font-semibold text-gray-800 border-b-2 border-indigo-400 outline-none bg-indigo-50/50 rounded-t px-2 py-0.5 flex-1 min-w-0"
+                   @keyup.enter="saveTitle"
+                   @keyup.esc="cancelRename"
+                   @blur="saveTitle"/>
+          </template>
+          <template v-else>
+            <h1 @click="startRename"
+                class="text-lg font-semibold text-gray-800 truncate cursor-text hover:bg-gray-100 rounded px-2 py-0.5 -mx-2 transition group flex items-center gap-2"
+                title="Yeniden adlandırmak için tıklayın">
+              {{ currentPage.title }}
+              <span class="text-gray-300 group-hover:text-gray-400 text-sm">✏️</span>
+            </h1>
+          </template>
+          <span class="text-xs bg-gray-100 text-gray-500 px-2 py-0.5 rounded shrink-0">v{{ currentPage.versionNumber }}</span>
         </div>
         <div class="flex items-center gap-2">
           <button @click="showVersions = !showVersions"
@@ -117,11 +131,35 @@
         :pageId="currentPage?.id"
         @close="showPermissions = false"
     />
+
+    <!-- Yeni Sayfa Dialog -->
+    <InputDialog
+        v-if="showNewPageDialog"
+        title="📄 Yeni Sayfa"
+        label="Sayfa başlığı"
+        placeholder="Örn: Kurulum Rehberi"
+        confirmText="Oluştur"
+        @confirm="confirmCreatePage"
+        @cancel="showNewPageDialog = false"
+    />
+
+    <!-- Kaydet: Değişiklik Özeti Dialog -->
+    <InputDialog
+        v-if="showSaveDialog"
+        title="💾 Sayfayı Kaydet"
+        label="Değişiklik özeti"
+        placeholder="Örn: Kurulum adımları güncellendi"
+        hint="Bu özet versiyon geçmişinde görünür."
+        confirmText="Kaydet"
+        :optional="true"
+        @confirm="confirmSavePage"
+        @cancel="showSaveDialog = false"
+    />
   </div>
 </template>
 
 <script setup>
-import {ref, computed, onMounted, watch} from 'vue'
+import {ref, computed, onMounted, watch, nextTick} from 'vue'
 import {useRoute, useRouter} from 'vue-router'
 import {marked} from 'marked'
 import hljs from 'highlight.js'
@@ -132,6 +170,7 @@ import TiptapEditor from '../components/docs/TiptapEditor.vue'
 import VersionHistory from '../components/docs/VersionHistory.vue'
 import DocAttachments from '../components/docs/DocAttachments.vue'
 import DocPermissionDialog from '../components/docs/DocPermissionDialog.vue'
+import InputDialog from '../components/common/InputDialog.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -148,6 +187,16 @@ const editContent = ref('')
 const showVersions = ref(false)
 const showAttachments = ref(false)
 const showPermissions = ref(false)
+
+// Yeni sayfa & kaydet dialog state
+const showNewPageDialog = ref(false)
+const newPageParentId = ref(null)
+const showSaveDialog = ref(false)
+
+// Başlık yeniden adlandırma state
+const renamingTitle = ref(false)
+const titleDraft = ref('')
+const titleInput = ref(null)
 
 // İçerik render - TipTap HTML çıktısı ürettiği için sadece sanitize ediyoruz
 // Eski markdown içerikler için de marked ile fallback yapılır
@@ -220,17 +269,51 @@ function selectPage(page) {
   })
 }
 
-async function createNewPage(parentPageId = null) {
-  const title = prompt('Sayfa başlığı:')
-  if (!title) return
+function createNewPage(parentPageId = null) {
+  newPageParentId.value = parentPageId
+  showNewPageDialog.value = true
+}
+
+async function confirmCreatePage(title) {
+  showNewPageDialog.value = false
   try {
     const res = await DocApi.createPage(projectId.value, spaceId.value, {
       title,
       content: '',
-      parentPageId
+      parentPageId: newPageParentId.value
     })
     await loadPageTree()
     selectPage(res.data)
+  } catch (e) {
+    console.error(e)
+  }
+}
+
+// ─── Başlık yeniden adlandırma ───────────────────────────────────────────────
+
+function startRename() {
+  titleDraft.value = currentPage.value.title
+  renamingTitle.value = true
+  nextTick(() => titleInput.value?.focus())
+}
+
+function cancelRename() {
+  renamingTitle.value = false
+}
+
+async function saveTitle() {
+  if (!renamingTitle.value) return
+  renamingTitle.value = false
+  const newTitle = titleDraft.value.trim()
+  if (!newTitle || newTitle === currentPage.value.title) return
+  try {
+    const res = await DocApi.updatePage(projectId.value, spaceId.value, currentPage.value.id, {
+      title: newTitle,
+      content: currentPage.value.content,
+      changeSummary: 'Sayfa yeniden adlandırıldı'
+    })
+    currentPage.value = res.data
+    await loadPageTree()
   } catch (e) {
     console.error(e)
   }
@@ -241,13 +324,17 @@ function startEditing() {
   editing.value = true
 }
 
-async function savePage() {
-  const summary = prompt('Değişiklik özeti (isteğe bağlı):') || null
+function savePage() {
+  showSaveDialog.value = true
+}
+
+async function confirmSavePage(summary) {
+  showSaveDialog.value = false
   try {
     const res = await DocApi.updatePage(projectId.value, spaceId.value, currentPage.value.id, {
       title: currentPage.value.title,
       content: editContent.value,
-      changeSummary: summary
+      changeSummary: summary || null
     })
     currentPage.value = res.data
     editing.value = false
