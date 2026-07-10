@@ -1,41 +1,35 @@
 services:
-  backend:
-    build:
-      context: ./backend
-      dockerfile: Dockerfile
-    env_file:
-      - .env
-    container_name: scrumtools-backend
+  postgres:
+    image: postgres:16-alpine
+    container_name: scrumtools-postgres
     restart: always
-    depends_on:
-      minio:
-        condition: service_healthy
-    networks:
-      - shared-net
     environment:
-      SPRING_DATASOURCE_URL: jdbc:postgresql://${DB_HOST}:${DB_PORT}/${DB_NAME}?currentSchema=${DB_SCHEMA}
-      SPRING_DATASOURCE_USERNAME: ${DB_USER}
-      SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD}
-      MINIO_ENDPOINT: http://minio:9000
-      MINIO_ACCESS_KEY: ${MINIO_ROOT_USER}
-      MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD}
-      MINIO_BUCKET: ${MINIO_BUCKET:-scrumtools-attachments}
-      APP_CORS_ALLOWED_ORIGINS: ${APP_CORS_ALLOWED_ORIGINS:-https://195.85.207.116,http://195.85.207.116:8096,http://localhost:8096,http://localhost:3000,http://localhost:5173,https://kocak.net.tr}
-      JWT_SECRET: ${JWT_SECRET:-ScrumToolsSuperSecretKeyForJWTSigningMustBe256Bits1yusuf}
-    expose:
-      - "8080"
-
+      POSTGRES_DB: ${DB_NAME:-scrumtools}
+      POSTGRES_USER: ${DB_USER:-scrumtools}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD .env dosyasinda tanimlanmali}
+      DB_SCHEMA: ${DB_SCHEMA:-scrumtools}
+    volumes:
+      - scrumtools-postgres-data:/var/lib/postgresql/data
+      - ./db/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-scrumtools} -d ${DB_NAME:-scrumtools}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - internal
 
   minio:
     image: minio/minio:latest
     container_name: scrumtools-minio
     restart: always
-    ports:
-      - "9000:9000"   # S3 API
-      - "9001:9001"   # Web Console
+    # Portlar host'a acilmiyor; erisim sadece internal network uzerinden.
+    # Presigned URL'ler frontend nginx'in /scrumtools-attachments/ location'i uzerinden servis edilir.
+    expose:
+      - "9000"
     environment:
-      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
-      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-scrumtools}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:?MINIO_ROOT_PASSWORD .env dosyasinda tanimlanmali}
     volumes:
       - scrumtools-minio-data:/data
     command: server /data --console-address ":9001"
@@ -45,16 +39,44 @@ services:
       timeout: 5s
       retries: 5
     networks:
-      - shared-net
+      - internal
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: scrumtools-backend
+    restart: always
+    depends_on:
+      postgres:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://${DB_HOST:-postgres}:${DB_PORT:-5432}/${DB_NAME:-scrumtools}?currentSchema=${DB_SCHEMA:-scrumtools}
+      SPRING_DATASOURCE_USERNAME: ${DB_USER:-scrumtools}
+      SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD}
+      MINIO_ENDPOINT: http://minio:9000
+      MINIO_PUBLIC_ENDPOINT: ${MINIO_PUBLIC_ENDPOINT:-https://scrumtools.kocak.net.tr}
+      MINIO_ACCESS_KEY: ${MINIO_ROOT_USER:-scrumtools}
+      MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD}
+      MINIO_BUCKET: ${MINIO_BUCKET:-scrumtools-attachments}
+      APP_CORS_ALLOWED_ORIGINS: ${APP_CORS_ALLOWED_ORIGINS:-https://scrumtools.kocak.net.tr}
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET .env dosyasinda tanimlanmali}
+      JWT_EXPIRATION: ${JWT_EXPIRATION:-86400000}
+    expose:
+      - "8080"
+    networks:
+      - internal
 
   frontend:
     build:
       context: ./frontend
       dockerfile: Dockerfile
       args:
-        VITE_API_BASE_URL: ${VITE_API_BASE_URL:-/scrumtools}
-        VITE_WS_BASE_URL: ${VITE_WS_BASE_URL:-/scrumtools/ws}
-        VITE_APP_BASE_PATH: ${VITE_APP_BASE_PATH:-/scrumtools/}
+        VITE_API_BASE_URL: ${VITE_API_BASE_URL:-/}
+        VITE_WS_BASE_URL: ${VITE_WS_BASE_URL:-/ws}
+        VITE_APP_BASE_PATH: ${VITE_APP_BASE_PATH:-/}
     container_name: scrumtools-frontend
     restart: always
     depends_on:
@@ -62,27 +84,16 @@ services:
     expose:
       - "80"
     networks:
-      - shared-net
-
-  proxy:
-    build:
-      context: ./proxy
-      dockerfile: Dockerfile
-    container_name: scrumtools-proxy
-    restart: always
-    depends_on:
-      - frontend
-      - backend
-    ports:
-      - "80:80"
-      - "443:443"
-    networks:
-      - shared-net
+      - internal
+      # nginx-proxy-manager'in bulundugu harici network:
+      # NPM proxy host hedefi -> http://scrumtools-frontend:80
+      - proxy
 
 volumes:
   scrumtools-postgres-data:
   scrumtools-minio-data:
 
 networks:
-  shared-net:
+  internal:
+  proxy:
     external: true

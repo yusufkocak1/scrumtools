@@ -28,6 +28,17 @@ public class StorageService {
     @Value("${minio.bucket}")
     private String bucket;
 
+    @Value("${minio.endpoint}")
+    private String endpoint;
+
+    /**
+     * Tarayıcının erişebileceği public endpoint (örn. https://scrumtools.kocak.net.tr).
+     * Presigned URL'lerdeki dahili endpoint bununla değiştirilir; reverse proxy
+     * bucket path'ini MinIO'ya Host header'ını geri yazarak iletir (imza bozulmaz).
+     */
+    @Value("${minio.public-endpoint:}")
+    private String publicEndpoint;
+
     /**
      * Dosya yükle — MinIO'ya kaydet ve object key döndür.
      *
@@ -100,15 +111,28 @@ public class StorageService {
      */
     public String getPresignedUrl(String objectKey, int expiryMinutes) {
         try {
-            return minioClient.getPresignedObjectUrl(GetPresignedObjectUrlArgs.builder()
+            String url = minioClient.getPresignedObjectUrl(GetPresignedObjectUrlArgs.builder()
                     .method(Method.GET)
                     .bucket(bucket)
                     .object(objectKey)
                     .expiry(expiryMinutes, TimeUnit.MINUTES)
                     .build());
+            return toPublicUrl(url);
         } catch (Exception e) {
             throw new RuntimeException("Pre-signed URL oluşturulamadı: " + e.getMessage(), e);
         }
+    }
+
+    /**
+     * Dahili endpoint ile üretilen URL'i public endpoint'e çevirir.
+     * Path ve query değişmediği için SigV4 imzası geçerli kalır (Host header'ı
+     * reverse proxy tarafında dahili değere geri yazılır).
+     */
+    private String toPublicUrl(String url) {
+        if (publicEndpoint == null || publicEndpoint.isBlank()) return url;
+        String internal = endpoint.endsWith("/") ? endpoint.substring(0, endpoint.length() - 1) : endpoint;
+        String external = publicEndpoint.endsWith("/") ? publicEndpoint.substring(0, publicEndpoint.length() - 1) : publicEndpoint;
+        return url.startsWith(internal) ? external + url.substring(internal.length()) : url;
     }
 
     /**

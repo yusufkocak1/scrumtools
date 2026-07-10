@@ -28,6 +28,8 @@ server:
 # ─── MinIO (S3-compatible object storage) ────────────────────────────────────
 minio:
   endpoint: ${MINIO_ENDPOINT:http://localhost:9000}
+  # Tarayicinin presigned URL'lerle erisecegi public adres (bos ise endpoint kullanilir)
+  public-endpoint: ${MINIO_PUBLIC_ENDPOINT:}
   access-key: ${MINIO_ACCESS_KEY:scrumtools}
   secret-key: ${MINIO_SECRET_KEY:scrumtools123}
   bucket: ${MINIO_BUCKET:scrumtools-attachments}

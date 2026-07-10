@@ -1,7 +1,7 @@
 import { Client } from '@stomp/stompjs'
 import SockJS from 'sockjs-client/dist/sockjs'
 
-const WS_URL = import.meta.env.VITE_WS_BASE_URL || '/scrumtools/ws'
+const WS_URL = import.meta.env.VITE_WS_BASE_URL || '/ws'
 
 let stompClient = null
 let isActivating = false

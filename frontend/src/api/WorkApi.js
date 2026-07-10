@@ -163,7 +163,9 @@ export const getAttachments = async (teamId, taskId) => {
  * Dosya indirme URL'i oluştur (backend proxy).
  */
 export const getAttachmentDownloadUrl = (teamId, taskId, attachmentId) => {
-    return `${apiClient.defaults.baseURL}/api/teams/${teamId}/tasks/${taskId}/attachments/${attachmentId}/download`
+    // baseURL '/' ise sondaki slash'i at; yoksa '//api/...' protokol-göreli URL oluşur
+    const base = (apiClient.defaults.baseURL || '').replace(/\/+$/, '')
+    return `${base}/api/teams/${teamId}/tasks/${taskId}/attachments/${attachmentId}/download`
 }
 
 /**
