@@ -64,6 +64,9 @@ export default {
     revokePermission(projectId, permissionId) {
         return axios.delete(`${BASE(projectId)}/permissions/${permissionId}`)
     },
+    searchPermissionTargets(projectId, type, q) {
+        return axios.get(`${BASE(projectId)}/permissions/targets`, { params: { type, q } })
+    },
 
     // ─── Attachments ────────────────────────────────────────────────────────────
     getAttachments(projectId, spaceId, pageId) {

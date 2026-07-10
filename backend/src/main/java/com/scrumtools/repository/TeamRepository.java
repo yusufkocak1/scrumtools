@@ -24,5 +24,7 @@ public interface TeamRepository extends JpaRepository<Team, UUID> {
 
     @Query("SELECT DISTINCT t FROM Team t JOIN t.members m WHERE t.organization.id = :orgId AND LOWER(t.teamName) LIKE LOWER(CONCAT('%', :query, '%'))")
     List<Team> searchByOrganizationIdAndName(@Param("orgId") UUID orgId, @Param("query") String query);
+
+    List<Team> findByOrganizationIdAndTeamNameContainingIgnoreCaseOrderByTeamName(UUID organizationId, String teamName);
 }
 

@@ -69,12 +69,39 @@
             </select>
           </div>
 
-          <!-- Target ID — basit input (ileride arama/seçim yapılabilir) -->
+          <!-- Target picker — arama ile seçim -->
           <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">Hedef ID</label>
-            <input v-model="form.targetId" type="text" placeholder="UUID..."
-                   class="w-full border rounded-lg px-3 py-2 text-sm"/>
-            <p class="text-xs text-gray-400 mt-1">Kullanıcı, takım, organizasyon veya proje UUID'si</p>
+            <label class="block text-sm font-medium text-gray-700 mb-1">Hedef</label>
+
+            <!-- Seçili hedef -->
+            <div v-if="selectedTarget"
+                 class="flex items-center justify-between border border-indigo-200 bg-indigo-50 rounded-lg px-3 py-2">
+              <div class="min-w-0">
+                <span class="text-sm font-medium text-gray-800">{{ selectedTarget.name }}</span>
+                <span v-if="selectedTarget.detail" class="text-xs text-gray-500 ml-2">{{ selectedTarget.detail }}</span>
+              </div>
+              <button @click="clearTarget" class="text-gray-400 hover:text-gray-600 ml-2 shrink-0">✕</button>
+            </div>
+
+            <!-- Arama kutusu + sonuçlar -->
+            <div v-else class="relative">
+              <input v-model="targetSearch" type="text"
+                     :placeholder="searchPlaceholder"
+                     @focus="onSearchFocus"
+                     @blur="showResults = false"
+                     class="w-full border rounded-lg px-3 py-2 text-sm"/>
+              <div v-if="showResults"
+                   class="absolute z-10 mt-1 w-full bg-white border rounded-lg shadow-lg max-h-56 overflow-y-auto">
+                <div v-if="searching" class="px-3 py-2 text-sm text-gray-400">Aranıyor...</div>
+                <div v-else-if="targetResults.length === 0" class="px-3 py-2 text-sm text-gray-400">Sonuç bulunamadı</div>
+                <button v-else v-for="result in targetResults" :key="result.id"
+                        @mousedown.prevent="selectTarget(result)"
+                        class="w-full text-left px-3 py-2 hover:bg-indigo-50 flex items-center justify-between gap-2">
+                  <span class="text-sm text-gray-800 truncate">{{ result.name }}</span>
+                  <span v-if="result.detail" class="text-xs text-gray-400 truncate">{{ result.detail }}</span>
+                </button>
+              </div>
+            </div>
           </div>
 
           <!-- Access Level -->
@@ -125,7 +152,7 @@
 </template>
 
 <script setup>
-import {ref, computed, onMounted} from 'vue'
+import {ref, computed, watch, onMounted, onUnmounted} from 'vue'
 import DocApi from '../../api/DocApi.js'
 import ConfirmDialog from '../common/ConfirmDialog.vue'
 
@@ -156,9 +183,68 @@ const targetTypeLabels = {
   PROJECT_MEMBERS: 'Proje Üyeleri'
 }
 
+const searchPlaceholders = {
+  USER: 'İsim veya e-posta ile ara...',
+  TEAM: 'Takım adı ile ara...',
+  ORGANIZATION: 'Organizasyon seç...',
+  PROJECT_MEMBERS: 'Proje seç...'
+}
+
+// ─── Hedef arama ─────────────────────────────────────────────────────────────
+const targetSearch = ref('')
+const targetResults = ref([])
+const selectedTarget = ref(null)
+const searching = ref(false)
+const showResults = ref(false)
+let searchTimer = null
+
+const searchPlaceholder = computed(() => searchPlaceholders[form.value.targetType])
+
 const isFormValid = computed(() => form.value.targetId && form.value.accessLevel && form.value.targetType)
 
+watch(() => form.value.targetType, () => {
+  clearTarget()
+})
+
+watch(targetSearch, () => {
+  clearTimeout(searchTimer)
+  searchTimer = setTimeout(searchTargets, 300)
+})
+
+async function searchTargets() {
+  searching.value = true
+  showResults.value = true
+  try {
+    const res = await DocApi.searchPermissionTargets(props.projectId, form.value.targetType, targetSearch.value)
+    targetResults.value = res.data
+  } catch (e) {
+    console.error(e)
+    targetResults.value = []
+  } finally {
+    searching.value = false
+  }
+}
+
+function onSearchFocus() {
+  searchTargets()
+}
+
+function selectTarget(target) {
+  selectedTarget.value = target
+  form.value.targetId = target.id
+  showResults.value = false
+}
+
+function clearTarget() {
+  selectedTarget.value = null
+  form.value.targetId = ''
+  targetSearch.value = ''
+  targetResults.value = []
+  showResults.value = false
+}
+
 onMounted(loadPermissions)
+onUnmounted(() => clearTimeout(searchTimer))
 
 async function loadPermissions() {
   try {
@@ -191,6 +277,7 @@ async function grant() {
     await loadPermissions()
     tab.value = 'list'
     form.value = {scope: 'space', targetType: 'USER', targetId: '', accessLevel: 'READ', canDelegate: false, useDelegate: false}
+    clearTarget()
   } catch (e) {
     console.error(e)
   }

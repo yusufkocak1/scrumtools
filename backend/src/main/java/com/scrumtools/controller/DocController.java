@@ -2,6 +2,7 @@ package com.scrumtools.controller;
 
 import com.scrumtools.dto.*;
 import com.scrumtools.entity.User;
+import com.scrumtools.entity.enums.DocTargetType;
 import com.scrumtools.repository.UserRepository;
 import com.scrumtools.service.DocAttachmentService;
 import com.scrumtools.service.DocPageService;
@@ -172,6 +173,15 @@ public class DocController {
             @RequestParam(required = false) UUID spaceId,
             @RequestParam(required = false) UUID pageId) {
         return ResponseEntity.ok(permissionService.getPermissions(spaceId, pageId));
+    }
+
+    @GetMapping("/permissions/targets")
+    public ResponseEntity<List<DocPermissionTargetResponse>> searchPermissionTargets(
+            @PathVariable UUID projectId,
+            @RequestParam DocTargetType type,
+            @RequestParam(required = false, defaultValue = "") String q) {
+        User user = getCurrentUser();
+        return ResponseEntity.ok(permissionService.searchTargets(projectId, type, q, user));
     }
 
     @DeleteMapping("/permissions/{permissionId}")

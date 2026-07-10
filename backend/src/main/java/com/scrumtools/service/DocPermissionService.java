@@ -2,6 +2,7 @@ package com.scrumtools.service;
 
 import com.scrumtools.dto.DocPermissionRequest;
 import com.scrumtools.dto.DocPermissionResponse;
+import com.scrumtools.dto.DocPermissionTargetResponse;
 import com.scrumtools.entity.*;
 import com.scrumtools.entity.enums.*;
 import com.scrumtools.repository.*;
@@ -26,6 +27,9 @@ public class DocPermissionService {
     private final TeamMemberRepository teamMemberRepository;
     private final OrganizationMemberRepository organizationMemberRepository;
     private final UserRepository userRepository;
+    private final ProjectRepository projectRepository;
+    private final TeamRepository teamRepository;
+    private final OrganizationRepository organizationRepository;
 
     // ─── Yetki Kontrolleri ──────────────────────────────────────────────────────
 
@@ -244,6 +248,66 @@ public class DocPermissionService {
         log.info("Doc permission kaldırıldı: {}", permissionId);
     }
 
+    // ─── Hedef Arama ────────────────────────────────────────────────────────────
+
+    /**
+     * Yetki hedefi araması: kullanıcı/takım için proje organizasyonu içinde
+     * isim veya e-posta ile arama yapar. UUID bilmeye gerek kalmaz.
+     */
+    @Transactional(readOnly = true)
+    public List<DocPermissionTargetResponse> searchTargets(UUID projectId, DocTargetType targetType, String query, User user) {
+        if (user.getSystemRole() != SystemRole.SUPER_ADMIN) {
+            projectMemberRepository.findByProjectIdAndUserEmail(projectId, user.getEmail())
+                    .orElseThrow(() -> new SecurityException("Bu projeye erişiminiz yok"));
+        }
+
+        Project project = projectRepository.findById(projectId)
+                .orElseThrow(() -> new RuntimeException("Proje bulunamadı"));
+        Organization org = project.getOrganization();
+        String q = query == null ? "" : query.trim();
+
+        return switch (targetType) {
+            case USER -> searchUsers(project, org, q);
+            case TEAM -> searchTeams(org, q);
+            case ORGANIZATION -> {
+                if (org == null || (!q.isEmpty() && !org.getName().toLowerCase().contains(q.toLowerCase()))) {
+                    yield List.of();
+                }
+                yield List.of(new DocPermissionTargetResponse(
+                        org.getId(), org.getName(), "Tüm organizasyon üyeleri", DocTargetType.ORGANIZATION));
+            }
+            case PROJECT_MEMBERS -> List.of(new DocPermissionTargetResponse(
+                    project.getId(), project.getName(), "Tüm proje üyeleri", DocTargetType.PROJECT_MEMBERS));
+        };
+    }
+
+    private List<DocPermissionTargetResponse> searchUsers(Project project, Organization org, String q) {
+        List<User> users;
+        if (org != null) {
+            users = organizationMemberRepository.searchByOrganizationIdAndUserNameOrEmail(org.getId(), q).stream()
+                    .map(OrganizationMember::getUser)
+                    .toList();
+        } else {
+            users = projectMemberRepository.searchByProjectIdAndUserNameOrEmail(project.getId(), q).stream()
+                    .map(ProjectMember::getUser)
+                    .toList();
+        }
+        return users.stream()
+                .limit(SEARCH_RESULT_LIMIT)
+                .map(u -> new DocPermissionTargetResponse(u.getId(), u.getName(), u.getEmail(), DocTargetType.USER))
+                .collect(Collectors.toList());
+    }
+
+    private List<DocPermissionTargetResponse> searchTeams(Organization org, String q) {
+        if (org == null) return List.of();
+        return teamRepository.findByOrganizationIdAndTeamNameContainingIgnoreCaseOrderByTeamName(org.getId(), q).stream()
+                .limit(SEARCH_RESULT_LIMIT)
+                .map(t -> new DocPermissionTargetResponse(t.getId(), t.getTeamName(), t.getTeamCode(), DocTargetType.TEAM))
+                .collect(Collectors.toList());
+    }
+
+    private static final int SEARCH_RESULT_LIMIT = 20;
+
     // ─── Helpers ────────────────────────────────────────────────────────────────
 
     private String resolveTargetName(DocTargetType targetType, UUID targetId) {
@@ -251,9 +315,15 @@ public class DocPermissionService {
             case USER -> userRepository.findById(targetId)
                     .map(User::getName)
                     .orElse("Bilinmeyen Kullanıcı");
-            case TEAM -> "Takım";
-            case ORGANIZATION -> "Organizasyon";
-            case PROJECT_MEMBERS -> "Proje Üyeleri";
+            case TEAM -> teamRepository.findById(targetId)
+                    .map(Team::getTeamName)
+                    .orElse("Bilinmeyen Takım");
+            case ORGANIZATION -> organizationRepository.findById(targetId)
+                    .map(Organization::getName)
+                    .orElse("Bilinmeyen Organizasyon");
+            case PROJECT_MEMBERS -> projectRepository.findById(targetId)
+                    .map(p -> p.getName() + " üyeleri")
+                    .orElse("Proje Üyeleri");
         };
     }
 }
