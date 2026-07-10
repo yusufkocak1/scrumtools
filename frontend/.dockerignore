@@ -1,0 +1,10 @@
+node_modules
+dist
+dist-ssr
+.git
+.idea
+.junie
+*.log
+npm-debug.log*
+.env
+.env.local

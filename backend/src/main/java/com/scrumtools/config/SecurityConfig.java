@@ -1,6 +1,8 @@
 package com.scrumtools.config;
 
 import com.scrumtools.security.JwtAuthFilter;
+import jakarta.servlet.DispatcherType;
+import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
@@ -22,7 +24,6 @@ import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
-import java.util.Arrays;
 import java.util.List;
 
 @Configuration
@@ -35,11 +36,20 @@ public class SecurityConfig {
     private final UserDetailsService userDetailsService; // AuthService implements UserDetailsService
     private final PasswordEncoder passwordEncoder;       // PasswordConfig'den gelir
 
-    @Value("${app.cors.allowed-origins:http://localhost:3000,http://localhost:5173}")
+    @Value("${app.cors.allowed-origins:http://localhost:3000,http://localhost:5173,https://kocak.net.tr}")
     private String allowedOrigins;
 
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+        http.addFilterBefore((request, response, chain) -> {
+
+            HttpServletRequest req = (HttpServletRequest) request;
+
+            System.out.println("➡️ REQUEST: " + req.getMethod() + " " + req.getRequestURI());
+
+            chain.doFilter(request, response);
+
+        }, org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter.class);
         return http
                 .csrf(AbstractHttpConfigurer::disable)
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
@@ -47,10 +57,15 @@ public class SecurityConfig {
                         session.sessionCreationPolicy(SessionCreationPolicy.STATELESS)
                 )
                 .authorizeHttpRequests(auth -> auth
+                        // SockJS xhr_streaming/eventsource async devam eden istekler ve
+                        // container'ın /error'a yaptığı ERROR dispatch'i engellenmemeli.
+                        // Aksi halde yanıt commit edildikten sonra AuthorizationDeniedException
+                        // fırlatılır ve client'a düzgün bir hata dönülemez.
+                        .dispatcherTypeMatchers(DispatcherType.ERROR, DispatcherType.ASYNC).permitAll()
                         // Public endpoint'ler
-                        .requestMatchers("/scrumtools/api/auth/login", "/scrumtools/api/auth/register").permitAll()
+                        .requestMatchers("/api/auth/login", "/api/auth/register").permitAll()
                         // WebSocket endpoint'i
-                        .requestMatchers("/scrumtools/ws/**").permitAll()
+                        .requestMatchers("/ws/**").permitAll()
                         // Diğer tüm istekler token gerektirir
                         .anyRequest().authenticated()
                 )
@@ -61,19 +76,24 @@ public class SecurityConfig {
 
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
+
         CorsConfiguration config = new CorsConfiguration();
-        List<String> origins = Arrays.stream(allowedOrigins.split(","))
-                .map(String::trim)
-                .filter(s -> !s.isEmpty())
-                .toList();
-        config.setAllowedOriginPatterns(origins);
-        config.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"));
+
+        config.setAllowedOriginPatterns(List.of("*"));
+
+        config.setAllowedMethods(List.of(
+                "GET","POST","PUT","DELETE","OPTIONS","PATCH"
+        ));
+
         config.setAllowedHeaders(List.of("*"));
+
         config.setExposedHeaders(List.of("*"));
+
         config.setAllowCredentials(true);
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", config);
+
         return source;
     }
 
