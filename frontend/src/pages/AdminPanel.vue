@@ -1,10 +1,10 @@
 <template>
-  <div class="min-h-screen bg-gray-50 dark:bg-gray-900 p-6">
+  <div class="min-h-screen bg-gray-50 dark:bg-gray-900 p-4 sm:p-6">
     <div class="max-w-6xl mx-auto space-y-6">
       <h1 class="text-2xl font-bold text-gray-900 dark:text-white">Admin Paneli</h1>
 
       <!-- Tabs -->
-      <div class="flex gap-1 bg-gray-100 dark:bg-gray-800 rounded-xl p-1 w-fit">
+      <div class="flex gap-1 bg-gray-100 dark:bg-gray-800 rounded-xl p-1 w-fit max-w-full overflow-x-auto">
         <button
           v-for="tab in tabs"
           :key="tab.id"
@@ -30,7 +30,8 @@
 
           <div v-if="usersLoading" class="text-center py-12 text-gray-500">Yükleniyor...</div>
 
-          <table v-else class="w-full text-sm">
+          <div v-else class="overflow-x-auto">
+          <table class="w-full text-sm">
             <thead class="bg-gray-50 dark:bg-gray-700/50">
               <tr>
                 <th class="text-left px-4 py-3 text-gray-500 font-medium">Kullanıcı</th>
@@ -89,6 +90,7 @@
               </tr>
             </tbody>
           </table>
+          </div>
         </div>
       </div>
 

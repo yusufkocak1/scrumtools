@@ -1,7 +1,15 @@
 <template>
   <div class="flex h-screen bg-gray-50">
+    <!-- Mobil: sayfa ağacı arka plan karartması -->
+    <div v-if="showPageTree" @click="showPageTree = false"
+         class="fixed inset-0 bg-black/40 z-30 lg:hidden"></div>
+
     <!-- Sol Panel: Sayfa Ağacı -->
-    <aside class="w-72 bg-white border-r flex flex-col">
+    <aside :class="[
+             'w-72 max-w-[85vw] bg-white border-r flex flex-col',
+             'fixed inset-y-0 left-0 z-40 transform transition-transform duration-200 lg:static lg:z-auto lg:translate-x-0',
+             showPageTree ? 'translate-x-0' : '-translate-x-full'
+           ]">
       <div class="p-4 border-b">
         <button @click="goBack" class="text-sm text-gray-500 hover:text-indigo-600 flex items-center gap-1 mb-2">
           ← Spaces
@@ -29,8 +37,16 @@
     <!-- Sağ Panel: İçerik -->
     <main class="flex-1 flex flex-col overflow-hidden">
       <!-- Üst Bar -->
-      <header v-if="currentPage" class="bg-white border-b px-6 py-3 flex items-center justify-between">
+      <header v-if="currentPage" class="bg-white border-b px-3 sm:px-6 py-3 flex flex-wrap items-center justify-between gap-y-2">
         <div class="flex items-center gap-3 min-w-0 flex-1 mr-4">
+          <!-- Mobil: sayfa ağacını aç -->
+          <button @click="showPageTree = true"
+                  class="lg:hidden shrink-0 p-1.5 rounded-lg text-gray-500 hover:text-indigo-600 hover:bg-gray-100 transition"
+                  title="Sayfalar">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/>
+            </svg>
+          </button>
           <template v-if="renamingTitle">
             <input ref="titleInput" v-model="titleDraft" type="text"
                    class="text-lg font-semibold text-gray-800 border-b-2 border-indigo-400 outline-none bg-indigo-50/50 rounded-t px-2 py-0.5 flex-1 min-w-0"
@@ -89,20 +105,24 @@
               class="h-full"
           />
         </div>
-        <div v-else class="prose prose-indigo max-w-none p-8" v-html="renderedContent"></div>
+        <div v-else class="prose prose-indigo max-w-none p-4 sm:p-8 overflow-x-auto" v-html="renderedContent"></div>
       </div>
 
       <!-- Boş durum -->
       <div v-else class="flex-1 flex items-center justify-center">
-        <div class="text-center">
+        <div class="text-center px-4">
           <div class="text-5xl mb-3">📄</div>
           <p class="text-gray-500">Bir sayfa seçin veya yeni bir sayfa oluşturun</p>
+          <button @click="showPageTree = true"
+                  class="lg:hidden mt-4 bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg text-sm transition">
+            Sayfaları Göster
+          </button>
         </div>
       </div>
     </main>
 
     <!-- Sağ Yan Panel: Versiyonlar -->
-    <aside v-if="showVersions" class="w-80 bg-white border-l flex flex-col">
+    <aside v-if="showVersions" class="fixed inset-y-0 right-0 z-40 w-80 max-w-[85vw] shadow-xl lg:static lg:z-auto lg:shadow-none bg-white border-l flex flex-col">
       <VersionHistory
           :projectId="projectId"
           :spaceId="spaceId"
@@ -113,7 +133,7 @@
     </aside>
 
     <!-- Sağ Yan Panel: Dosyalar -->
-    <aside v-if="showAttachments" class="w-80 bg-white border-l flex flex-col">
+    <aside v-if="showAttachments" class="fixed inset-y-0 right-0 z-40 w-80 max-w-[85vw] shadow-xl lg:static lg:z-auto lg:shadow-none bg-white border-l flex flex-col">
       <DocAttachments
           :projectId="projectId"
           :spaceId="spaceId"
@@ -190,6 +210,7 @@ const showPermissions = ref(false)
 
 // Yeni sayfa & kaydet dialog state
 const showNewPageDialog = ref(false)
+const showPageTree = ref(false)
 const newPageParentId = ref(null)
 const showSaveDialog = ref(false)
 
@@ -263,6 +284,7 @@ async function loadPage(pageId) {
 }
 
 function selectPage(page) {
+  showPageTree.value = false
   router.push({
     name: 'DocPage',
     params: {projectId: projectId.value, spaceId: spaceId.value, pageId: page.id}

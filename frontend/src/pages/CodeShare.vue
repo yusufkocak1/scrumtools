@@ -1,16 +1,16 @@
 <template>
-  <div class="flex flex-row w-screen bg-gray-50 min-h-screen">
-    <SideBar :team-id="teamId" class="hidden lg:flex" />
-    <div class="flex-1 p-6">
+  <div class="flex flex-row w-full bg-gray-50 min-h-screen pb-20 lg:pb-0">
+    <SideBar :team-id="teamId" />
+    <div class="flex-1 min-w-0 p-4 sm:p-6">
       <div class="mx-auto">
         <!-- Header -->
-        <div class="mb-8">
-          <h1 class="text-4xl font-bold text-gray-900 mb-4">Code Sharing</h1>
-          <p class="text-xl text-gray-600">Share code snippets with your teammates and edit collaboratively.</p>
+        <div class="mb-6 sm:mb-8">
+          <h1 class="text-2xl sm:text-4xl font-bold text-gray-900 mb-2 sm:mb-4">Code Sharing</h1>
+          <p class="text-base sm:text-xl text-gray-600">Share code snippets with your teammates and edit collaboratively.</p>
         </div>
 
         <!-- Controls -->
-        <div class="bg-white rounded-xl shadow-lg border border-gray-200 p-8 mb-8">
+        <div class="bg-white rounded-xl shadow-lg border border-gray-200 p-4 sm:p-8 mb-6 sm:mb-8">
           <div class="flex flex-col sm:flex-row gap-4">
             <div class="flex-1">
               <label for="tag-input" class="block text-sm font-medium text-gray-900 mb-2">Tag</label>

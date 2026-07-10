@@ -1,7 +1,7 @@
 <template>
-  <div class="flex flex-row w-screen min-h-screen bg-gray-50">
-    <SideBar :team-id="selectedTeam" class="hidden lg:flex" />
-    <div class="flex-1 p-6">
+  <div class="flex flex-row w-full min-h-screen bg-gray-50 pb-20 lg:pb-0">
+    <SideBar :team-id="selectedTeam" />
+    <div class="flex-1 min-w-0 p-4 sm:p-6">
       <div class="max-w-4xl mx-auto">
         <!-- Header -->
         <div class="mb-8">

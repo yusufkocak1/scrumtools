@@ -1,9 +1,9 @@
 <template>
-  <div class="min-h-screen bg-gray-50 p-8">
+  <div class="min-h-screen bg-gray-50 p-4 sm:p-8">
     <div class="max-w-7xl mx-auto">
       <!-- Dashboard Featured Banner -->
       <div v-if="selectedTeam" @click="gotoDashboard"
-           class="mb-8 cursor-pointer rounded-2xl bg-gradient-to-r from-indigo-600 via-purple-600 to-violet-700 p-6 flex items-center justify-between shadow-xl hover:shadow-2xl transition-all duration-300 hover:scale-[1.01] group overflow-hidden relative">
+           class="mb-8 cursor-pointer rounded-2xl bg-gradient-to-r from-indigo-600 via-purple-600 to-violet-700 p-5 sm:p-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-xl hover:shadow-2xl transition-all duration-300 hover:scale-[1.01] group overflow-hidden relative">
         <!-- Decorative circles -->
         <div class="absolute -top-8 -right-8 w-40 h-40 rounded-full bg-white/10 pointer-events-none"></div>
         <div class="absolute bottom-0 right-24 w-24 h-24 rounded-full bg-white/5 pointer-events-none"></div>
@@ -31,7 +31,7 @@
       </div>
 
       <!-- Tools Grid -->
-      <div v-if="selectedTeam" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 mb-10">
+      <div v-if="selectedTeam" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-8 mb-10">
 
         <!-- Board Card -->
         <div @click="gotoWorkList"

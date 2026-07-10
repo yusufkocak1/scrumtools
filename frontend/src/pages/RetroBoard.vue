@@ -1,9 +1,9 @@
 <template>
-  <div class="flex flex-row w-screen bg-gray-50 min-h-screen">
-    <SideBar :team-id="teamId" class="hidden lg:flex"/>
+  <div class="flex flex-row w-full bg-gray-50 min-h-screen pb-20 lg:pb-0">
+    <SideBar :team-id="teamId"/>
     <!-- Main Content -->
-    <div class="flex-1 w-screen overflow-auto">
-      <div class="p-6 w-full h-full">
+    <div class="flex-1 w-full min-w-0 overflow-auto">
+      <div class="p-4 sm:p-6 w-full h-full">
         <!-- Header Component -->
         <RetroBoardHeader
             :anonymous-mode="anonymousMode"

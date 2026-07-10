@@ -1,7 +1,7 @@
 <template>
-  <div class="flex w-full min-h-screen">
+  <div class="flex w-full min-h-screen pb-20 lg:pb-0">
     <SideBar :teamId="teamId" />
-    <div class="flex-1 p-6 bg-gray-50 overflow-auto">
+    <div class="flex-1 min-w-0 p-4 sm:p-6 bg-gray-50 overflow-auto">
 
       <!-- Aktif Oturum Varsa -->
       <div v-if="activeSession">

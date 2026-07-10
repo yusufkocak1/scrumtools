@@ -1,14 +1,14 @@
 <template>
-  <div class="flex flex-row w-screen">
-    <SideBar :team-id="teamId" class="hidden lg:flex"></SideBar>
-    <div class="flex-1 p-4">
+  <div class="flex flex-row w-full pb-20 lg:pb-0">
+    <SideBar :team-id="teamId"></SideBar>
+    <div class="flex-1 min-w-0 p-4">
       <div class="flex flex-col items-center min-h-screen">
         <div class="w-full max-w-7xl mx-auto">
           <div class="flex flex-col items-center space-y-8">
             <PokerTable :isVotesVisible="isVotesVisible" :votes="votes" :members="team.members" @newRound="newRound"></PokerTable>
 
             <!-- Cards Selection Area -->
-            <div class="w-full bg-gradient-to-br from-gray-50 to-gray-100 border-2 border-gray-200 rounded-2xl p-8 shadow-lg">
+            <div class="w-full bg-gradient-to-br from-gray-50 to-gray-100 border-2 border-gray-200 rounded-2xl p-4 sm:p-8 shadow-lg">
               <div class="text-center mb-6">
                 <h3 class="text-xl font-bold text-gray-800 mb-2">Select Your Estimate</h3>
                 <p class="text-gray-600 text-sm">Choose a Fibonacci number that represents your estimate</p>

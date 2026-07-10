@@ -1,7 +1,7 @@
 <template>
   <!-- Bildirim Paneli — Sağa açılan dropdown -->
   <div
-    class="absolute right-0 top-full mt-2 w-96 bg-white rounded-2xl shadow-2xl border border-gray-200 z-[9999] flex flex-col overflow-hidden"
+    class="fixed left-3 right-3 top-16 sm:absolute sm:left-auto sm:right-0 sm:top-full sm:mt-2 sm:w-96 bg-white rounded-2xl shadow-2xl border border-gray-200 z-[9999] flex flex-col overflow-hidden"
     style="max-height: 520px;"
   >
     <!-- Başlık -->

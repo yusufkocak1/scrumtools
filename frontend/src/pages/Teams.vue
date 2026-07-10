@@ -1,8 +1,8 @@
 <template>
-  <div class="flex flex-row w-screen">
-    <SideBar :team-id="currentTeam" class="hidden lg:flex"></SideBar>
+  <div class="flex flex-row w-full pb-20 lg:pb-0">
+    <SideBar :team-id="currentTeam"></SideBar>
 
-    <div class="lg:ml-20 transition-all duration-300 flex-1">
+    <div class="transition-all duration-300 flex-1 min-w-0">
       <div class="px-4 sm:px-6 lg:px-8 py-6">
         <!-- Header Section -->
         <div class="max-w-7xl mx-auto">

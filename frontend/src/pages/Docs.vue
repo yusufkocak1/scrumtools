@@ -1,8 +1,8 @@
 <template>
   <div class="min-h-screen bg-gray-50">
     <!-- Header -->
-    <div class="bg-white border-b px-6 py-4 flex items-center justify-between">
-      <div class="flex items-center gap-4">
+    <div class="bg-white border-b px-4 sm:px-6 py-4 flex flex-wrap items-center justify-between gap-3">
+      <div class="flex flex-wrap items-center gap-3 sm:gap-4">
         <div>
           <h1 class="text-2xl font-bold text-gray-800">📚 Docs</h1>
           <p class="text-sm text-gray-500 mt-1">Proje dokümantasyonu ve bilgi yönetimi</p>
