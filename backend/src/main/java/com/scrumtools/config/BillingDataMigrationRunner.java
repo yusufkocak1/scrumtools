@@ -12,6 +12,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -33,10 +34,16 @@ public class BillingDataMigrationRunner implements ApplicationRunner {
     private final PlanService planService;
     private final SubscriptionRepository subscriptionRepository;
     private final OrganizationRepository organizationRepository;
+    private final JdbcTemplate jdbcTemplate;
 
     @Override
     @Transactional
     public void run(ApplicationArguments args) {
+        // Eski OrgPlan enum'u kolonda CHECK (plan IN ('FREE','PRO','ENTERPRISE')) kısıtı
+        // bırakmıştı; alan String'e dönünce ddl-auto bu kısıtı düşürmez ve 'MAX' yazılamaz.
+        // Idempotent olduğu için her boot'ta güvenle çalışır.
+        jdbcTemplate.execute("ALTER TABLE organizations DROP CONSTRAINT IF EXISTS organizations_plan_check");
+
         log.info("Varsayılan planlar kontrol ediliyor...");
         planService.seedDefaultPlans();
 

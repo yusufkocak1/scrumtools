@@ -64,6 +64,24 @@ services:
       APP_CORS_ALLOWED_ORIGINS: ${APP_CORS_ALLOWED_ORIGINS:-https://scrumtools.kocak.net.tr}
       JWT_SECRET: ${JWT_SECRET:?JWT_SECRET .env dosyasinda tanimlanmali}
       JWT_EXPIRATION: ${JWT_EXPIRATION:-86400000}
+      # Abonelik donem hesaplari + zamanlanmis gorevler bu zone'a gore calisir
+      TZ: ${TZ:-Europe/Istanbul}
+      # E-postalardaki linklerin adresi (sifre kurulum, odeme linki)
+      APP_FRONTEND_BASE_URL: ${APP_FRONTEND_BASE_URL:-https://scrumtools.kocak.net.tr}
+      # SMTP (MAIL_ENABLED=false iken mailler log'a yazilir)
+      MAIL_ENABLED: ${MAIL_ENABLED:-false}
+      MAIL_FROM: ${MAIL_FROM:-noreply@kocak.net.tr}
+      SMTP_HOST: ${SMTP_HOST:-localhost}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USERNAME: ${SMTP_USERNAME:-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      SMTP_AUTH: ${SMTP_AUTH:-true}
+      SMTP_STARTTLS: ${SMTP_STARTTLS:-true}
+      # iyzico iyzilink (IYZICO_ENABLED=false iken manuel aktivasyon calisir)
+      IYZICO_ENABLED: ${IYZICO_ENABLED:-false}
+      IYZICO_API_KEY: ${IYZICO_API_KEY:-}
+      IYZICO_SECRET_KEY: ${IYZICO_SECRET_KEY:-}
+      IYZICO_BASE_URL: ${IYZICO_BASE_URL:-https://sandbox-api.iyzipay.com}
     expose:
       - "8080"
     networks:
