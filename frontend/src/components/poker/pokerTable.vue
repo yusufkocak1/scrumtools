@@ -58,14 +58,14 @@
           </div>
 
           <div class="flex justify-center lg:justify-start flex-wrap gap-3">
-            <div v-for="vote in votes" :key="vote" class="group">
+            <div v-for="vote in votes" :key="vote.email" class="group">
               <div class="bg-white/60 backdrop-blur-sm border border-gray-200/60 rounded-lg  flex flex-col gap-1 justify-center items-center shadow-sm  transition-all duration-300  transform relative overflow-hidden">
                 <!-- User card background gradient -->
                 <div class="absolute inset-0 bg-gradient-to-br from-green-50/20 to-green-100/20 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
 
                 <div class="relative z-10 flex flex-col items-center gap-2">
                   <pokerCard
-                    :key="'vote'+vote"
+                    :key="'vote' + vote.email"
                     :number="vote.vote==='-' ? '' : isVotesVisible ? vote.vote:'?'"
                     :selectable="false"
                     class="transition-transform duration-300  scale-75"
@@ -99,7 +99,6 @@ export default {
       return this.members[email].displayName
     },
     newRound() {
-      console.log("buarada")
       this.$emit('newRound')
     }
   }, computed: {
