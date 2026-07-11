@@ -19,6 +19,7 @@ public class TaskResponse {
     private String teamId;
     private String sprintId;
     private String parentTaskId;
+    private String parentCustomId;
     private String customId;
     private String title;
     private String description;
@@ -99,6 +100,7 @@ public class TaskResponse {
                 .teamId(task.getTeam().getId().toString())
                 .sprintId(task.getSprint() != null ? task.getSprint().getId().toString() : null)
                 .parentTaskId(task.getParentTask() != null ? task.getParentTask().getId().toString() : null)
+                .parentCustomId(task.getParentTask() != null ? task.getParentTask().getCustomId() : null)
                 .customId(task.getCustomId())
                 .title(task.getTitle())
                 .description(task.getDescription())

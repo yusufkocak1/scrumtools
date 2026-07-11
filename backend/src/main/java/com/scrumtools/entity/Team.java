@@ -31,6 +31,10 @@ public class Team {
     @Column(nullable = false)
     private String adminEmail;
 
+    // Task customId üretimi için kalıcı sayaç (null = mevcut task'lerden başlatılacak)
+    @Column(name = "task_sequence")
+    private Long taskSequence;
+
     @OneToMany(mappedBy = "team", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
     @Builder.Default
     private List<TeamMember> members = new ArrayList<>();

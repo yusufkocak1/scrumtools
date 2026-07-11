@@ -111,7 +111,7 @@
               </svg>
               <h3 class="text-base sm:text-lg font-medium text-gray-900">Backlog</h3>
               <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] sm:text-xs font-medium bg-gray-100 text-gray-800">
-                {{ tasks.filter(item => !item.sprintId).length }} issues
+                {{ backlogTasks.length }} issues
               </span>
             </div>
           </div>
@@ -124,7 +124,7 @@
             @dragenter.prevent
           >
             <div
-              v-for="task in tasks.filter(item => !item.sprintId)"
+              v-for="task in backlogTasks"
               :key="task.id"
               class="group bg-white border border-gray-200 rounded-lg p-3 sm:p-4 hover:shadow-md transition-all duration-200 cursor-pointer"
               :draggable="!isMobile"
@@ -147,6 +147,27 @@
                     </span>
                   </div>
                   <p class="mt-1 text-sm font-medium text-gray-900 line-clamp-2">{{ task.title }}</p>
+                  <!-- Alt görevler (parent kartın içinde iç içe) -->
+                  <div v-if="taskTree.childrenOf(task.id).length" class="mt-2 border-l-2 border-gray-200 pl-3 space-y-1">
+                    <button
+                      class="text-[10px] text-gray-400 hover:text-gray-600"
+                      @click.stop="toggleExpand(task.id)"
+                    >
+                      {{ isExpanded(task.id) ? '▾' : '▸' }} {{ taskTree.childrenOf(task.id).length }} alt görev
+                    </button>
+                    <template v-if="isExpanded(task.id)">
+                      <div
+                        v-for="sub in taskTree.childrenOf(task.id)"
+                        :key="sub.id"
+                        class="flex items-center gap-2 text-xs text-gray-600 cursor-pointer hover:text-blue-600"
+                        @click.stop="openTaskDetail(sub)"
+                      >
+                        <span class="font-mono text-gray-400">{{ sub.customId }}</span>
+                        <span class="truncate flex-1">{{ sub.title }}</span>
+                        <span class="px-1.5 py-0.5 rounded bg-gray-100 text-gray-600 shrink-0">{{ sub.status }}</span>
+                      </div>
+                    </template>
+                  </div>
                   <div class="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-[10px] sm:text-xs text-gray-500">
                     <span v-if="task.assignee" class="flex items-center space-x-1">
                       <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
@@ -177,7 +198,7 @@
               </div>
             </div>
 
-            <div v-if="tasks.filter(item => !item.sprintId).length === 0" class="text-center py-12 text-gray-500">
+            <div v-if="backlogTasks.length === 0" class="text-center py-12 text-gray-500">
               <svg class="mx-auto h-10 w-10 sm:h-12 sm:w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 48 48">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M34 40h10v-4a6 6 0 00-10.712-3.714M34 40H14m20 0v-4a9 971 0 00-.712-3.714M14 40H4v-4a6 6 0 0110.713-3.714M14 40v-4c0-1.313.253-2.566.713-3.714m0 0A9.971 9.971 0 0124 24c4.21 0 7.863 2.613 9.288 6.286"/>
               </svg>
@@ -227,7 +248,7 @@
                     ></span>
                     {{ sprint.status === 'open' ? 'Active Sprint' : 'Sprint' }}
                   </span>
-                  <span>{{ tasks.filter(item => item.sprintId === sprint.id).length }} issues</span>
+                  <span>{{ sprintTasks(sprint.id).length }} issues</span>
                   <span v-if="sprint.startDate" class="text-xs text-gray-400">
                     {{ formatSprintDate(sprint.startDate) }} — {{ formatSprintDate(sprint.endDate) }}
                   </span>
@@ -271,7 +292,7 @@
             @dragenter.prevent
           >
             <div
-              v-for="task in tasks.filter(item => item.sprintId === sprint.id)"
+              v-for="task in sprintTasks(sprint.id)"
               :key="task.id"
               class="group bg-white border border-gray-200 rounded-lg p-3 sm:p-4 hover:shadow-md transition-all duration-200 cursor-pointer"
               :draggable="!isMobile"
@@ -302,6 +323,27 @@
                     </span>
                   </div>
                   <p class="mt-1 text-sm font-medium text-gray-900 line-clamp-2">{{ task.title }}</p>
+                  <!-- Alt görevler (parent kartın içinde iç içe) -->
+                  <div v-if="taskTree.childrenOf(task.id).length" class="mt-2 border-l-2 border-gray-200 pl-3 space-y-1">
+                    <button
+                      class="text-[10px] text-gray-400 hover:text-gray-600"
+                      @click.stop="toggleExpand(task.id)"
+                    >
+                      {{ isExpanded(task.id) ? '▾' : '▸' }} {{ taskTree.childrenOf(task.id).length }} alt görev
+                    </button>
+                    <template v-if="isExpanded(task.id)">
+                      <div
+                        v-for="sub in taskTree.childrenOf(task.id)"
+                        :key="sub.id"
+                        class="flex items-center gap-2 text-xs text-gray-600 cursor-pointer hover:text-blue-600"
+                        @click.stop="openTaskDetail(sub)"
+                      >
+                        <span class="font-mono text-gray-400">{{ sub.customId }}</span>
+                        <span class="truncate flex-1">{{ sub.title }}</span>
+                        <span class="px-1.5 py-0.5 rounded bg-gray-100 text-gray-600 shrink-0">{{ sub.status }}</span>
+                      </div>
+                    </template>
+                  </div>
                   <div class="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-[10px] sm:text-xs text-gray-500">
                     <span v-if="task.assignee" class="flex items-center space-x-1">
                       <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
@@ -332,7 +374,7 @@
               </div>
             </div>
 
-            <div v-if="tasks.filter(item => item.sprintId === sprint.id).length === 0" class="text-center py-8 text-gray-500">
+            <div v-if="sprintTasks(sprint.id).length === 0" class="text-center py-8 text-gray-500">
               <p class="text-sm">No issues planned for this sprint</p>
               <p class="text-xs text-gray-400">Drag issues from the backlog</p>
             </div>
@@ -357,6 +399,7 @@ import {
   deleteTask as deleteTaskService
 } from "../../api/WorkApi.js";
 import AddTaskForm from "./AddTaskForm.vue";
+import { buildTaskTree } from "../../utils/taskHierarchy.js";
 
 export default {
   name: "Backlog",
@@ -381,14 +424,36 @@ export default {
       editingTask: null,
       isMobile: false,
       draggedTask: null,
+      // Aç/kapa durumu görev id'siyle takip edilir (varsayılan açık) —
+      // 10s'lik polling'de sıfırlanmaması için fetchData'da dokunulmaz
+      expandedIds: {},
     };
   },
   computed: {
     activeSprints() {
       return this.sprints.filter(s => s.status !== 'done');
+    },
+    taskTree() {
+      return buildTaskTree(this.tasks);
+    },
+    // Subtask'lar parent kartının içinde gösterilir; üst listelerde sadece top-level görevler yer alır
+    backlogTasks() {
+      return this.taskTree.topLevel.filter(t => !t.sprintId);
     }
   },
   methods: {
+    sprintTasks(sprintId) {
+      return this.taskTree.topLevel.filter(t => t.sprintId === sprintId);
+    },
+
+    isExpanded(id) {
+      return this.expandedIds[id] !== false;
+    },
+
+    toggleExpand(id) {
+      this.expandedIds[id] = !this.isExpanded(id);
+    },
+
     async createSprint() {
       if(!this.newSprintName.trim()) return;
       const newSprint = {

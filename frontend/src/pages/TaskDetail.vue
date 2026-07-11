@@ -184,7 +184,7 @@
           <AttachmentList v-if="teamId && task?.id" :teamId="teamId" :taskId="task.id" />
 
           <!-- Subtasks -->
-          <SubtaskList v-if="teamId && task?.id" :teamId="teamId" :taskId="task.id" :subtasks="task.subtasks || []" @update="refreshTask" @open="openSubtask" />
+          <SubtaskList v-if="teamId && task?.id" :teamId="teamId" :taskId="task.id" :subtasks="subtasks" @update="refreshTask" @open="openSubtask" />
 
           <!-- Task Links -->
           <TaskLinkList v-if="teamId && task?.id" :teamId="teamId" :taskId="task.id" :links="taskLinks" @update="refreshLinks" @open="openLinkedTask" />
@@ -461,7 +461,7 @@
 </template>
 
 <script>
-import { updateTask, searchByCustomId, getLinks } from '../api/WorkApi.js';
+import { updateTask, searchByCustomId, getLinks, getSubtasks } from '../api/WorkApi.js';
 import { addComment, uploadAttachment } from '../api/WorkApi.js';
 import AddTaskForm from '../components/work/AddTaskForm.vue';
 import AttachmentList from '../components/work/AttachmentList.vue';
@@ -498,6 +498,7 @@ export default {
       newComment: '',
       showEditForm: false,
       taskLinks: [],
+      subtasks: [],
       // Inline description edit state
       editingDescription: false,
       tempDescription: '',
@@ -543,6 +544,13 @@ export default {
       return 'border-green-300 bg-green-50 text-green-700';
     },
   },
+  watch: {
+    // RouterView :key'siz olduğundan subtask/ilişki tıklamasıyla TaskDetail→TaskDetail
+    // geçişinde bileşen remount olmaz — route param değişince task'ı yeniden yükle
+    taskId() {
+      this.loadTask();
+    },
+  },
   async mounted() {
     await this.loadTask();
     document.addEventListener('mousedown', this.handleDescriptionClickOutside);
@@ -554,12 +562,14 @@ export default {
     async loadTask() {
       try {
         this.loading = true;
+        this.taskLinks = [];
+        this.subtasks = [];
         const result = await searchByCustomId(this.taskId);
         if (result) {
           this.task = result;
           this.teamId = result.teamId;
           this.teamData = null;
-          await this.refreshLinks();
+          await Promise.all([this.refreshLinks(), this.refreshSubtasks()]);
         } else {
           this.task = null;
         }
@@ -575,6 +585,7 @@ export default {
         try {
           const result = await searchByCustomId(this.taskId);
           if (result) this.task = result;
+          await this.refreshSubtasks();
         } catch (e) { console.error(e); }
       }
     },
@@ -583,6 +594,13 @@ export default {
         try {
           this.taskLinks = await getLinks(this.teamId, this.task.id);
         } catch (e) { this.taskLinks = []; }
+      }
+    },
+    async refreshSubtasks() {
+      if (this.teamId && this.task?.id) {
+        try {
+          this.subtasks = await getSubtasks(this.teamId, this.task.id);
+        } catch (e) { this.subtasks = []; }
       }
     },
     openSubtask(sub) {

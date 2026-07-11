@@ -2,10 +2,12 @@ package com.scrumtools.service;
 
 import com.scrumtools.dto.TaskRequest;
 import com.scrumtools.dto.TaskResponse;
+import com.scrumtools.dto.TaskSearchResponse;
 import com.scrumtools.entity.*;
 import com.scrumtools.entity.enums.ActivityAction;
 import com.scrumtools.repository.*;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -16,6 +18,8 @@ import java.util.stream.Collectors;
 @Service
 @RequiredArgsConstructor
 public class TaskService {
+
+    private static final int SEARCH_RESULT_LIMIT = 20;
 
     private final TaskRepository taskRepository;
     private final TaskCommentRepository commentRepository;
@@ -79,16 +83,32 @@ public class TaskService {
                 .map(TaskResponse::from);
     }
 
+    /** Takım içi typeahead arama — customId veya başlık ile (autocomplete picker için). */
+    @Transactional(readOnly = true)
+    public List<TaskSearchResponse> searchTasks(UUID teamId, String query) {
+        String q = query == null ? "" : query.trim();
+        return taskRepository.searchByCustomIdOrTitle(teamId, q, PageRequest.of(0, SEARCH_RESULT_LIMIT))
+                .stream().map(TaskSearchResponse::from).toList();
+    }
+
     @Transactional
     public TaskResponse createTask(UUID teamId, TaskRequest req) {
-        Team team = teamRepository.findById(teamId)
+        // Sayaç güncellemesi race condition yaratmasın diye team satırı kilitli okunur
+        Team team = teamRepository.findByIdForUpdate(teamId)
                 .orElseThrow(() -> new RuntimeException("Team not found"));
 
         String userEmail = SecurityContextHolder.getContext().getAuthentication().getName();
 
-        // Race condition'a karşı lock ile customId üret
-        long count = taskRepository.countByTeamIdForSequence(teamId);
-        String customId = team.getTeamCode() + "-" + (count + 1);
+        // Kalıcı sayaç ile customId üret. Eski COUNT tabanlı yöntem, task silinince
+        // aynı customId'yi ikinci kez üretebiliyordu; sayaç boşsa mevcut customId'lerin
+        // en büyük sonekinden başlatılır.
+        Long sequence = team.getTaskSequence();
+        if (sequence == null) {
+            sequence = maxCustomIdSuffix(teamId);
+        }
+        sequence = sequence + 1;
+        team.setTaskSequence(sequence);
+        String customId = team.getTeamCode() + "-" + sequence;
 
         Sprint sprint = null;
         if (req.getSprintId() != null && !req.getSprintId().isBlank()) {
@@ -97,7 +117,7 @@ public class TaskService {
 
         Task parentTask = null;
         if (req.getParentTaskId() != null && !req.getParentTaskId().isBlank()) {
-            parentTask = taskRepository.findById(UUID.fromString(req.getParentTaskId())).orElse(null);
+            parentTask = resolveParentTask(teamId, req.getParentTaskId().trim(), null);
         }
 
         Task task = Task.builder()
@@ -209,6 +229,17 @@ public class TaskService {
                 Sprint sprint = sprintRepository.findById(UUID.fromString(req.getSprintId()))
                         .orElseThrow(() -> new RuntimeException("Sprint not found"));
                 task.setSprint(sprint);
+            }
+        }
+
+        if (req.getParentTaskId() != null) {
+            if (req.getParentTaskId().isBlank()) {
+                task.setParentTask(null);
+            } else {
+                if (task.getSubtasks() != null && !task.getSubtasks().isEmpty()) {
+                    throw new IllegalArgumentException("Alt görevleri olan bir görev başka görevin altına taşınamaz.");
+                }
+                task.setParentTask(resolveParentTask(teamId, req.getParentTaskId().trim(), task.getId()));
             }
         }
 
@@ -366,5 +397,42 @@ public class TaskService {
     private boolean isDoneStatus(String status) {
         return "Done".equalsIgnoreCase(status) || "Closed".equalsIgnoreCase(status)
                 || "Fixed".equalsIgnoreCase(status) || "Verified".equalsIgnoreCase(status);
+    }
+
+    /**
+     * Parent task'ı UUID veya customId ile çözer; bulunamazsa hata fırlatır
+     * (eski davranış geçersiz parent'ı sessizce düşürüyordu).
+     * Jira benzeri tek seviye hiyerarşi: subtask'ın altına görev eklenemez.
+     */
+    private Task resolveParentTask(UUID teamId, String idOrCustomId, UUID childTaskId) {
+        Task parent = null;
+        try {
+            parent = taskRepository.findById(UUID.fromString(idOrCustomId)).orElse(null);
+        } catch (IllegalArgumentException ignored) {
+            // UUID formatında değil — customId olarak dene
+        }
+        if (parent == null) {
+            parent = taskRepository.findByTeamIdAndCustomId(teamId, idOrCustomId)
+                    .orElseThrow(() -> new IllegalArgumentException("Üst görev bulunamadı: " + idOrCustomId));
+        }
+        if (!parent.getTeam().getId().equals(teamId)) {
+            throw new IllegalArgumentException("Üst görev bu takıma ait değil.");
+        }
+        if (childTaskId != null && parent.getId().equals(childTaskId)) {
+            throw new IllegalArgumentException("Bir görev kendisinin üst görevi olamaz.");
+        }
+        if (parent.getParentTask() != null) {
+            throw new IllegalArgumentException("Bir alt görevin altına görev eklenemez.");
+        }
+        return parent;
+    }
+
+    /** Takımdaki mevcut customId'lerin en büyük sayısal soneki (sayaç başlatma için). */
+    private long maxCustomIdSuffix(UUID teamId) {
+        return taskRepository.findCustomIdsByTeamId(teamId).stream()
+                .map(cid -> cid.substring(cid.lastIndexOf('-') + 1))
+                .filter(s -> !s.isEmpty() && s.chars().allMatch(Character::isDigit))
+                .mapToLong(Long::parseLong)
+                .max().orElse(0L);
     }
 }

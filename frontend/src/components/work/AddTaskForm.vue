@@ -284,11 +284,13 @@
               <!-- Parent Task -->
               <div>
                 <label class="block text-sm font-medium text-gray-700 mb-2">Üst Görev (Parent Task)</label>
-                <input
+                <TaskPickerInput
+                  v-if="teamId"
                   v-model="formData.parentTaskId"
-                  type="text"
-                  class="w-full px-4 py-3 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  placeholder="Üst görev ID'si (opsiyonel)"
+                  :team-id="teamId"
+                  :exclude-task-id="task?.id"
+                  :subtask-target="true"
+                  placeholder="Üst görev ara (opsiyonel)..."
                 />
               </div>
             </div>
@@ -326,6 +328,7 @@
 
 <script>
 import AutoCompleteInput from "./AutoCompleteInput.vue";
+import TaskPickerInput from "./TaskPickerInput.vue";
 import TiptapEditor from "../docs/TiptapEditor.vue";
 import { getTeamById } from "../../api/TeamApi.js";
 import { createTask, updateTask as apiUpdateTask } from "../../api/WorkApi.js";
@@ -334,6 +337,7 @@ export default {
   name: 'TaskEditForm',
   components: {
     AutoCompleteInput,
+    TaskPickerInput,
     TiptapEditor
   },
   props: {

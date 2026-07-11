@@ -38,13 +38,29 @@
         <!-- Gövde -->
         <tbody>
           <tr
-            v-for="task in pagedTasks"
+            v-for="{ task, depth, hasChildren } in displayRows"
             :key="task.id"
             class="border-b border-gray-100 hover:bg-blue-50 cursor-pointer transition-colors"
             @click="openTask(task)"
           >
             <!-- ID -->
-            <td class="px-3 py-2 font-mono text-xs text-gray-400 whitespace-nowrap">{{ task.customId }}</td>
+            <td class="px-3 py-2 font-mono text-xs text-gray-400 whitespace-nowrap">
+              <div class="flex items-center gap-1" :class="depth === 1 ? 'pl-6' : ''">
+                <button
+                  v-if="hasChildren"
+                  class="w-4 text-gray-400 hover:text-gray-700"
+                  title="Alt görevleri aç/kapat"
+                  @click.stop="toggleExpand(task.id)"
+                >{{ isExpanded(task.id) ? '▾' : '▸' }}</button>
+                <span v-else-if="depth === 1" class="text-gray-300">↳</span>
+                <span v-else class="w-4"></span>
+                <span>{{ task.customId }}</span>
+                <span
+                  v-if="hasChildren"
+                  class="ml-1 px-1.5 py-0.5 rounded-full bg-gray-100 text-gray-500 text-[10px] font-sans"
+                >{{ task.subtaskCount }}</span>
+              </div>
+            </td>
             <!-- Başlık -->
             <td class="px-3 py-2 font-medium text-gray-900 max-w-xs truncate">{{ task.title }}</td>
             <!-- Tür -->
@@ -72,7 +88,7 @@
           </tr>
 
           <!-- Sonuç yok -->
-          <tr v-if="pagedTasks.length === 0">
+          <tr v-if="displayRows.length === 0">
             <td :colspan="visibleColumns.length" class="text-center py-12 text-gray-400 text-sm">
               Görev bulunamadı
             </td>
@@ -116,6 +132,7 @@ import { useRouter } from 'vue-router'
 import FilterBar     from './FilterBar.vue'
 import FilterBuilder from './FilterBuilder.vue'
 import { getTasks, filterTasks } from '../../api/WorkApi.js'
+import { buildTaskTree } from '../../utils/taskHierarchy.js'
 
 const props = defineProps({
   teamId: { type: String, required: true }
@@ -178,11 +195,30 @@ onMounted(loadTasks)
 watch(() => props.teamId, () => { page.value = 0; loadTasks() })
 watch(activeFilters, () => { page.value = 0; loadTasks() }, { deep: true })
 
-// ─── Sıralı + Sayfalı liste (filtre yoksa client-side) ────────────────────────
-const pagedTasks = computed(() => {
-  if (activeFilters.value.length > 0) return allTasks.value // server-side
-  // Client-side sıralama
-  const sorted = [...allTasks.value].sort((a, b) => {
+// ─── Hiyerarşi: aç/kapa (varsayılan açık — kapatılanlar takip edilir) ─────────
+const collapsed = ref(new Set())
+
+function isExpanded(id) {
+  return !collapsed.value.has(id)
+}
+
+function toggleExpand(id) {
+  const next = new Set(collapsed.value)
+  if (next.has(id)) next.delete(id)
+  else next.add(id)
+  collapsed.value = next
+}
+
+// ─── Sıralı + Sayfalı satırlar (filtre yoksa client-side hiyerarşi) ───────────
+const displayRows = computed(() => {
+  // Server-side filtre modunda düz liste: filtrelenmiş alt kümede iç içe
+  // gösterim yanıltıcı olur (Jira'da da JQL sonuçları düzdür)
+  if (activeFilters.value.length > 0) {
+    return allTasks.value.map(t => ({ task: t, depth: 0, hasChildren: false }))
+  }
+  const tree = buildTaskTree(allTasks.value)
+  // Top-level sıralanır; subtask'lar parent'ının altında customId sırasıyla gelir
+  const sorted = [...tree.topLevel].sort((a, b) => {
     const av = a[sortBy.value], bv = b[sortBy.value]
     if (av == null) return 1
     if (bv == null) return -1
@@ -190,7 +226,17 @@ const pagedTasks = computed(() => {
     return sortDir.value === 'asc' ? cmp : -cmp
   })
   const start = page.value * size.value
-  return sorted.slice(start, start + size.value)
+  const rows = []
+  for (const task of sorted.slice(start, start + size.value)) {
+    const children = tree.childrenOf(task.id)
+    rows.push({ task, depth: 0, hasChildren: children.length > 0 })
+    if (children.length > 0 && isExpanded(task.id)) {
+      const subs = [...children].sort((a, b) =>
+        (a.customId || '').localeCompare(b.customId || '', undefined, { numeric: true }))
+      for (const sub of subs) rows.push({ task: sub, depth: 1, hasChildren: false })
+    }
+  }
+  return rows
 })
 
 function toggleSort(key) {

@@ -4,6 +4,7 @@ import com.scrumtools.dto.AddCommentRequest;
 import com.scrumtools.dto.TaskFilterRequest;
 import com.scrumtools.dto.TaskRequest;
 import com.scrumtools.dto.TaskResponse;
+import com.scrumtools.dto.TaskSearchResponse;
 import com.scrumtools.service.TaskFilterService;
 import com.scrumtools.service.TaskService;
 import lombok.RequiredArgsConstructor;
@@ -63,6 +64,18 @@ public class TaskController {
         return taskService.findByCustomId(customId)
                 .<ResponseEntity<?>>map(ResponseEntity::ok)
                 .orElse(ResponseEntity.notFound().build());
+    }
+
+    /**
+     * Takım içi typeahead arama — customId veya başlıkta geçen ifadeyle eşleşir.
+     * Örn: GET /api/teams/{teamId}/tasks/search?q=ödeme
+     */
+    @GetMapping("/api/teams/{teamId}/tasks/search")
+    public ResponseEntity<List<TaskSearchResponse>> searchTeamTasks(
+            @PathVariable UUID teamId,
+            @RequestParam(required = false, defaultValue = "") String q
+    ) {
+        return ResponseEntity.ok(taskService.searchTasks(teamId, q));
     }
 
     @PostMapping("/api/teams/{teamId}/tasks")

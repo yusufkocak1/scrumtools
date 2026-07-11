@@ -260,3 +260,12 @@ export const filterTasks = async (teamId, filterRequest) => {
     const { data } = await apiClient.post(`/api/teams/${teamId}/tasks/filter`, filterRequest)
     return data
 }
+
+/**
+ * Takım içi görev arama (typeahead) — customId veya başlık ile.
+ * @returns [{ id, customId, title, status, issueType, hasParent }]
+ */
+export const searchTeamTasks = async (teamId, q) => {
+    const { data } = await apiClient.get(`/api/teams/${teamId}/tasks/search`, { params: { q } })
+    return data
+}

@@ -13,6 +13,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 @Service
@@ -32,8 +33,7 @@ public class TaskLinkService {
     @Transactional
     public TaskLinkResponse createLink(UUID teamId, UUID taskId, TaskLinkRequest request) {
         Task sourceTask = findTask(teamId, taskId);
-        Task targetTask = taskRepository.findById(request.targetTaskId())
-                .orElseThrow(() -> new IllegalArgumentException("Hedef task bulunamadı: " + request.targetTaskId()));
+        Task targetTask = resolveTargetTask(teamId, request.targetTaskId());
 
         if (sourceTask.getId().equals(targetTask.getId())) {
             throw new IllegalArgumentException("Bir task kendisiyle ilişkilendirilemez.");
@@ -41,7 +41,7 @@ public class TaskLinkService {
 
         // Aynı ilişki zaten var mı?
         if (taskLinkRepository.existsBySourceTaskIdAndTargetTaskIdAndLinkType(
-                taskId, request.targetTaskId(), request.linkType())) {
+                taskId, targetTask.getId(), request.linkType())) {
             throw new IllegalArgumentException("Bu ilişki zaten mevcut.");
         }
 
@@ -75,6 +75,22 @@ public class TaskLinkService {
             throw new IllegalArgumentException("Task bu takıma ait değil.");
         }
         return task;
+    }
+
+    /** Hedef task'ı UUID veya customId (örn. TEAM-5) ile çözer; customId takım kapsamlıdır. */
+    private Task resolveTargetTask(UUID teamId, String idOrCustomId) {
+        if (idOrCustomId == null || idOrCustomId.isBlank()) {
+            throw new IllegalArgumentException("Hedef task belirtilmedi.");
+        }
+        String value = idOrCustomId.trim();
+        try {
+            Optional<Task> byId = taskRepository.findById(UUID.fromString(value));
+            if (byId.isPresent()) return byId.get();
+        } catch (IllegalArgumentException ignored) {
+            // UUID formatında değil — customId olarak dene
+        }
+        return taskRepository.findByTeamIdAndCustomId(teamId, value)
+                .orElseThrow(() -> new IllegalArgumentException("Hedef task bulunamadı: " + value));
     }
 }
 

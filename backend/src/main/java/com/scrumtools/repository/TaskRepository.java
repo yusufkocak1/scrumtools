@@ -1,12 +1,11 @@
 package com.scrumtools.repository;
 
 import com.scrumtools.entity.Task;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
-import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
-import jakarta.persistence.LockModeType;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -29,13 +28,16 @@ public interface TaskRepository extends JpaRepository<Task, UUID> {
     @Query("SELECT t FROM Task t WHERE t.customId = :customId AND t.team.id IN :teamIds")
     Optional<Task> findByCustomIdInTeams(String customId, List<UUID> teamIds);
 
-    /**
-     * customId üretimi için takımdaki toplam task sayısı (Cancelled dahil tüm task'lar).
-     * Race condition'a karşı PESSIMISTIC_WRITE lock kullanılır.
-     */
-    @Lock(LockModeType.PESSIMISTIC_WRITE)
-    @Query("SELECT COUNT(t) FROM Task t WHERE t.team.id = :teamId")
-    long countByTeamIdForSequence(UUID teamId);
+    /** Takım içi typeahead arama — customId veya başlıkta geçen ifade (Cancelled hariç). */
+    @Query("SELECT t FROM Task t WHERE t.team.id = :teamId AND t.status <> 'Cancelled' " +
+           "AND (LOWER(t.customId) LIKE LOWER(CONCAT('%', :q, '%')) " +
+           "OR LOWER(t.title) LIKE LOWER(CONCAT('%', :q, '%'))) " +
+           "ORDER BY t.customId")
+    List<Task> searchByCustomIdOrTitle(@Param("teamId") UUID teamId, @Param("q") String q, Pageable pageable);
+
+    /** Takımdaki tüm customId'ler — kalıcı sayaç başlatılırken max sonek hesaplamak için. */
+    @Query("SELECT t.customId FROM Task t WHERE t.team.id = :teamId")
+    List<String> findCustomIdsByTeamId(@Param("teamId") UUID teamId);
 
     // ─── Rapor sorguları ──────────────────────────────────────────────────────
 

@@ -69,18 +69,22 @@
           <option value="DUPLICATES">duplicates</option>
           <option value="IS_DUPLICATED_BY">is duplicated by</option>
           <option value="CLONES">clones</option>
+          <option value="IS_CLONED_FROM">is cloned from</option>
           <option value="CAUSES">causes</option>
+          <option value="IS_CAUSED_BY">is caused by</option>
         </select>
-        <input
+        <TaskPickerInput
           v-model="targetTaskId"
-          placeholder="Hedef Task ID..."
-          class="flex-1 text-sm border border-gray-300 rounded-lg px-3 py-1.5 focus:outline-none focus:border-blue-500"
+          :team-id="teamId"
+          :exclude-task-id="taskId"
+          placeholder="Hedef görevi ara..."
+          class="flex-1"
         />
       </div>
       <div class="flex gap-2">
         <button
           @click="addLink"
-          :disabled="!targetTaskId.trim() || loading"
+          :disabled="!targetTaskId || loading"
           class="px-3 py-1.5 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 disabled:opacity-50"
         >
           Ekle
@@ -99,6 +103,7 @@
 
 <script setup>
 import { ref } from 'vue'
+import TaskPickerInput from '@/components/work/TaskPickerInput.vue'
 import { createLink, deleteLink } from '@/api/WorkApi.js'
 
 const props = defineProps({
@@ -111,7 +116,7 @@ const emit = defineEmits(['update', 'open'])
 
 const showAddForm = ref(false)
 const newLinkType = ref('RELATES_TO')
-const targetTaskId = ref('')
+const targetTaskId = ref(null)
 const loading = ref(false)
 
 function isSource(link) {
@@ -135,11 +140,11 @@ function getInverseLabel(linkType) {
 }
 
 async function addLink() {
-  if (!targetTaskId.value.trim() || loading.value) return
+  if (!targetTaskId.value || loading.value) return
   loading.value = true
   try {
-    await createLink(props.teamId, props.taskId, targetTaskId.value.trim(), newLinkType.value)
-    targetTaskId.value = ''
+    await createLink(props.teamId, props.taskId, targetTaskId.value, newLinkType.value)
+    targetTaskId.value = null
     showAddForm.value = false
     emit('update')
   } catch (e) {

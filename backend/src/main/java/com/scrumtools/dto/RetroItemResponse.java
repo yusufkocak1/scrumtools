@@ -27,7 +27,7 @@ public class RetroItemResponse {
     public static class VoteDto {
         private String id;
         private String owner;
-        private int voteValue;
+        private int value;
     }
 
     @Data
@@ -45,7 +45,7 @@ public class RetroItemResponse {
                         .map(v -> VoteDto.builder()
                                 .id(v.getId().toString())
                                 .owner(v.getOwner())
-                                .voteValue(v.getVoteValue())
+                                .value(v.getVoteValue())
                                 .build())
                         .collect(Collectors.toList());
 

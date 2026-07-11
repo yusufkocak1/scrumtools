@@ -2,7 +2,14 @@
   <div class="w-full">
     <!-- Top Row: Task ID / Priority -->
     <div class="flex flex-col sm:flex-row sm:items-center justify-between mb-2 gap-2 sm:gap-0">
-      <span class="text-[11px] sm:text-xs font-mono text-gray-500">{{ task.customId || task.id }}</span>
+      <div class="flex items-center gap-1.5 min-w-0">
+        <span class="text-[11px] sm:text-xs font-mono text-gray-500">{{ task.customId || task.id }}</span>
+        <span
+          v-if="task.parentCustomId"
+          class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-mono bg-gray-100 text-gray-500 truncate"
+          title="Üst görev"
+        >↳ {{ task.parentCustomId }}</span>
+      </div>
       <div class="flex items-center space-x-1 self-start sm:self-auto">
         <div class="w-4 h-4 rounded bg-blue-100 flex items-center justify-center">
           <svg class="w-3 h-3 text-blue-600" fill="currentColor" viewBox="0 0 20 20">
@@ -62,6 +69,13 @@
 
       <!-- Metrics -->
       <div class="flex items-center space-x-3 text-[10px] sm:text-xs">
+        <div v-if="task.subtaskCount" class="flex items-center space-x-1" title="Alt görevler">
+          <svg class="w-3 h-3 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/>
+          </svg>
+          <span class="text-gray-500">{{ task.subtaskCount }}</span>
+        </div>
+
         <div v-if="task.storyPoints" class="flex items-center space-x-1">
           <svg class="w-3 h-3 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
