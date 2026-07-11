@@ -70,11 +70,18 @@
       </table>
     </div>
 
-    <!-- Üye ekleme (basit) -->
+    <!-- Üye ekleme — hesabı olmayan kullanıcı için hesap oluşturulur, şifre-kurulum maili gider -->
     <div v-if="showInviteModal" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
       <div class="bg-white rounded-xl p-6 w-full max-w-md shadow-2xl">
-        <h4 class="text-lg font-semibold mb-4 text-gray-900">Üye Ekle</h4>
+        <h4 class="text-lg font-semibold mb-1 text-gray-900">Üye Ekle</h4>
+        <p class="text-xs text-gray-500 mb-4">
+          Üyenin hesabı yoksa otomatik oluşturulur ve e-postasına şifre belirleme bağlantısı gönderilir.
+        </p>
         <div class="space-y-3">
+          <div>
+            <label class="label">Ad Soyad</label>
+            <input v-model="inviteName" type="text" class="input-field" placeholder="Ad Soyad" />
+          </div>
           <div>
             <label class="label">E-posta</label>
             <input v-model="inviteEmail" type="email" class="input-field" placeholder="kullanici@example.com" />
@@ -90,7 +97,9 @@
         </div>
         <div class="flex gap-2 mt-4 justify-end">
           <button @click="showInviteModal = false" class="btn-secondary">İptal</button>
-          <button @click="addMember" :disabled="!inviteEmail" class="btn-primary">Ekle</button>
+          <button @click="addMember" :disabled="!inviteEmail || !inviteName || adding" class="btn-primary">
+            {{ adding ? 'Ekleniyor...' : 'Ekle' }}
+          </button>
         </div>
       </div>
     </div>
@@ -99,6 +108,7 @@
 
 <script setup>
 import { ref, onMounted } from 'vue'
+import { createToast } from 'mosha-vue-toastify'
 import OrganizationApi from '../../api/OrganizationApi.js'
 
 const props = defineProps({
@@ -108,8 +118,10 @@ const props = defineProps({
 const members = ref([])
 const loading = ref(false)
 const showInviteModal = ref(false)
+const inviteName = ref('')
 const inviteEmail = ref('')
 const inviteRole = ref('ORG_MEMBER')
+const adding = ref(false)
 
 async function loadMembers() {
   loading.value = true
@@ -124,13 +136,24 @@ async function loadMembers() {
 }
 
 async function addMember() {
+  adding.value = true
   try {
-    await OrganizationApi.addMember(props.orgId, inviteEmail.value, inviteRole.value)
+    await OrganizationApi.createMember(props.orgId, {
+      email: inviteEmail.value,
+      name: inviteName.value,
+      orgRole: inviteRole.value,
+    })
+    createToast('Üye eklendi. Hesabı yoksa şifre kurulum e-postası gönderildi.', {
+      type: 'success', position: 'top-center',
+    })
     showInviteModal.value = false
     inviteEmail.value = ''
+    inviteName.value = ''
     await loadMembers()
   } catch (e) {
     console.error('Üye eklenemedi:', e)
+  } finally {
+    adding.value = false
   }
 }
 

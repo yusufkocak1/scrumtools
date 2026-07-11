@@ -94,6 +94,20 @@
         </div>
       </div>
 
+      <!-- Müşteriler -->
+      <div v-if="activeTab === 'customers'">
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow p-6">
+          <CustomerManager />
+        </div>
+      </div>
+
+      <!-- Planlar -->
+      <div v-if="activeTab === 'plans'">
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow p-6">
+          <PlanManager />
+        </div>
+      </div>
+
       <!-- Roller -->
       <div v-if="activeTab === 'roles'">
         <div class="bg-white dark:bg-gray-800 rounded-xl shadow p-6">
@@ -118,10 +132,14 @@ import UserApi from '../api/UserApi.js'
 import RoleApi from '../api/RoleApi.js'
 import RoleManager from '../components/roles/RoleManager.vue'
 import PermissionMatrix from '../components/roles/PermissionMatrix.vue'
+import CustomerManager from '../components/admin/CustomerManager.vue'
+import PlanManager from '../components/admin/PlanManager.vue'
 
 const activeTab = ref('users')
 const tabs = [
   { id: 'users', label: 'Kullanıcılar' },
+  { id: 'customers', label: 'Müşteriler' },
+  { id: 'plans', label: 'Planlar' },
   { id: 'roles', label: 'Roller' },
   { id: 'permissions', label: 'İzin Matrisi' },
 ]

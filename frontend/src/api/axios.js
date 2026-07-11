@@ -71,6 +71,18 @@ instance.interceptors.response.use(
             return Promise.reject(error)
         }
 
+        // 402 + PLAN_LIMIT → paket limiti aşıldı, upgrade akışını tetikle
+        // (App.vue 'scrumtools:plan-limit' event'ini dinleyip UpgradeModal açar)
+        if (error.response?.status === 402 && error.response?.data?.code === 'PLAN_LIMIT') {
+            window.dispatchEvent(new CustomEvent('scrumtools:plan-limit', {
+                detail: {
+                    limitType: error.response.data.limitType,
+                    message: error.response.data.error,
+                },
+            }))
+            return Promise.reject(error)
+        }
+
         // İstek bazında toast'ı devre dışı bırakma desteği
         // Kullanım: axios.get('/api/...', { _skipErrorToast: true })
         if (!error.config?._skipErrorToast) {

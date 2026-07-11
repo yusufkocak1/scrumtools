@@ -31,6 +31,8 @@ public class InvitationService {
     private final OrganizationMemberRepository organizationMemberRepository;
     private final ProjectRepository projectRepository;
     private final ProjectMemberRepository projectMemberRepository;
+    private final EntitlementService entitlementService;
+    private final MemberOnboardingService memberOnboardingService;
 
     @Transactional
     public InvitationResponse sendInvitation(String inviterEmail, InvitationRequest request) {
@@ -40,6 +42,35 @@ public class InvitationService {
         if (invitationRepository.existsByEmailAndTargetIdAndTypeAndStatus(
                 request.email(), request.targetId(), request.type(), InvitationStatus.PENDING)) {
             throw new IllegalArgumentException("Bu kullanıcıya zaten bekleyen bir davet gönderilmiş.");
+        }
+
+        // Org daveti: paket üye limiti dolu ise davet daha gönderilirken engelle
+        if (request.type() == InvitationType.ORGANIZATION) {
+            entitlementService.assertCanAddMember(request.targetId());
+
+            // Hesabı olmayan kullanıcı in-app daveti göremez — hesabını oluşturup
+            // şifre-kurulum e-postası gönderen create-member akışına delege et.
+            String targetEmail = request.email().toLowerCase().trim();
+            if (!userRepository.existsByEmail(targetEmail)) {
+                memberOnboardingService.createMember(request.targetId(), inviterEmail,
+                        new com.scrumtools.dto.CreateMemberRequest(
+                                targetEmail,
+                                targetEmail.split("@")[0], // geçici görünen ad — üye ilk girişte güncelleyebilir
+                                OrgRole.ORG_MEMBER));
+                // Denetim izi için kabul edilmiş bir davet kaydı bırak
+                Invitation autoAccepted = invitationRepository.save(Invitation.builder()
+                        .email(targetEmail)
+                        .type(request.type())
+                        .targetId(request.targetId())
+                        .token(generateToken())
+                        .status(InvitationStatus.ACCEPTED)
+                        .invitedBy(inviter)
+                        .expiresAt(LocalDateTime.now().plusDays(7))
+                        .acceptedAt(LocalDateTime.now())
+                        .build());
+                log.info("Hesabı olmayan davet create-member'a delege edildi: {} -> {}", inviterEmail, targetEmail);
+                return toResponse(autoAccepted);
+            }
         }
 
         Role role = request.roleId() != null ? roleRepository.findById(request.roleId()).orElse(null) : null;
@@ -104,6 +135,8 @@ public class InvitationService {
     private void processAcceptance(Invitation invitation, User user) {
         if (invitation.getType() == InvitationType.ORGANIZATION) {
             if (!organizationMemberRepository.existsByOrganizationIdAndUserId(invitation.getTargetId(), user.getId())) {
+                // Davet gönderildikten sonra limit dolmuş olabilir — kabul anında tekrar kontrol et
+                entitlementService.assertCanAddMember(invitation.getTargetId());
                 var org = organizationRepository.findById(invitation.getTargetId())
                         .orElseThrow(() -> new IllegalArgumentException("Organizasyon bulunamadı."));
                 var member = com.scrumtools.entity.OrganizationMember.builder()

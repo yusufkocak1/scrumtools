@@ -22,8 +22,29 @@ spring:
       max-file-size: 20MB
       max-request-size: 25MB
 
+  # ─── SMTP (app.mail.enabled=true iken kullanılır; lokalde Mailpit: port 1025) ─
+  mail:
+    host: ${SMTP_HOST:localhost}
+    port: ${SMTP_PORT:1025}
+    username: ${SMTP_USERNAME:}
+    password: ${SMTP_PASSWORD:}
+    properties:
+      mail:
+        smtp:
+          auth: ${SMTP_AUTH:false}
+          starttls:
+            enable: ${SMTP_STARTTLS:false}
+
 server:
   port: 8080
+
+# ─── iyzico (iyzilink ödeme linkleri) ────────────────────────────────────────
+iyzico:
+  enabled: ${IYZICO_ENABLED:false}
+  api-key: ${IYZICO_API_KEY:}
+  secret-key: ${IYZICO_SECRET_KEY:}
+  # Sandbox: https://sandbox-api.iyzipay.com | Prod: https://api.iyzipay.com
+  base-url: ${IYZICO_BASE_URL:https://sandbox-api.iyzipay.com}
 
 # ─── MinIO (S3-compatible object storage) ────────────────────────────────────
 minio:
@@ -38,6 +59,12 @@ app:
   cors:
     # Virgulle ayrilmis origin listesi (ornek: http://localhost:3000,http://SUNUCU_IP:8096)
     allowed-origins: ${APP_CORS_ALLOWED_ORIGINS:http://localhost:3000,http://localhost:5173}
+  mail:
+    # false iken mailler gönderilmez, log'a yazılır (LoggingMailService)
+    enabled: ${MAIL_ENABLED:false}
+    from: ${MAIL_FROM:noreply@kocak.net.tr}
+  # E-postalardaki linklerde kullanılan frontend adresi
+  frontend-base-url: ${APP_FRONTEND_BASE_URL:http://localhost:3000}
   jwt:
     # Prod ortamında JWT_SECRET env variable kullanın (min 32 karakter)
     secret: ${JWT_SECRET:ScrumToolsSuperSecretKeyForJWTSigningMustBe256Bits1yusuf}

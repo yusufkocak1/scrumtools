@@ -16,9 +16,13 @@ export const OrganizationApi = {
   // Üyeleri listele
   getMembers: (orgId) => api.get(`/api/organizations/${orgId}/members`),
 
-  // Üye ekle
+  // Üye ekle (mevcut kullanıcı)
   addMember: (orgId, email, role) =>
     api.post(`/api/organizations/${orgId}/members`, null, { params: { email, role } }),
+
+  // Üyeyi doğrudan kaydet — hesabı yoksa oluşturulur ve şifre-kurulum maili gönderilir
+  createMember: (orgId, { email, name, orgRole }) =>
+    api.post(`/api/organizations/${orgId}/members/create`, { email, name, orgRole }),
 
   // Üye rolünü güncelle
   updateMemberRole: (orgId, userId, role) =>

@@ -57,6 +57,17 @@
             <!-- Password -->
             <div class="space-y-2">
               <label class="block text-sm font-medium text-gray-700">
+                Current Password
+              </label>
+              <input
+                v-model="currentPassword"
+                type="password"
+                :disabled="isUpdatingPassword"
+                class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-50 disabled:cursor-not-allowed transition-colors"
+                placeholder="Enter your current password"
+                autocomplete="current-password"
+              />
+              <label class="block text-sm font-medium text-gray-700">
                 New Password
               </label>
               <div class="flex gap-3">
@@ -84,7 +95,7 @@
                   </button>
                 </div>
                 <button
-                  :disabled="!password.trim() || isUpdatingPassword"
+                  :disabled="!password.trim() || !currentPassword.trim() || isUpdatingPassword"
                   class="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
                   @click="handlePasswordChange"
                 >
@@ -185,6 +196,7 @@ export default {
       originalDisplayName: '',
       email: '',
       password: '',
+      currentPassword: '',
       teamList: [],
       selectedTeam: '',
       showPassword: false,
@@ -271,14 +283,16 @@ export default {
       this.isUpdatingPassword = true
 
       try {
-        await apiChangePassword(this.password)
+        await apiChangePassword(this.currentPassword, this.password)
         createToast('Password updated successfully', {
           type: 'success',
           position: 'top-center'
         })
         this.password = ''
+        this.currentPassword = ''
       } catch (error) {
-        createToast('Error updating password', {
+        const msg = error.response?.data?.error || 'Error updating password'
+        createToast(msg, {
           type: 'error',
           position: 'top-center'
         })

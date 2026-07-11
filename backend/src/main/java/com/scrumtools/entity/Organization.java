@@ -1,6 +1,5 @@
 package com.scrumtools.entity;
 
-import com.scrumtools.entity.enums.OrgPlan;
 import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
@@ -38,14 +37,24 @@ public class Organization {
     @JoinColumn(name = "owner_id", nullable = false)
     private User owner;
 
-    @Enumerated(EnumType.STRING)
+    // Denormalize görüntü cache'i (plan code) — source of truth: Subscription → Plan.
+    // SubscriptionService her durum değişiminde günceller.
     @Column(nullable = false)
     @Builder.Default
-    private OrgPlan plan = OrgPlan.FREE;
+    private String plan = "FREE";
 
+    // Org bazlı üye limiti override'ı (özel anlaşmalar için) — null = plan limiti geçerli
     @Column
-    @Builder.Default
-    private Integer maxMembers = 10;
+    private Integer maxMembers;
+
+    // Superadmin tarafından askıya alınmış org — üyelik kontrollerinde erişim engellenir
+    @Column
+    private Boolean suspended;
+
+    /** Null-safe askıya alınma kontrolü (null = askıda değil). */
+    public boolean isSuspendedOrg() {
+        return Boolean.TRUE.equals(suspended);
+    }
 
     @CreationTimestamp
     @Column(updatable = false)

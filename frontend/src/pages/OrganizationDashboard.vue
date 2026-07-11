@@ -163,6 +163,14 @@
             <PendingInvitations />
           </div>
 
+          <!-- Abonelik -->
+          <div v-if="activeTab === 'billing' && currentOrg">
+            <BillingTab v-if="isOrgAdmin" :org="currentOrg" />
+            <p v-else class="text-center py-12 text-gray-400">
+              Abonelik bilgilerini sadece organizasyon sahibi ve adminleri görüntüleyebilir.
+            </p>
+          </div>
+
           <!-- Ayarlar -->
           <div v-if="activeTab === 'settings' && currentOrg">
             <OrgSettings :org="currentOrg" @updated="currentOrg = $event" />
@@ -364,11 +372,12 @@
 </template>
 
 <script setup>
-import { ref, computed, watch } from 'vue'
+import { ref, computed, watch, onMounted, onBeforeUnmount } from 'vue'
 import { useRouter } from 'vue-router'
 import OrgSwitcher from '../components/organization/OrgSwitcher.vue'
 import OrgSettings from '../components/organization/OrgSettings.vue'
 import OrgMemberList from '../components/organization/OrgMemberList.vue'
+import BillingTab from '../components/billing/BillingTab.vue'
 import ProjectList from '../components/project/ProjectList.vue'
 import PendingInvitations from '../components/invitation/PendingInvitations.vue'
 import InviteModal from '../components/invitation/InviteModal.vue'
@@ -387,6 +396,7 @@ const tabs = [
   { id: 'teams',       label: 'Takımlar',  icon: '<svg fill="currentColor" viewBox="0 0 20 20"><path d="M13 6a3 3 0 11-6 0 3 3 0 016 0zM18 8a2 2 0 11-4 0 2 2 0 014 0zM14 15a4 4 0 00-8 0v3h8v-3z"/></svg>' },
   { id: 'members',     label: 'Üyeler',    icon: '<svg fill="currentColor" viewBox="0 0 20 20"><path d="M13 6a3 3 0 11-6 0 3 3 0 016 0zM18 8a2 2 0 11-4 0 2 2 0 014 0zM14 15a4 4 0 00-8 0v3h8v-3z"/></svg>' },
   { id: 'invitations', label: 'Davetler',  icon: '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>' },
+  { id: 'billing',     label: 'Abonelik',  icon: '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"/></svg>' },
   { id: 'settings',    label: 'Ayarlar',   icon: '<svg fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M11.49 3.17c-.38-1.56-2.6-1.56-2.98 0a1.532 1.532 0 01-2.286.948c-1.372-.836-2.942.734-2.106 2.106.54.886.061 2.042-.947 2.287-1.561.379-1.561 2.6 0 2.978a1.532 1.532 0 01.947 2.287c-.836 1.372.734 2.942 2.106 2.106a1.532 1.532 0 012.287.947c.379 1.561 2.6 1.561 2.978 0a1.533 1.533 0 012.287-.947c1.372.836 2.942-.734 2.106-2.106a1.533 1.533 0 01.947-2.287c1.561-.379 1.561-2.6 0-2.978a1.532 1.532 0 01-.947-2.287c.836-1.372-.734-2.942-2.106-2.106a1.532 1.532 0 01-2.287-.947zM10 13a3 3 0 100-6 3 3 0 000 6z" clip-rule="evenodd"/></svg>' },
 ]
 
@@ -453,6 +463,13 @@ watch(activeTab, async (tab) => {
   if (!currentOrg.value) return
   if (tab === 'teams') await loadTeams(currentOrg.value.id)
 })
+
+// UpgradeModal "Paketleri İncele" → Abonelik sekmesini aç
+function openBillingTab() {
+  activeTab.value = 'billing'
+}
+onMounted(() => window.addEventListener('scrumtools:open-billing-tab', openBillingTab))
+onBeforeUnmount(() => window.removeEventListener('scrumtools:open-billing-tab', openBillingTab))
 
 // ─── Data loaders ─────────────────────────────────────────────────────────────
 async function loadProjects(orgId) {

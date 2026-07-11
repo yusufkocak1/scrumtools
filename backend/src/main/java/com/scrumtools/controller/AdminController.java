@@ -6,6 +6,7 @@ import com.scrumtools.entity.enums.UserStatus;
 import com.scrumtools.service.UserProfileService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
@@ -16,6 +17,7 @@ import java.util.UUID;
 @RestController
 @RequestMapping("/api/admin")
 @RequiredArgsConstructor
+@PreAuthorize("@projectSecurity.isSuperAdmin(authentication)")
 public class AdminController {
 
     private final UserProfileService userProfileService;
@@ -26,7 +28,6 @@ public class AdminController {
     @GetMapping("/users")
     public ResponseEntity<List<UserProfileResponse>> getAllUsers(
             @AuthenticationPrincipal UserDetails userDetails) {
-        // TODO: @PreAuthorize("@projectSecurity.isSuperAdmin(authentication)") eklenecek
         return ResponseEntity.ok(userProfileService.getAllUsers());
     }
 

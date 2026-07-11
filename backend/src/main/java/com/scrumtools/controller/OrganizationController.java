@@ -2,6 +2,7 @@ package com.scrumtools.controller;
 
 import com.scrumtools.dto.*;
 import com.scrumtools.entity.enums.OrgRole;
+import com.scrumtools.service.MemberOnboardingService;
 import com.scrumtools.service.OrganizationService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -20,6 +21,7 @@ import java.util.UUID;
 public class OrganizationController {
 
     private final OrganizationService organizationService;
+    private final MemberOnboardingService memberOnboardingService;
 
     @PostMapping
     public ResponseEntity<OrganizationResponse> createOrganization(
@@ -50,6 +52,13 @@ public class OrganizationController {
         return ResponseEntity.ok(organizationService.updateOrganization(orgId, userDetails.getUsername(), request));
     }
 
+    @GetMapping("/{orgId}/entitlements")
+    public ResponseEntity<EntitlementsResponse> getEntitlements(
+            @AuthenticationPrincipal UserDetails userDetails,
+            @PathVariable UUID orgId) {
+        return ResponseEntity.ok(organizationService.getEntitlements(orgId, userDetails.getUsername()));
+    }
+
     @GetMapping("/{orgId}/members")
     public ResponseEntity<List<OrgMemberResponse>> getMembers(
             @AuthenticationPrincipal UserDetails userDetails,
@@ -65,6 +74,18 @@ public class OrganizationController {
             @RequestParam(required = false) OrgRole role) {
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(organizationService.addMember(orgId, userDetails.getUsername(), email, role));
+    }
+
+    /**
+     * Üyeyi doğrudan sisteme kaydet (hesabı yoksa oluşturulur, şifre-kurulum maili gider).
+     */
+    @PostMapping("/{orgId}/members/create")
+    public ResponseEntity<OrgMemberResponse> createMember(
+            @AuthenticationPrincipal UserDetails userDetails,
+            @PathVariable UUID orgId,
+            @Valid @RequestBody CreateMemberRequest request) {
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(memberOnboardingService.createMember(orgId, userDetails.getUsername(), request));
     }
 
     @PutMapping("/{orgId}/members/{userId}/role")

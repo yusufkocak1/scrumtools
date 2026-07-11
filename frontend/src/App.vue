@@ -34,6 +34,9 @@
     <div class="w-full min-w-0">
       <RouterView/>
     </div>
+
+    <!-- Paket limiti aşıldığında (402) açılan global yükseltme modalı -->
+    <UpgradeModal/>
   </div>
 </template>
 
@@ -42,6 +45,7 @@ import { me, logout as apiLogout } from "./api/AuthApi.js";
 import { useAuth } from "./composables/useAuth.js";
 import Navbar from "./components/Navbar.vue";
 import ConfirmationDialog from "./components/ConfirmationDialog.vue";
+import UpgradeModal from "./components/billing/UpgradeModal.vue";
 import { getMyTeams } from "./api/TeamApi.js";
 import './scripts/collapse.js'
 
@@ -49,7 +53,8 @@ export default {
   name: "App",
   components: {
     Navbar,
-    ConfirmationDialog
+    ConfirmationDialog,
+    UpgradeModal
   },
   setup() {
     const auth = useAuth()

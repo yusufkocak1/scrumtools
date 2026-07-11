@@ -42,5 +42,19 @@ public class OrganizationMember {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "invited_by_id")
     private User invitedBy;
+
+    // Paket düşüşünde pasifleştirilen üye — null = aktif (eski satırlar ddl-auto ile null gelir)
+    @Column
+    private Boolean active;
+
+    // true ise: üye kendi isteğiyle değil, downgrade nedeniyle pasifleştirildi;
+    // abonelik yeniden aktive edilince otomatik geri açılır
+    @Column
+    private Boolean deactivatedByDowngrade;
+
+    /** Null-safe aktiflik kontrolü (null = aktif). */
+    public boolean isActiveMember() {
+        return active == null || active;
+    }
 }
 

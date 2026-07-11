@@ -80,6 +80,19 @@ public class GlobalExceptionHandler {
                 .body(Map.of("error", errors));
     }
 
+    // ─── Paket Limiti (402 → frontend upgrade akışını tetikler) ───────────────
+
+    @ExceptionHandler(com.scrumtools.exception.PlanLimitExceededException.class)
+    public ResponseEntity<Map<String, String>> handlePlanLimit(com.scrumtools.exception.PlanLimitExceededException e) {
+        log.info("Paket limiti aşıldı ({}): {}", e.getLimitType(), e.getMessage());
+        return ResponseEntity.status(HttpStatus.PAYMENT_REQUIRED)
+                .body(Map.of(
+                        "code", "PLAN_LIMIT",
+                        "limitType", e.getLimitType(),
+                        "error", e.getMessage()
+                ));
+    }
+
     // ─── RuntimeException (Servis katmanından gelen iş kuralı hataları) ───────
 
     @ExceptionHandler(RuntimeException.class)

@@ -35,6 +35,7 @@ public class QuizService {
     private final TeamRepository teamRepository;
     private final TeamMemberRepository teamMemberRepository;
     private final SimpMessagingTemplate messagingTemplate;
+    private final EntitlementService entitlementService;
 
     // ─── Template CRUD ──────────────────────────────────────────────────────────
 
@@ -54,6 +55,8 @@ public class QuizService {
         String email = currentEmail();
         Team team = teamRepository.findById(teamId)
                 .orElseThrow(() -> new RuntimeException("Team not found"));
+        entitlementService.assertFeature(team.getOrganization(),
+                com.scrumtools.entity.enums.PlanFeature.QUIZ);
 
         String displayName = teamMemberRepository.findByTeamIdAndEmail(teamId, email)
                 .map(TeamMember::getDisplayName).orElse(email);
@@ -137,6 +140,8 @@ public class QuizService {
         String email = currentEmail();
         Team team = teamRepository.findById(teamId)
                 .orElseThrow(() -> new RuntimeException("Team not found"));
+        entitlementService.assertFeature(team.getOrganization(),
+                com.scrumtools.entity.enums.PlanFeature.QUIZ);
         QuizTemplate template = templateRepository.findById(templateId)
                 .orElseThrow(() -> new RuntimeException("Template not found"));
 

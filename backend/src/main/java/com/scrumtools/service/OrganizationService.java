@@ -3,22 +3,30 @@ package com.scrumtools.service;
 import com.scrumtools.dto.*;
 import com.scrumtools.entity.*;
 import com.scrumtools.entity.enums.OrgRole;
+import com.scrumtools.entity.enums.SubscriptionSource;
+import com.scrumtools.entity.enums.SubscriptionStatus;
 import com.scrumtools.repository.*;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class OrganizationService {
 
     private final OrganizationRepository organizationRepository;
     private final OrganizationMemberRepository organizationMemberRepository;
     private final UserRepository userRepository;
+    private final SubscriptionRepository subscriptionRepository;
+    private final PlanService planService;
+    private final EntitlementService entitlementService;
 
     @Transactional
     public OrganizationResponse createOrganization(String userEmail, OrganizationRequest request) {
@@ -45,7 +53,33 @@ public class OrganizationService {
                 .build();
         organizationMemberRepository.save(member);
 
+        startTrialIfEligible(org, user);
+
         return toResponse(org, 1);
+    }
+
+    /**
+     * Yeni organizasyona üst paket trial'ı başlatır.
+     * Suistimal önlemi: her kullanıcı, sahibi olduğu org'lar için yalnızca BİR kez
+     * trial başlatabilir; sonraki org'ları FREE olarak başlar.
+     */
+    private void startTrialIfEligible(Organization org, User owner) {
+        if (subscriptionRepository.existsByOrganizationOwnerIdAndSource(owner.getId(), SubscriptionSource.TRIAL)) {
+            return; // org.plan varsayılanı zaten FREE
+        }
+        Plan trialPlan = planService.getTrialPlan();
+        LocalDateTime now = LocalDateTime.now();
+        subscriptionRepository.save(Subscription.builder()
+                .organization(org)
+                .plan(trialPlan)
+                .status(SubscriptionStatus.TRIAL)
+                .source(SubscriptionSource.TRIAL)
+                .currentPeriodStart(now)
+                .trialEndsAt(now.plusDays(trialPlan.getTrialDays()))
+                .build());
+        org.setPlan(trialPlan.getCode());
+        organizationRepository.save(org);
+        log.info("Org '{}' için {} günlük {} trial başlatıldı.", org.getSlug(), trialPlan.getTrialDays(), trialPlan.getCode());
     }
 
     public List<OrganizationResponse> getMyOrganizations(String userEmail) {
@@ -78,6 +112,12 @@ public class OrganizationService {
         return toResponse(org, count);
     }
 
+    /** Org üyesinin görebileceği efektif paket hakları (plan kartları/limit göstergeleri için). */
+    public EntitlementsResponse getEntitlements(UUID orgId, String userEmail) {
+        checkMembership(orgId, userEmail);
+        return entitlementService.getEntitlements(orgId);
+    }
+
     public List<OrgMemberResponse> getMembers(UUID orgId, String userEmail) {
         checkMembership(orgId, userEmail);
         return organizationMemberRepository.findByOrganizationId(orgId).stream()
@@ -89,6 +129,7 @@ public class OrganizationService {
     public OrgMemberResponse addMember(UUID orgId, String requesterEmail, String targetEmail, OrgRole role) {
         Organization org = getOrgById(orgId);
         checkAdminAccess(orgId, requesterEmail);
+        entitlementService.assertCanAddMember(orgId);
 
         User targetUser = getUserByEmail(targetEmail);
         User requester = getUserByEmail(requesterEmail);
@@ -138,9 +179,16 @@ public class OrganizationService {
     }
 
     private void checkMembership(UUID orgId, String email) {
+        Organization org = getOrgById(orgId);
+        if (org.isSuspendedOrg()) {
+            throw new SecurityException("Bu organizasyon askıya alınmış durumda. Lütfen destek ile iletişime geçin.");
+        }
         User user = getUserByEmail(email);
-        if (!organizationMemberRepository.existsByOrganizationIdAndUserId(orgId, user.getId())) {
-            throw new SecurityException("Bu organizasyona erişim yetkiniz yok.");
+        OrganizationMember member = organizationMemberRepository.findByOrganizationIdAndUserId(orgId, user.getId())
+                .orElseThrow(() -> new SecurityException("Bu organizasyona erişim yetkiniz yok."));
+        if (!member.isActiveMember()) {
+            throw new SecurityException(
+                    "Üyeliğiniz paket limiti nedeniyle pasif durumda. Organizasyon sahibinizle iletişime geçin.");
         }
     }
 

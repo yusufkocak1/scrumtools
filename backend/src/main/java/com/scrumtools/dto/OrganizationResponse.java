@@ -1,7 +1,5 @@
 package com.scrumtools.dto;
 
-import com.scrumtools.entity.enums.OrgPlan;
-
 import java.time.LocalDateTime;
 import java.util.UUID;
 
@@ -13,7 +11,7 @@ public record OrganizationResponse(
         String logoUrl,
         UUID ownerId,
         String ownerName,
-        OrgPlan plan,
+        String plan,
         Integer maxMembers,
         int memberCount,
         LocalDateTime createdAt

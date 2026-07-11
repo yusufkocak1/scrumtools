@@ -19,6 +19,7 @@ public class CodeShareService {
 
     private final CodeShareRepository codeShareRepository;
     private final TeamRepository teamRepository;
+    private final EntitlementService entitlementService;
 
     // ─── Save or Update ──────────────────────────────────────────────────────────
 
@@ -26,6 +27,8 @@ public class CodeShareService {
     public CodeShareResponse saveOrUpdate(UUID teamId, String tag, String data) {
         Team team = teamRepository.findById(teamId)
                 .orElseThrow(() -> new IllegalArgumentException("Takım bulunamadı: " + teamId));
+        entitlementService.assertFeature(team.getOrganization(),
+                com.scrumtools.entity.enums.PlanFeature.CODE_SHARE);
 
         CodeShare codeShare = codeShareRepository.findByTeamIdAndTag(teamId, tag)
                 .orElseGet(() -> CodeShare.builder()

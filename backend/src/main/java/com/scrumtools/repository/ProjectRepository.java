@@ -18,6 +18,8 @@ public interface ProjectRepository extends JpaRepository<Project, UUID> {
 
     boolean existsByOrganizationIdAndKey(UUID organizationId, String key);
 
+    long countByOrganizationIdAndStatus(UUID organizationId, ProjectStatus status);
+
     Optional<Project> findByOrganizationIdAndKey(UUID organizationId, String key);
 
     @Query("SELECT p FROM Project p JOIN ProjectMember pm ON pm.project = p WHERE pm.user.email = :email AND p.status = 'ACTIVE'")

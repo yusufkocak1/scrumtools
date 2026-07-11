@@ -26,6 +26,7 @@ public class RetroBoardService {
     private final RetroItemVoteRepository voteRepository;
     private final TeamRepository teamRepository;
     private final SimpMessagingTemplate messagingTemplate;
+    private final EntitlementService entitlementService;
 
     // ─── Board ────────────────────────────────────────────────────────────────
 
@@ -43,6 +44,8 @@ public class RetroBoardService {
     public RetroBoardResponse createBoard(UUID teamId, CreateRetroBoardRequest req) {
         Team team = teamRepository.findById(teamId)
                 .orElseThrow(() -> new RuntimeException("Team not found"));
+        entitlementService.assertFeature(team.getOrganization(),
+                com.scrumtools.entity.enums.PlanFeature.RETRO);
         RetroBoard board = RetroBoard.builder()
                 .team(team)
                 .retroBoardName(req.getRetroBoardName())

@@ -27,6 +27,7 @@ public class ProjectService {
     private final RoleRepository roleRepository;
     private final TeamRepository teamRepository;
     private final TeamMemberRepository teamMemberRepository;
+    private final EntitlementService entitlementService;
 
     @Transactional
     public ProjectResponse createProject(UUID orgId, String userEmail, ProjectRequest request) {
@@ -37,6 +38,8 @@ public class ProjectService {
         if (!organizationMemberRepository.existsByOrganizationIdAndUserId(orgId, user.getId())) {
             throw new SecurityException("Bu organizasyona üye değilsiniz.");
         }
+
+        entitlementService.assertCanCreateProject(orgId);
 
         if (projectRepository.existsByOrganizationIdAndKey(orgId, request.key())) {
             throw new IllegalArgumentException("Bu proje anahtarı organizasyonda zaten mevcut: " + request.key());

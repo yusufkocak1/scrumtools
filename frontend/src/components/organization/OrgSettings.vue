@@ -5,7 +5,46 @@
       <span
         class="text-xs px-2 py-1 rounded-full"
         :class="planBadgeClass"
-      >{{ org?.plan }}</span>
+      >{{ planName }}</span>
+    </div>
+
+    <!-- Paket durumu + kullanım göstergeleri -->
+    <div v-if="entitlements" class="rounded-lg border border-gray-200 p-4 space-y-3">
+      <div class="flex items-center justify-between">
+        <p class="text-sm font-medium text-gray-700">Paket Kullanımı</p>
+        <p class="text-xs" :class="statusTextClass">{{ statusText }}</p>
+      </div>
+
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <!-- Üyeler -->
+        <div>
+          <div class="flex justify-between text-xs text-gray-500 mb-1">
+            <span>Üyeler</span>
+            <span>{{ usage('members') }} / {{ limit('members') ?? '∞' }}</span>
+          </div>
+          <div class="h-2 bg-gray-100 rounded-full overflow-hidden">
+            <div
+              class="h-full rounded-full transition-all"
+              :class="isAtLimit('members') ? 'bg-red-500' : 'bg-indigo-500'"
+              :style="{ width: usagePercent('members') + '%' }"
+            ></div>
+          </div>
+        </div>
+        <!-- Projeler -->
+        <div>
+          <div class="flex justify-between text-xs text-gray-500 mb-1">
+            <span>Projeler</span>
+            <span>{{ usage('projects') }} / {{ limit('projects') ?? '∞' }}</span>
+          </div>
+          <div class="h-2 bg-gray-100 rounded-full overflow-hidden">
+            <div
+              class="h-full rounded-full transition-all"
+              :class="isAtLimit('projects') ? 'bg-red-500' : 'bg-indigo-500'"
+              :style="{ width: usagePercent('projects') + '%' }"
+            ></div>
+          </div>
+        </div>
+      </div>
     </div>
 
     <form @submit.prevent="save" class="space-y-4">
@@ -56,12 +95,40 @@
 <script setup>
 import { ref, watch, computed } from 'vue'
 import OrganizationApi from '../../api/OrganizationApi.js'
+import { useEntitlements } from '../../composables/useEntitlements.js'
 
 const props = defineProps({
   org: { type: Object, required: true }
 })
 
 const emit = defineEmits(['updated'])
+
+const orgId = computed(() => props.org?.id)
+const {
+  entitlements, planName, status, isTrial, isPastDue, trialDaysLeft,
+  usage, limit, isAtLimit, refresh,
+} = useEntitlements(orgId)
+
+watch(orgId, (id) => { if (id) refresh() }, { immediate: true })
+
+const statusText = computed(() => {
+  if (isTrial.value) return `Deneme sürümü — ${trialDaysLeft.value} gün kaldı`
+  if (isPastDue.value) return 'Ödeme bekleniyor (ek süre)'
+  if (status.value === 'ACTIVE') return 'Aktif abonelik'
+  return 'Ücretsiz paket'
+})
+
+const statusTextClass = computed(() => {
+  if (isPastDue.value) return 'text-red-600 font-medium'
+  if (isTrial.value) return 'text-amber-600 font-medium'
+  return 'text-gray-500'
+})
+
+function usagePercent(name) {
+  const l = limit(name)
+  if (l == null || l === 0) return 0
+  return Math.min(Math.round((usage(name) / l) * 100), 100)
+}
 
 const saving = ref(false)
 const form = ref({
@@ -83,8 +150,8 @@ watch(() => props.org, (val) => {
 }, { immediate: true })
 
 const planBadgeClass = computed(() => {
-  const plan = props.org?.plan
-  if (plan === 'ENTERPRISE') return 'bg-purple-100 text-purple-700'
+  const plan = entitlements.value?.planCode || props.org?.plan
+  if (plan === 'MAX' || plan === 'ENTERPRISE') return 'bg-purple-100 text-purple-700'
   if (plan === 'PRO') return 'bg-blue-100 text-blue-700'
   return 'bg-gray-100 text-gray-600'
 })

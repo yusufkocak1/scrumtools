@@ -29,11 +29,14 @@ public class DocSpaceService {
     private final ProjectRepository projectRepository;
     private final UserRepository userRepository;
     private final DocPermissionService permissionService;
+    private final EntitlementService entitlementService;
 
     @Transactional
     public DocSpaceResponse createSpace(UUID projectId, DocSpaceRequest request) {
         Project project = projectRepository.findById(projectId)
                 .orElseThrow(() -> new RuntimeException("Proje bulunamadı"));
+        entitlementService.assertFeature(project.getOrganization(),
+                com.scrumtools.entity.enums.PlanFeature.DOCS);
 
         User user = getCurrentUser();
         permissionService.checkSpaceManageAccess(projectId, user);

@@ -72,6 +72,10 @@ public class AuthService implements UserDetailsService {
     public void changePassword(String email, ChangePasswordRequest request) {
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new UsernameNotFoundException("Kullanici bulunamadi."));
+        // Çalınmış/açık kalmış oturumla şifre değiştirilememesi için mevcut şifre doğrulanır
+        if (!passwordEncoder.matches(request.currentPassword(), user.getPassword())) {
+            throw new BadCredentialsException("Mevcut şifreniz hatalı.");
+        }
         user.setPassword(passwordEncoder.encode(request.newPassword()));
         userRepository.save(user);
     }

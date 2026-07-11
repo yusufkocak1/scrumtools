@@ -32,6 +32,17 @@ const routes = [{
     component: Login,
     meta: {requiresAuth: false}
 }, {
+    // Üye onboarding + şifre sıfırlama (e-postadaki token linki)
+    path: '/set-password',
+    name: 'SetPassword',
+    component: () => import('./pages/SetPassword.vue'),
+    meta: {requiresAuth: false}
+}, {
+    path: '/forgot-password',
+    name: 'ForgotPassword',
+    component: () => import('./pages/ForgotPassword.vue'),
+    meta: {requiresAuth: false}
+}, {
     path: '/retrospective',
     name: 'Retrospective',
     component: Retrospective,
@@ -118,7 +129,7 @@ const routes = [{
     path: '/admin',
     name: 'AdminPanel',
     component: AdminPanel,
-    meta: {requiresAuth: true}
+    meta: {requiresAuth: true, requiresSuperAdmin: true}
 }, {
     // Faz 6 - Dashboard & Raporlama
     path: '/dashboard',
@@ -163,11 +174,22 @@ router.beforeEach((to, from, next) => {
     if (to.meta.requiresAuth) {
         // useAuth'un tuttuğu jwt key'ini oku ('jwt' — AuthApi ile tutarlı)
         const jwt = localStorage.getItem('jwt')
-        if (jwt) {
-            next()
-        } else {
+        if (!jwt) {
             next('/login')
+            return
         }
+        // Client-side kolaylık kontrolü — asıl yetki denetimi backend @PreAuthorize'da
+        if (to.meta.requiresSuperAdmin) {
+            let role = null
+            try {
+                role = JSON.parse(localStorage.getItem('userProfile') || 'null')?.systemRole
+            } catch { /* bozuk profil → yetkisiz say */ }
+            if (role !== 'SUPER_ADMIN') {
+                next('/')
+                return
+            }
+        }
+        next()
     } else {
         next()
     }

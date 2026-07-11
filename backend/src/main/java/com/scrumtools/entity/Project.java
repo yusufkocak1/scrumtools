@@ -64,6 +64,11 @@ public class Project {
     @Builder.Default
     private ProjectStatus status = ProjectStatus.ACTIVE;
 
+    // true ise: proje kullanıcı isteğiyle değil, paket düşüşü nedeniyle arşivlendi;
+    // abonelik yeniden aktive edilince otomatik geri açılır
+    @Column
+    private Boolean archivedByDowngrade;
+
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(columnDefinition = "jsonb")
     private Map<String, Object> settings;

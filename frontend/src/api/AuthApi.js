@@ -59,10 +59,39 @@ export const me = async () => {
     return data
 }
 
+// ─── Şifre Kurulum / Sıfırlama (token tabanlı, public) ──────────────────────
+
+export const validatePasswordToken = async (token) => {
+    const { data } = await apiClient.get('/api/auth/password/validate', {
+        params: { token },
+        _skipErrorToast: true,
+    })
+    return data // { valid, email, name, purpose }
+}
+
+export const setPasswordWithToken = async (token, password) => {
+    const { data } = await apiClient.post('/api/auth/password/set', { token, password })
+    // Başarıda otomatik giriş
+    const auth = useAuth()
+    auth.setToken(data.jwt)
+    auth.setUser({
+        name: data.name,
+        email: data.email,
+        systemRole: 'USER',
+        status: 'ACTIVE',
+    })
+    return data
+}
+
+export const forgotPassword = async (email) => {
+    const { data } = await apiClient.post('/api/auth/password/forgot', { email })
+    return data
+}
+
 // ─── Change Password ─────────────────────────────────────────────────────────
 
-export const changePassword = async (newPassword) => {
-    await apiClient.put('/api/auth/change-password', { newPassword })
+export const changePassword = async (currentPassword, newPassword) => {
+    await apiClient.put('/api/auth/change-password', { currentPassword, newPassword })
 }
 
 // ─── Update Display Name ──────────────────────────────────────────────────────

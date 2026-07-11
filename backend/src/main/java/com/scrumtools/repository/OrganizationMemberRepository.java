@@ -20,6 +20,18 @@ public interface OrganizationMemberRepository extends JpaRepository<Organization
 
     boolean existsByOrganizationIdAndUserId(UUID organizationId, UUID userId);
 
+    long countByOrganizationId(UUID organizationId);
+
+    /** Aktif üye sayısı (active null = aktif; eski satırlar null gelir). */
+    @Query("""
+            SELECT COUNT(om) FROM OrganizationMember om
+            WHERE om.organization.id = :orgId
+              AND (om.active IS NULL OR om.active = true)
+            """)
+    long countActiveByOrganizationId(@Param("orgId") UUID orgId);
+
+    List<OrganizationMember> findByOrganizationIdOrderByJoinedAtAsc(UUID organizationId);
+
     boolean existsByOrganizationIdAndUserEmailAndOrgRoleIn(UUID organizationId, String email, List<OrgRole> roles);
 
     @Query("""

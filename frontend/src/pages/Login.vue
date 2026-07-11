@@ -193,7 +193,7 @@ export default {
       }
     },
     forgotPassword() {
-      createToast('Şifre sıfırlama özelliği yakında eklenecek.', { type: 'info', position: 'top-center' })
+      this.$router.push('/forgot-password')
     }
   },
   mounted() {

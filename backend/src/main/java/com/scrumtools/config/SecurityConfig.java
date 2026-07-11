@@ -64,6 +64,10 @@ public class SecurityConfig {
                         .dispatcherTypeMatchers(DispatcherType.ERROR, DispatcherType.ASYNC).permitAll()
                         // Public endpoint'ler
                         .requestMatchers("/api/auth/login", "/api/auth/register").permitAll()
+                        // Şifre kurulum/sıfırlama (token tabanlı, public)
+                        .requestMatchers("/api/auth/password/**").permitAll()
+                        // Ödeme sağlayıcı webhook'ları (imza yerine server-to-server teyit yapılır)
+                        .requestMatchers("/api/webhooks/**").permitAll()
                         // WebSocket endpoint'i
                         .requestMatchers("/ws/**").permitAll()
                         // Diğer tüm istekler token gerektirir
