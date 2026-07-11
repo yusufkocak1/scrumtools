@@ -68,7 +68,7 @@ public class RetroBoardService {
 
     public List<RetroItemResponse> getItems(UUID teamId, UUID boardId, String columnName) {
         findBoard(boardId, teamId); // auth check
-        return itemRepository.findByRetroBoardIdAndColumnName(boardId, columnName)
+        return itemRepository.findByRetroBoardIdAndColumnNameOrderByCreatedAtAsc(boardId, columnName)
                 .stream().map(RetroItemResponse::from).collect(Collectors.toList());
     }
 

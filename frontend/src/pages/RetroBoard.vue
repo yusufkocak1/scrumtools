@@ -36,14 +36,15 @@
 
       <!-- Item Detail Modal -->
       <div v-if="showItemDetail"
-           class="fixed inset-0 z-[999] grid h-screen w-screen place-items-center bg-black bg-opacity-60 backdrop-blur-sm transition-opacity duration-300">
+           class="fixed inset-0 z-[999] flex items-center justify-center bg-black bg-opacity-60 backdrop-blur-sm p-4 transition-opacity duration-300"
+           @click.self="showItemDetail = false">
         <RetroItemDetail
             ref="itemDetailRef"
             :board-id="boardId"
+            :is-admin="isAdmin"
             :item="selectedItem"
             :members="team?.members"
             :team-id="teamId"
-            class="absolute"
             @close="showItemDetail = false"
         />
       </div>
@@ -137,13 +138,29 @@ export default {
       results.forEach(res => {
         if (res.status === 'fulfilled') {
           const { col, items } = res.value;
-          updated[col] = Array.isArray(items) ? items : [];
+          updated[col] = this.prepareColumnItems(items, col);
         }
       });
       this.itemsByColumn = updated;
 
       // allRetroItems export için senkronize et
       this.allRetroItems = Object.values(this.itemsByColumn).flat();
+    },
+
+    /**
+     * Item'ları eklenme sırasına göre (eski → yeni) sıralar ve column alanını damgalar.
+     * Yeni eklenen item her zaman kolonun sonunda görünür.
+     * API response'unda columnName var ama frontend item.column bekliyor.
+     */
+    prepareColumnItems(items, column) {
+      if (!Array.isArray(items)) return [];
+      return [...items]
+        .sort((a, b) => {
+          const ta = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+          const tb = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+          return ta - tb;
+        })
+        .map(i => (i.column ? i : { ...i, column: i.columnName || column }));
     },
 
     /**
@@ -171,7 +188,7 @@ export default {
         results.forEach(res => {
           if (res.status === 'fulfilled') {
             const { col, items } = res.value;
-            updated[col] = Array.isArray(items) ? items : [];
+            updated[col] = this.prepareColumnItems(items, col);
           }
         });
         this.itemsByColumn = updated;
@@ -269,12 +286,13 @@ export default {
       }, 300);
     },
 
-    openDetail(item) {
+    openDetail(item, column) {
       if (!item) return;
       const now = Date.now();
       if (now - this.lastUpdateTime < 120) return;
       this.lastUpdateTime = now;
-      this.selectedItem = item;
+      // API item'larında column alanı olmayabilir — kolondan gelen bilgiyle tamamla
+      this.selectedItem = item.column ? item : { ...item, column: item.columnName || column };
       this.showItemDetail = true;
     },
 
