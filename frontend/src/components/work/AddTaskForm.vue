@@ -293,6 +293,20 @@
                   placeholder="Üst görev ara (opsiyonel)..."
                 />
               </div>
+
+              <!-- Release -->
+              <div v-if="releases.length > 0">
+                <label class="block text-sm font-medium text-gray-700 mb-2">Sürüm (Release)</label>
+                <select
+                  v-model="formData.releaseId"
+                  class="w-full px-4 py-3 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
+                >
+                  <option value="">— Sürüm seçilmedi —</option>
+                  <option v-for="r in selectableReleases" :key="r.id" :value="r.id">
+                    {{ r.name }} ({{ releaseStatusLabel(r.status) }})
+                  </option>
+                </select>
+              </div>
             </div>
           </div>
         </form>
@@ -332,6 +346,7 @@ import TaskPickerInput from "./TaskPickerInput.vue";
 import TiptapEditor from "../docs/TiptapEditor.vue";
 import { getTeamById } from "../../api/TeamApi.js";
 import { createTask, updateTask as apiUpdateTask } from "../../api/WorkApi.js";
+import { getTeamReleases } from "../../api/ReleaseApi.js";
 
 export default {
   name: 'TaskEditForm',
@@ -368,10 +383,12 @@ export default {
         developer: "",
         analyst: "",
         tester: "",
-        labels: []
+        labels: [],
+        releaseId: ""
       },
       newLabel: "",
       teamMembers: [],
+      releases: [],
       issueTypes: [
         {value: "task", label: "🎯 Task"},
         {value: "story", label: "📖 Story"},
@@ -438,6 +455,13 @@ export default {
         ...member,
         name: member.displayName
       }));
+    },
+    selectableReleases() {
+      // Yayınlanmış/iptal edilmiş sürümler seçilemez; ancak task hâlihazırda
+      // birine bağlıysa mevcut seçim listede görünmeye devam etsin
+      return this.releases.filter(r =>
+        (r.status !== 'RELEASED' && r.status !== 'CANCELLED') || r.id === this.formData.releaseId
+      );
     }
   },
   watch: {
@@ -445,7 +469,7 @@ export default {
       immediate: true,
       handler(newTask) {
         if (newTask) {
-          this.formData = {...newTask};
+          this.formData = {...newTask, releaseId: newTask.releaseId || ""};
         } else {
           this.resetForm();
         }
@@ -456,6 +480,7 @@ export default {
       handler(isOpen) {
         if (isOpen && this.teamId) {
           this.loadTeamMembers();
+          this.loadReleases();
         }
       }
     }
@@ -473,6 +498,23 @@ export default {
       } catch (error) {
         console.error('Error loading team members:', error);
       }
+    },
+
+    async loadReleases() {
+      try {
+        // Takım projeye bağlı değilse boş liste döner — alan gizli kalır
+        this.releases = await getTeamReleases(this.teamId);
+      } catch (error) {
+        this.releases = [];
+      }
+    },
+
+    releaseStatusLabel(status) {
+      const labels = {
+        OPEN: 'Açık', CODE_FREEZE: 'Paket Kapandı', REGRESSION: 'Regresyon',
+        APPROVED: 'Onaylandı', RELEASED: 'Yayınlandı', CANCELLED: 'İptal'
+      };
+      return labels[status] || status;
     },
 
     async submitTask() {
@@ -560,6 +602,7 @@ export default {
         estimatedHours: null,
         parentTaskId: null,
         environment: "",
+        releaseId: "",
       };
       this.newLabel = "";
     },

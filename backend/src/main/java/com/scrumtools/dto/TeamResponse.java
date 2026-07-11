@@ -20,6 +20,8 @@ public record TeamResponse(
         String teamCode,
         String adminEmail,
         String organizationId,
+        String projectId,
+        String projectName,
         Map<String, TeamMemberResponse> members,
         List<String> memberEmails
 ) {
@@ -38,6 +40,8 @@ public record TeamResponse(
                 team.getTeamCode(),
                 team.getAdminEmail(),
                 team.getOrganization() != null ? team.getOrganization().getId().toString() : null,
+                team.getProject() != null ? team.getProject().getId().toString() : null,
+                team.getProject() != null ? team.getProject().getName() : null,
                 membersMap,
                 emails
         );

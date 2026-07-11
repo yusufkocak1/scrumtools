@@ -24,6 +24,7 @@ import java.util.*;
         @Index(name = "idx_task_team", columnList = "team_id"),
         @Index(name = "idx_task_custom_id", columnList = "customId"),
         @Index(name = "idx_task_sprint", columnList = "sprint_id"),
+        @Index(name = "idx_task_release", columnList = "release_id"),
         @Index(name = "idx_task_status", columnList = "status"),
         @Index(name = "idx_task_parent", columnList = "parent_task_id")
 })
@@ -45,6 +46,11 @@ public class Task {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "sprint_id")
     private Sprint sprint;
+
+    /** Görevin dağıtılacağı sürüm (related release) — proje seviyesinde, opsiyonel. */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "release_id")
+    private Release release;
 
     // ─── Alt Görev (Subtask) Desteği ─────────────────────────────────────────
     @ManyToOne(fetch = FetchType.LAZY)

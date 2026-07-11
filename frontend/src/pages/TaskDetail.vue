@@ -352,6 +352,47 @@
                     {{ task.storyPoints }}
                   </div>
                 </div>
+
+                <!-- Release -->
+                <div v-if="releases.length > 0 || task.releaseId" class="detail-row">
+                  <label class="detail-label">Sürüm</label>
+                  <select
+                    :value="task.releaseId || ''"
+                    @change="onReleaseChange($event.target.value)"
+                    class="detail-select border-gray-300 bg-white text-gray-700"
+                  >
+                    <option value="">— Sürüm yok —</option>
+                    <option v-for="r in selectableReleases" :key="r.id" :value="r.id">
+                      {{ r.name }} ({{ releaseStatusLabel(r.status) }})
+                    </option>
+                  </select>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Dağıtım Geçmişi -->
+          <div v-if="taskDeployments.length" class="task-card">
+            <div class="task-card-accent accent-blue"></div>
+            <div class="task-card-body">
+              <h3 class="task-section-title mb-4">
+                <svg class="w-5 h-5 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
+                </svg>
+                Dağıtım Geçmişi
+              </h3>
+              <div class="space-y-3">
+                <div
+                  v-for="d in taskDeployments"
+                  :key="d.id"
+                  class="flex items-center justify-between p-2.5 rounded-lg bg-green-50/50 border border-green-100"
+                >
+                  <div>
+                    <div class="text-sm font-medium text-gray-800">🚀 {{ d.releaseName }}</div>
+                    <div class="text-[11px] text-gray-500 mt-0.5">{{ d.releasedBy }}</div>
+                  </div>
+                  <span class="text-xs text-gray-600 font-medium">{{ formatDate(d.releasedAt) }}</span>
+                </div>
               </div>
             </div>
           </div>
@@ -463,6 +504,7 @@
 <script>
 import { updateTask, searchByCustomId, getLinks, getSubtasks } from '../api/WorkApi.js';
 import { addComment, uploadAttachment } from '../api/WorkApi.js';
+import { getTeamReleases, getTaskDeployments } from '../api/ReleaseApi.js';
 import AddTaskForm from '../components/work/AddTaskForm.vue';
 import AttachmentList from '../components/work/AttachmentList.vue';
 import SubtaskList from '../components/work/SubtaskList.vue';
@@ -499,6 +541,8 @@ export default {
       showEditForm: false,
       taskLinks: [],
       subtasks: [],
+      releases: [],
+      taskDeployments: [],
       // Inline description edit state
       editingDescription: false,
       tempDescription: '',
@@ -543,6 +587,12 @@ export default {
       if (p === 'medium') return 'border-yellow-300 bg-yellow-50 text-yellow-700';
       return 'border-green-300 bg-green-50 text-green-700';
     },
+    selectableReleases() {
+      // Yayınlanmış/iptal sürümler yeni seçim olarak sunulmaz; mevcut bağ görünür kalır
+      return this.releases.filter(r =>
+        (r.status !== 'RELEASED' && r.status !== 'CANCELLED') || r.id === this.task?.releaseId
+      );
+    },
   },
   watch: {
     // RouterView :key'siz olduğundan subtask/ilişki tıklamasıyla TaskDetail→TaskDetail
@@ -569,7 +619,7 @@ export default {
           this.task = result;
           this.teamId = result.teamId;
           this.teamData = null;
-          await Promise.all([this.refreshLinks(), this.refreshSubtasks()]);
+          await Promise.all([this.refreshLinks(), this.refreshSubtasks(), this.loadReleases(), this.loadDeployments()]);
         } else {
           this.task = null;
         }
@@ -601,6 +651,29 @@ export default {
         try {
           this.subtasks = await getSubtasks(this.teamId, this.task.id);
         } catch (e) { this.subtasks = []; }
+      }
+    },
+    async loadReleases() {
+      if (!this.teamId) return;
+      try {
+        this.releases = await getTeamReleases(this.teamId);
+      } catch (e) { this.releases = []; }
+    },
+    async loadDeployments() {
+      if (!this.teamId || !this.task?.id) return;
+      try {
+        this.taskDeployments = await getTaskDeployments(this.teamId, this.task.id);
+      } catch (e) { this.taskDeployments = []; }
+    },
+    async onReleaseChange(releaseId) {
+      if (!this.teamId || !this.task?.id) return;
+      const oldValue = this.task.releaseId;
+      this.task.releaseId = releaseId || null;
+      try {
+        await updateTask(this.teamId, this.task.id, { releaseId: releaseId || '' });
+      } catch (e) {
+        // Yetki/kural hatası (ör. paket kapandı) — eski değere geri dön
+        this.task.releaseId = oldValue;
       }
     },
     openSubtask(sub) {
@@ -712,6 +785,13 @@ export default {
       const name = emailOrName.includes('@') ? emailOrName.split('@')[0] : emailOrName;
       const parts = name.toUpperCase().replace(/[._-]/g, ' ').split(' ');
       return parts.length > 1 ? parts[0][0] + parts[1][0] : (parts[0][0] || '?');
+    },
+    releaseStatusLabel(status) {
+      const labels = {
+        OPEN: 'Açık', CODE_FREEZE: 'Paket Kapandı', REGRESSION: 'Regresyon',
+        APPROVED: 'Onaylandı', RELEASED: 'Yayınlandı', CANCELLED: 'İptal'
+      };
+      return labels[status] || status;
     },
     formatDate(dateString) {
       if (!dateString) return '';

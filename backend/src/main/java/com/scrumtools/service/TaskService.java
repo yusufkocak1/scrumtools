@@ -25,6 +25,8 @@ public class TaskService {
     private final TaskCommentRepository commentRepository;
     private final TeamRepository teamRepository;
     private final SprintRepository sprintRepository;
+    private final ReleaseRepository releaseRepository;
+    private final ReleaseService releaseService;
     private final TeamMemberRepository teamMemberRepository;
     private final AuditService auditService;
     private final NotificationService notificationService;
@@ -115,6 +117,13 @@ public class TaskService {
             sprint = sprintRepository.findById(UUID.fromString(req.getSprintId())).orElse(null);
         }
 
+        Release release = null;
+        if (req.getReleaseId() != null && !req.getReleaseId().isBlank()) {
+            release = releaseRepository.findById(UUID.fromString(req.getReleaseId()))
+                    .orElseThrow(() -> new RuntimeException("Release not found"));
+            releaseService.validateTaskLink(release, team, userEmail);
+        }
+
         Task parentTask = null;
         if (req.getParentTaskId() != null && !req.getParentTaskId().isBlank()) {
             parentTask = resolveParentTask(teamId, req.getParentTaskId().trim(), null);
@@ -123,6 +132,7 @@ public class TaskService {
         Task task = Task.builder()
                 .team(team)
                 .sprint(sprint)
+                .release(release)
                 .parentTask(parentTask)
                 .customId(customId)
                 .title(req.getTitle())
@@ -229,6 +239,27 @@ public class TaskService {
                 Sprint sprint = sprintRepository.findById(UUID.fromString(req.getSprintId()))
                         .orElseThrow(() -> new RuntimeException("Sprint not found"));
                 task.setSprint(sprint);
+            }
+        }
+
+        if (req.getReleaseId() != null) {
+            Release oldRelease = task.getRelease();
+            if (req.getReleaseId().isBlank()) {
+                if (oldRelease != null) {
+                    releaseService.validateTaskUnlink(oldRelease, userEmail);
+                    auditService.recordChange(task, "release", oldRelease.getName(), null, userEmail);
+                    task.setRelease(null);
+                }
+            } else {
+                Release newRelease = releaseRepository.findById(UUID.fromString(req.getReleaseId()))
+                        .orElseThrow(() -> new RuntimeException("Release not found"));
+                if (oldRelease == null || !oldRelease.getId().equals(newRelease.getId())) {
+                    if (oldRelease != null) releaseService.validateTaskUnlink(oldRelease, userEmail);
+                    releaseService.validateTaskLink(newRelease, task.getTeam(), userEmail);
+                    auditService.recordChange(task, "release",
+                            oldRelease != null ? oldRelease.getName() : null, newRelease.getName(), userEmail);
+                    task.setRelease(newRelease);
+                }
             }
         }
 

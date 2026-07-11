@@ -39,6 +39,14 @@ public interface TaskRepository extends JpaRepository<Task, UUID> {
     @Query("SELECT t.customId FROM Task t WHERE t.team.id = :teamId")
     List<String> findCustomIdsByTeamId(@Param("teamId") UUID teamId);
 
+    // ─── Release sorguları ────────────────────────────────────────────────────
+
+    List<Task> findByReleaseId(UUID releaseId);
+
+    long countByReleaseId(UUID releaseId);
+
+    long countByReleaseIdAndStatus(UUID releaseId, String status);
+
     // ─── Rapor sorguları ──────────────────────────────────────────────────────
 
     /** Status → count */

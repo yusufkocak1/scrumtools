@@ -93,6 +93,12 @@
           :team-id="teamId"
         />
 
+        <!-- Sürümler -->
+        <ReleasesView
+          v-else-if="activeView === 'releases'"
+          :team-id="teamId"
+        />
+
         <!-- Aktivite Akışı -->
         <div v-else-if="activeView === 'activity'" class="max-w-2xl mx-auto">
           <ActivityFeed
@@ -183,6 +189,7 @@ import BoardView      from '../components/work/BoardView.vue'
 import ScrumBoardView from '../components/work/ScrumBoardView.vue'
 import ListView       from '../components/work/ListView.vue'
 import Backlog        from '../components/work/Backlog.vue'
+import ReleasesView   from '../components/work/ReleasesView.vue'
 import ActivityFeed   from '../components/ActivityFeed.vue'
 import BoardSettings  from '../components/work/BoardSettings.vue'
 
@@ -199,7 +206,7 @@ const route  = useRoute()
 const router = useRouter()
 
 // ─── Görünüm ──────────────────────────────────────────────────────────────────
-const validViews = ['board', 'list', 'backlog', 'activity']
+const validViews = ['board', 'list', 'backlog', 'releases', 'activity']
 const initialView = validViews.includes(route.query.view) ? route.query.view : 'board'
 const activeView = ref(initialView)
 
@@ -209,7 +216,7 @@ const currentViewLabel = computed(() => {
     if (board?.boardType === 'SCRUM') return 'Scrum Board'
     return 'Kanban Board'
   }
-  const labels = { list: 'Liste', backlog: 'Backlog', activity: 'Aktivite' }
+  const labels = { list: 'Liste', backlog: 'Backlog', releases: 'Sürümler', activity: 'Aktivite' }
   return labels[activeView.value] || ''
 })
 

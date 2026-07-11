@@ -21,6 +21,8 @@ public class TaskRequest {
     private Integer storyPoints;
     private List<String> labels;
     private String sprintId;
+    /** Related release — boş string gönderilirse bağ kaldırılır (sprintId gibi). */
+    private String releaseId;
     private String parentTaskId;
 
     // Faz 3 alanları
