@@ -30,9 +30,7 @@ pipeline {
 
         stage('Build') {
             steps {
-                // --pull bayragi eski compose surumlerinde yok; base imaj guncellemesi
-                // gerekirse sunucuda docker-compose-plugin guncellenmeli
-                sh 'docker compose build'
+                sh 'docker compose build --pull'
             }
         }
 
