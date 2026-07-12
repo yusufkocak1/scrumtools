@@ -162,6 +162,9 @@
         <p class="text-sm text-gray-500">
           Secure agile project management for your team
         </p>
+        <p class="text-xs text-gray-400 mt-1">
+          v{{ appVersion }} &middot; {{ buildTime }}
+        </p>
       </div>
     </div>
   </div>
@@ -207,6 +210,8 @@ export default {
     password: "",
     name:"",
     showPassword: false,
+    appVersion: __APP_VERSION__,
+    buildTime: __BUILD_TIME__,
   })
 }
 </script>
