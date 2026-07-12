@@ -86,7 +86,12 @@ instance.interceptors.response.use(
         // İstek bazında toast'ı devre dışı bırakma desteği
         // Kullanım: axios.get('/api/...', { _skipErrorToast: true })
         if (!error.config?._skipErrorToast) {
-            const message = extractErrorMessage(error)
+            let message = extractErrorMessage(error)
+            // Backend'in ürettiği hata takip numarasını mesaja ekle
+            const trackingCode = error.response?.data?.trackingCode
+            if (trackingCode) {
+                message += ` (Takip No: ${trackingCode})`
+            }
             createToast(message, {
                 type: 'danger',
                 position: 'top-center',

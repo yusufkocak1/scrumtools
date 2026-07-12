@@ -122,6 +122,20 @@
           <PermissionMatrix :roles="defaultRoles" />
         </div>
       </div>
+
+      <!-- Destek Talepleri -->
+      <div v-if="activeTab === 'support'">
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow p-6">
+          <SupportTicketManager />
+        </div>
+      </div>
+
+      <!-- Hata Kayıtları -->
+      <div v-if="activeTab === 'errors'">
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow p-6">
+          <ErrorGroupManager />
+        </div>
+      </div>
     </div>
   </div>
 </template>
@@ -134,6 +148,8 @@ import RoleManager from '../components/roles/RoleManager.vue'
 import PermissionMatrix from '../components/roles/PermissionMatrix.vue'
 import CustomerManager from '../components/admin/CustomerManager.vue'
 import PlanManager from '../components/admin/PlanManager.vue'
+import SupportTicketManager from '../components/admin/SupportTicketManager.vue'
+import ErrorGroupManager from '../components/admin/ErrorGroupManager.vue'
 
 const activeTab = ref('users')
 const tabs = [
@@ -142,6 +158,8 @@ const tabs = [
   { id: 'plans', label: 'Planlar' },
   { id: 'roles', label: 'Roller' },
   { id: 'permissions', label: 'İzin Matrisi' },
+  { id: 'support', label: 'Destek Talepleri' },
+  { id: 'errors', label: 'Hata Kayıtları' },
 ]
 
 const users = ref([])

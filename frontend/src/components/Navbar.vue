@@ -224,6 +224,20 @@
                 </div>
               </button>
 
+              <button
+                  @click="gotoSupport"
+                  class="group flex items-center gap-3 w-full px-4 py-3 text-sm transition-all duration-200 hover:bg-teal-50">
+                <div class="w-8 h-8 bg-teal-100 rounded-lg flex items-center justify-center group-hover:bg-teal-200 transition-colors">
+                  <svg class="w-4 h-4 text-teal-600" fill="currentColor" viewBox="0 0 20 20">
+                    <path fill-rule="evenodd" d="M18 10c0 3.866-3.582 7-8 7a8.841 8.841 0 01-4.083-.98L2 17l1.338-3.123C2.493 12.767 2 11.434 2 10c0-3.866 3.582-7 8-7s8 3.134 8 7zM7 9H5v2h2V9zm8 0h-2v2h2V9zM9 9h2v2H9V9z" clip-rule="evenodd"></path>
+                  </svg>
+                </div>
+                <div class="flex flex-col items-start">
+                  <span class="font-medium text-gray-900">Destek</span>
+                  <span class="text-xs text-gray-500">Sorun &amp; öneri bildir</span>
+                </div>
+              </button>
+
               <!-- Admin Paneli — sadece SUPER_ADMIN ve PLATFORM_ADMIN -->
               <button
                   v-if="isSuperAdmin"
@@ -286,6 +300,13 @@
             <svg class="w-4 h-4 text-purple-600" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clip-rule="evenodd"></path></svg>
           </div>
           <div class="flex flex-col"><span class="font-medium text-gray-900">Profil</span><span class="text-xs text-gray-500">Hesap ayarları</span></div>
+        </button>
+
+        <button @click="gotoSupport" class="group flex items-center gap-3 w-full px-4 py-3 text-left rounded-xl transition-all duration-200 hover:bg-teal-50">
+          <div class="w-8 h-8 bg-teal-100 rounded-lg flex items-center justify-center group-hover:bg-teal-200 transition-colors">
+            <svg class="w-4 h-4 text-teal-600" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M18 10c0 3.866-3.582 7-8 7a8.841 8.841 0 01-4.083-.98L2 17l1.338-3.123C2.493 12.767 2 11.434 2 10c0-3.866 3.582-7 8-7s8 3.134 8 7zM7 9H5v2h2V9zm8 0h-2v2h2V9zM9 9h2v2H9V9z" clip-rule="evenodd"></path></svg>
+          </div>
+          <div class="flex flex-col"><span class="font-medium text-gray-900">Destek</span><span class="text-xs text-gray-500">Sorun &amp; öneri bildir</span></div>
         </button>
 
         <button @click="gotoOrganizations" class="group flex items-center gap-3 w-full px-4 py-3 text-left rounded-xl transition-all duration-200 hover:bg-indigo-50">
@@ -395,6 +416,7 @@ export default {
     gotoTeams() { this.$router.push('/teams'); this.closeAllMenus(); },
     gotoSettings() { this.$router.push('/settings'); this.closeAllMenus(); },
     gotoProfile() { this.$router.push('/profile'); this.closeAllMenus(); },
+    gotoSupport() { this.$router.push('/support'); this.closeAllMenus(); },
     gotoOrganizations() { this.$router.push('/organizations'); this.closeAllMenus(); },
     gotoAdmin() { this.$router.push('/admin'); this.closeAllMenus(); },
     gotoHome() { this.$router.push('/'); this.closeAllMenus(); },

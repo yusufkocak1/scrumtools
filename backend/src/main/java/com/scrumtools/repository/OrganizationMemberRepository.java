@@ -42,5 +42,14 @@ public interface OrganizationMemberRepository extends JpaRepository<Organization
             ORDER BY om.user.name
             """)
     List<OrganizationMember> searchByOrganizationIdAndUserNameOrEmail(@Param("orgId") UUID orgId, @Param("query") String query);
+
+    /** Kullanıcının aktif üyelikleri (en eski katılım önce) — destek talebi org snapshot'ı için. */
+    @Query("""
+            SELECT om FROM OrganizationMember om
+            WHERE om.user.email = :email
+              AND (om.active IS NULL OR om.active = true)
+            ORDER BY om.joinedAt ASC
+            """)
+    List<OrganizationMember> findActiveByUserEmail(@Param("email") String email);
 }
 

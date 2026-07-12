@@ -161,6 +161,18 @@ const routes = [{
     props: true,
     meta: {requiresAuth: true}
 }, {
+    // Destek talepleri
+    path: '/support',
+    name: 'Support',
+    component: () => import('./pages/SupportPage.vue'),
+    meta: {requiresAuth: true}
+}, {
+    path: '/support/:ticketId',
+    name: 'SupportTicketDetail',
+    component: () => import('./pages/SupportTicketDetail.vue'),
+    props: true,
+    meta: {requiresAuth: true}
+}, {
     // Catch-all: tanımsız URL'leri ana sayfaya yönlendir
     path: '/:pathMatch(.*)*',
     redirect: '/'

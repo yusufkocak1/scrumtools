@@ -146,6 +146,61 @@ public class NotificationService {
         );
     }
 
+    // ─── Destek Talebi Olayları İçin Yardımcı Metodlar ───────────────────────
+
+    public void notifySupportTicketCreated(String recipientEmail, String actorName,
+                                           String subject, String ticketId) {
+        Map<String, Object> data = new HashMap<>();
+        data.put("ticketId", ticketId);
+        data.put("subject", subject);
+
+        createAndPush(
+                recipientEmail,
+                NotificationType.SUPPORT_TICKET_CREATED,
+                "Yeni destek talebi",
+                actorName + " yeni bir destek talebi açtı: \"" + subject + "\"",
+                "support_ticket",
+                ticketId,
+                data
+        );
+    }
+
+    public void notifySupportTicketReplied(String recipientEmail, String actorName,
+                                           String subject, String ticketId, boolean isAdminReply) {
+        Map<String, Object> data = new HashMap<>();
+        data.put("ticketId", ticketId);
+        data.put("subject", subject);
+        data.put("isAdminReply", isAdminReply);
+
+        createAndPush(
+                recipientEmail,
+                NotificationType.SUPPORT_TICKET_REPLIED,
+                isAdminReply ? "Destek talebine yanıt geldi" : "Destek talebine kullanıcı yanıtı",
+                actorName + " \"" + subject + "\" talebine yanıt yazdı.",
+                "support_ticket",
+                ticketId,
+                data
+        );
+    }
+
+    public void notifySupportTicketStatusChanged(String recipientEmail, String subject,
+                                                 String ticketId, String newStatusLabel) {
+        Map<String, Object> data = new HashMap<>();
+        data.put("ticketId", ticketId);
+        data.put("subject", subject);
+        data.put("newStatus", newStatusLabel);
+
+        createAndPush(
+                recipientEmail,
+                NotificationType.SUPPORT_TICKET_STATUS_CHANGED,
+                "Destek talebi durumu değişti",
+                "\"" + subject + "\" talebinin durumu \"" + newStatusLabel + "\" olarak güncellendi.",
+                "support_ticket",
+                ticketId,
+                data
+        );
+    }
+
     // ─── REST ─────────────────────────────────────────────────────────────────
 
     @Transactional(readOnly = true)

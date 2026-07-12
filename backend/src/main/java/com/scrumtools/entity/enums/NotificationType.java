@@ -17,6 +17,11 @@ public enum NotificationType {
     INVITATION_RECEIVED,    // Takıma/projeye davet edildin
     INVITATION_ACCEPTED,    // Davetini kabul etti
 
+    // Destek talepleri ile ilgili
+    SUPPORT_TICKET_CREATED,        // Yeni destek talebi açıldı (adminlere)
+    SUPPORT_TICKET_REPLIED,        // Destek talebine yanıt geldi
+    SUPPORT_TICKET_STATUS_CHANGED, // Destek talebi durumu değişti
+
     // Genel
     MENTION,                // @mention ile bahsedildin
     SYSTEM                  // Sistem bildirimi

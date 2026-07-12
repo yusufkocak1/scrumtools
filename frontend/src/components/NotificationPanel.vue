@@ -105,6 +105,14 @@ export default {
         this.$router.push(`/task/${n.data.taskId}`)
         this.$emit('close')
       }
+      // Destek talebine yönlendir — adminler yeni talep/kullanıcı yanıtı
+      // bildirimlerini admin panelinde, kullanıcılar kendi talep detayında görür
+      if (n.entityType === 'support_ticket' && n.data?.ticketId) {
+        const isAdminNotification = n.type === 'SUPPORT_TICKET_CREATED' ||
+            (n.type === 'SUPPORT_TICKET_REPLIED' && n.data?.isAdminReply === false)
+        this.$router.push(isAdminNotification ? '/admin' : `/support/${n.data.ticketId}`)
+        this.$emit('close')
+      }
     },
     iconEmoji(type) {
       const map = {
@@ -118,6 +126,9 @@ export default {
         WATCHED_TASK_UPDATED: '👁️',
         INVITATION_RECEIVED: '✉️',
         INVITATION_ACCEPTED: '✅',
+        SUPPORT_TICKET_CREATED: '🎫',
+        SUPPORT_TICKET_REPLIED: '💬',
+        SUPPORT_TICKET_STATUS_CHANGED: '🔄',
         MENTION: '@',
         SYSTEM: 'ℹ️'
       }
