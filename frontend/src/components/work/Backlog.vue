@@ -14,7 +14,7 @@
         <div class="flex flex-wrap sm:flex-nowrap items-center gap-2 sm:space-x-3">
           <button
             class="flex-1 sm:flex-none inline-flex items-center justify-center px-3 sm:px-4 py-2 border border-gray-300 rounded-md shadow-sm text-xs sm:text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-            @click="showCreateSprint = !showCreateSprint"
+            @click="toggleSprintForm"
           >
             <svg class="w-4 h-4 mr-1 sm:mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/>
@@ -48,8 +48,9 @@
         @deleteTask="handleDeleteTask"
       ></AddTaskForm>
 
-      <!-- Sprint Oluşturma Formu -->
-      <div v-if="showCreateSprint" class="mb-6 bg-white rounded-lg shadow-sm border border-gray-200 p-4 space-y-3">
+      <!-- Sprint Oluşturma/Düzenleme Formu -->
+      <div v-if="showCreateSprint" ref="sprintForm" class="mb-6 bg-white rounded-lg shadow-sm border border-gray-200 p-4 space-y-3">
+        <h3 v-if="editingSprint" class="text-sm font-semibold text-gray-700">"{{ editingSprint.name }}" sprintini düzenle</h3>
         <div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
           <input
             v-model="newSprintName"
@@ -87,15 +88,15 @@
         <div class="flex gap-2 justify-end">
           <button
             class="px-4 py-2 text-gray-600 hover:text-gray-800 text-sm"
-            @click="showCreateSprint = false"
+            @click="closeSprintForm"
           >
             İptal
           </button>
           <button
             class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-            @click="createSprint"
+            @click="saveSprint"
           >
-            Sprint Oluştur
+            {{ editingSprint ? 'Kaydet' : 'Sprint Oluştur' }}
           </button>
         </div>
       </div>
@@ -260,6 +261,16 @@
             </div>
             <div class="flex items-center space-x-2">
               <button
+                class="inline-flex items-center px-2 sm:px-3 py-2 border border-gray-300 text-xs sm:text-sm leading-4 font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                title="Sprinti düzenle"
+                @click.stop="openEditSprint(sprint)"
+              >
+                <svg class="w-4 h-4 sm:mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
+                </svg>
+                <span class="hidden sm:inline">Düzenle</span>
+              </button>
+              <button
                 v-if="sprint.status !== 'open'"
                 class="inline-flex items-center px-2 sm:px-3 py-2 border border-transparent text-xs sm:text-sm leading-4 font-medium rounded-md text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
                 @click.stop="startSprint(sprint.id)"
@@ -394,6 +405,7 @@ import {
   assignTaskToSprint as addTaskToSprint,
   getSprints,
   getTasks,
+  updateSprint,
   updateSprintStatus,
   updateTask as updateTaskService,
   deleteTask as deleteTaskService
@@ -413,6 +425,7 @@ export default {
     return {
       tasks: [],
       sprints: [],
+      editingSprint: null,
       showCreateTask: false,
       showCreateSprint: false,
       newTaskTitle: "",
@@ -454,21 +467,53 @@ export default {
       this.expandedIds[id] = !this.isExpanded(id);
     },
 
-    async createSprint() {
+    async saveSprint() {
       if(!this.newSprintName.trim()) return;
-      const newSprint = {
-        name: this.newSprintName.trim(),
-        startDate: this.newSprintStartDate || null,
-        endDate: this.newSprintEndDate || null,
-        goal: this.newSprintGoal.trim() || null,
-      };
-      await addSprint(this.teamId, newSprint);
+      if (this.editingSprint) {
+        // Backend null alanları yoksayar; boş string alanı temizler
+        await updateSprint(this.teamId, this.editingSprint.id, {
+          name: this.newSprintName.trim(),
+          startDate: this.newSprintStartDate,
+          endDate: this.newSprintEndDate,
+          goal: this.newSprintGoal.trim(),
+        });
+      } else {
+        await addSprint(this.teamId, {
+          name: this.newSprintName.trim(),
+          startDate: this.newSprintStartDate || null,
+          endDate: this.newSprintEndDate || null,
+          goal: this.newSprintGoal.trim() || null,
+        });
+      }
+      this.closeSprintForm();
+      await this.fetchData();
+    },
+
+    openEditSprint(sprint) {
+      this.editingSprint = sprint;
+      this.newSprintName = sprint.name || "";
+      this.newSprintStartDate = sprint.startDate ? sprint.startDate.slice(0, 10) : "";
+      this.newSprintEndDate = sprint.endDate ? sprint.endDate.slice(0, 10) : "";
+      this.newSprintGoal = sprint.goal || "";
+      this.showCreateSprint = true;
+      this.$nextTick(() => {
+        this.$refs.sprintForm?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      });
+    },
+
+    toggleSprintForm() {
+      const wasOpen = this.showCreateSprint;
+      this.closeSprintForm();
+      this.showCreateSprint = !wasOpen;
+    },
+
+    closeSprintForm() {
+      this.showCreateSprint = false;
+      this.editingSprint = null;
       this.newSprintName = "";
       this.newSprintStartDate = "";
       this.newSprintEndDate = "";
       this.newSprintGoal = "";
-      this.showCreateSprint = false;
-      await this.fetchData();
     },
 
     async onDragStart(task) {
