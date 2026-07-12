@@ -80,6 +80,13 @@ export const updateTeam = async (teamId, teamName, teamCode) => {
     return data
 }
 
+// ─── Link Team To Project (release yönetimi için) ─────────────────────────────
+
+export const linkTeamToProject = async (teamId, projectId) => {
+    const { data } = await apiClient.put(`/api/teams/${teamId}/project`, { projectId })
+    return data
+}
+
 // ─── Update Display Name Across All Teams ─────────────────────────────────────
 
 export const updateDisplayNameAcrossTeams = async (displayName) => {

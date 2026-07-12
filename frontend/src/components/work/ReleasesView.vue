@@ -14,6 +14,30 @@
           Bu takım bir projeye bağlı değil. Sürümler proje seviyesinde yönetilir —
           sürüm yönetimini kullanmak için takımı bir projeye bağlayın.
         </p>
+
+        <!-- Projeye bağlama -->
+        <div v-if="orgProjects.length" class="mt-6 flex items-center justify-center gap-2">
+          <select
+            v-model="selectedProjectId"
+            class="text-sm border border-gray-300 rounded-lg px-3 py-2 bg-white text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+          >
+            <option :value="null" disabled>Proje seçin…</option>
+            <option v-for="p in orgProjects" :key="p.id" :value="p.id">
+              {{ p.name }} ({{ p.key }})
+            </option>
+          </select>
+          <button
+            @click="linkProject"
+            :disabled="!selectedProjectId || linking"
+            class="px-3 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {{ linking ? 'Bağlanıyor…' : 'Projeye Bağla' }}
+          </button>
+        </div>
+        <p v-else-if="orgProjectsLoaded" class="mt-4 text-xs text-gray-400">
+          Organizasyonda erişebildiğiniz bir proje bulunamadı. Önce bir proje oluşturun.
+        </p>
+        <p v-if="linkError" class="mt-3 text-xs text-red-500">{{ linkError }}</p>
       </div>
     </div>
 
@@ -221,7 +245,8 @@ import { useRouter } from 'vue-router'
 import StatusBadge from '@/components/workflow/StatusBadge.vue'
 import TaskPickerInput from './TaskPickerInput.vue'
 import ReleaseFormModal from './ReleaseFormModal.vue'
-import { getTeamById } from '../../api/TeamApi.js'
+import { getTeamById, linkTeamToProject } from '../../api/TeamApi.js'
+import { ProjectApi } from '../../api/ProjectApi.js'
 import { updateTask } from '../../api/WorkApi.js'
 import {
   getProjectReleases,
@@ -250,6 +275,13 @@ const showForm = ref(false)
 const editingRelease = ref(null)
 const pickTaskId = ref(null)
 const taskPickerKey = ref(0)
+
+// Projeye bağlama (takım projeye bağlı değilken)
+const orgProjects = ref([])
+const orgProjectsLoaded = ref(false)
+const selectedProjectId = ref(null)
+const linking = ref(false)
+const linkError = ref(null)
 
 // ─── Durum meta bilgileri ─────────────────────────────────────────────────────
 
@@ -324,12 +356,43 @@ async function load() {
       releases.value = await getProjectReleases(projectId.value)
     } else {
       releases.value = []
+      await loadOrgProjects(team?.organizationId)
     }
   } catch (e) {
     console.error('Sürümler yüklenemedi:', e)
     releases.value = []
   } finally {
     loading.value = false
+  }
+}
+
+// ─── Takımı projeye bağlama ───────────────────────────────────────────────────
+
+async function loadOrgProjects(orgId) {
+  orgProjectsLoaded.value = false
+  orgProjects.value = []
+  if (!orgId) { orgProjectsLoaded.value = true; return }
+  try {
+    const { data } = await ProjectApi.getByOrg(orgId)
+    orgProjects.value = data || []
+  } catch (e) {
+    console.error('Projeler yüklenemedi:', e)
+  } finally {
+    orgProjectsLoaded.value = true
+  }
+}
+
+async function linkProject() {
+  if (!selectedProjectId.value || linking.value) return
+  linking.value = true
+  linkError.value = null
+  try {
+    await linkTeamToProject(props.teamId, selectedProjectId.value)
+    await load()
+  } catch (e) {
+    linkError.value = e?.response?.data?.error || 'Takım projeye bağlanamadı.'
+  } finally {
+    linking.value = false
   }
 }
 

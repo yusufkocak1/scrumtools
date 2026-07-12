@@ -72,6 +72,19 @@ public class TeamController {
     }
 
     /**
+     * PUT /api/teams/{id}/project — Takımı bir projeye bağla (projectId=null → bağlantıyı kaldır).
+     * Yetki: takım admini veya org admin/owner.
+     */
+    @PutMapping("/{id}/project")
+    public ResponseEntity<TeamResponse> linkProject(
+            @PathVariable UUID id,
+            Authentication authentication,
+            @RequestBody java.util.Map<String, UUID> body
+    ) {
+        return ResponseEntity.ok(teamService.linkProject(id, body.get("projectId"), authentication.getName()));
+    }
+
+    /**
      * PUT /api/teams/display-name — Tüm takımlardaki display name'i güncelle
      */
     @PutMapping("/display-name")

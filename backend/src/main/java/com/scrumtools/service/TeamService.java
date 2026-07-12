@@ -4,12 +4,14 @@ import com.scrumtools.dto.TeamRequest;
 import com.scrumtools.dto.TeamResponse;
 import com.scrumtools.dto.UpdateMemberRoleRequest;
 import com.scrumtools.entity.Organization;
+import com.scrumtools.entity.Project;
 import com.scrumtools.entity.Team;
 import com.scrumtools.entity.TeamMember;
 import com.scrumtools.entity.User;
 import com.scrumtools.entity.enums.OrgRole;
 import com.scrumtools.repository.OrganizationMemberRepository;
 import com.scrumtools.repository.OrganizationRepository;
+import com.scrumtools.repository.ProjectRepository;
 import com.scrumtools.repository.TeamMemberRepository;
 import com.scrumtools.repository.TeamRepository;
 import com.scrumtools.repository.UserRepository;
@@ -32,6 +34,7 @@ public class TeamService {
     private final UserRepository userRepository;
     private final OrganizationRepository organizationRepository;
     private final OrganizationMemberRepository organizationMemberRepository;
+    private final ProjectRepository projectRepository;
 
     // ─── Get Teams By Organisation ────────────────────────────────────────────
 
@@ -217,6 +220,40 @@ public class TeamService {
 
         log.info("Takım bilgileri güncellendi: {} (code={}, admin={})",
                 team.getTeamName(), team.getTeamCode(), requesterEmail);
+        return TeamResponse.from(team);
+    }
+
+    // ─── Link Team To Project (release yönetimi için) ─────────────────────────
+
+    @Transactional
+    public TeamResponse linkProject(UUID teamId, UUID projectId, String requesterEmail) {
+        Team team = teamRepository.findById(teamId)
+                .orElseThrow(() -> new IllegalArgumentException("Takım bulunamadı: " + teamId));
+
+        UUID orgId = team.getOrganization().getId();
+
+        // Yetki: org admin/owner VEYA takım admini
+        boolean isOrgAdmin = organizationMemberRepository.existsByOrganizationIdAndUserEmailAndOrgRoleIn(
+                orgId, requesterEmail, List.of(OrgRole.ORG_OWNER, OrgRole.ORG_ADMIN));
+        boolean isTeamAdmin = team.getAdminEmail().equalsIgnoreCase(requesterEmail);
+        if (!isOrgAdmin && !isTeamAdmin) {
+            throw new SecurityException("Takımı projeye bağlamak için takım veya organizasyon yöneticisi olmanız gerekir.");
+        }
+
+        if (projectId == null) {
+            team.setProject(null);
+        } else {
+            Project project = projectRepository.findById(projectId)
+                    .orElseThrow(() -> new IllegalArgumentException("Proje bulunamadı: " + projectId));
+            if (project.getOrganization() == null || !project.getOrganization().getId().equals(orgId)) {
+                throw new IllegalArgumentException("Proje, takımın organizasyonuna ait değil.");
+            }
+            team.setProject(project);
+        }
+
+        team = teamRepository.save(team);
+        log.info("Takım proje bağlantısı güncellendi: {} → {} (istek: {})",
+                team.getTeamName(), projectId, requesterEmail);
         return TeamResponse.from(team);
     }
 
