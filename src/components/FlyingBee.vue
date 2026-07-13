@@ -56,7 +56,7 @@ export default {
       ]
     },
     // Baloncuğun ekranda kalma süresi (ms)
-    bubbleDuration: { type: Number, default: 3500 },
+    bubbleDuration: { type: Number, default: 5000 },
     // Kaçarken sataşmak için kullanıcı adı
     userName: { type: String, default: "" }
   },
@@ -128,7 +128,7 @@ export default {
       this.later(() => {
         this.showBubble = false;
         // Bir süre dinlenip başka bir yere uç
-        this.later(() => this.flyTo(this.randomPoint()), 15000 + Math.random() * 15000);
+        this.later(() => this.flyTo(this.randomPoint()), 30000 + Math.random() * 15000);
       }, this.bubbleDuration);
     },
     flee() {
