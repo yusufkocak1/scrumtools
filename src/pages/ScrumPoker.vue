@@ -41,7 +41,9 @@ import {getTeamById} from "../firebase/TeamService.js";
 import {
   joinScrumPoker, leaveScrumPoker, listenScrumPoker, listenVotesVisible, setVotesVisible,
   updateScrumPokerVote,
-  cleanupListeners
+  cleanupListeners,
+  cleanupInactiveUsers,
+  refreshPresence
 } from "../firebase/ScrumPokerService.js";
 import {auth} from "../firebase/Firebase.js";
 
@@ -63,6 +65,7 @@ export default {
     let updateTimeout = null
     let unsubscribeVotes = null
     let unsubscribeVisibility = null
+    let presenceInterval = null
 
     // Computed property for votes array (sadece gerektiğinde hesaplanır)
     const votesArray = computed(() => Array.from(votes.value.values()))
@@ -105,7 +108,15 @@ export default {
           Object.assign(team, teamData)
         })
 
+        // 24 saattir aktif olmayan kullanıcıları session'dan çıkar
+        await cleanupInactiveUsers(props.teamId, auth.currentUser.email)
+
         await joinScrumPoker(props.teamId, auth.currentUser.email)
+
+        // Sayfa açık kaldığı sürece timestamp'i yenile (heartbeat)
+        presenceInterval = setInterval(() => {
+          refreshPresence(props.teamId, auth.currentUser.email)
+        }, 10 * 60 * 1000) // 10 dakikada bir
 
         // Optimize listener - Map kullanarak veri yapısını iyileştir
         unsubscribeVotes = listenScrumPoker(props.teamId, (newVotes) => {
@@ -128,6 +139,10 @@ export default {
       // Cleanup işlemleri
       if (updateTimeout) {
         clearTimeout(updateTimeout)
+      }
+
+      if (presenceInterval) {
+        clearInterval(presenceInterval)
       }
 
       // Listener'ları temizle

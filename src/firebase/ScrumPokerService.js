@@ -55,6 +55,35 @@ const joinScrumPoker = async (teamId,email) => {
     await updateScrumPokerVote(teamId, email, "-")
 }
 
+const INACTIVITY_LIMIT_MS = 24 * 60 * 60 * 1000 // 24 saat
+
+// 24 saattir aktif olmayan (timestamp'i eski veya hiç olmayan) kullanıcıları session'dan çıkar
+const cleanupInactiveUsers = async (teamId, currentUserEmail) => {
+    try {
+        const collectionRef = collection(db, "teams", teamId, "scrumPoker");
+        const docSnap = await getDocs(collectionRef);
+        const now = Date.now();
+        const staleDocs = docSnap.docs.filter(d => {
+            if (d.id === currentUserEmail) return false;
+            const timestamp = d.data().timestamp;
+            return !timestamp || (now - timestamp) > INACTIVITY_LIMIT_MS;
+        });
+        await Promise.all(staleDocs.map(d => deleteDoc(d.ref)));
+    } catch (error) {
+        console.error("Error cleaning up inactive users:", error);
+    }
+}
+
+// Sayfası açık olan kullanıcının timestamp'ini yeniler; cleanup tarafından silinmesini önler
+const refreshPresence = async (teamId, email) => {
+    try {
+        const docRef = doc(db, "teams", teamId, "scrumPoker", email);
+        await setDoc(docRef, { timestamp: Date.now() }, { merge: true });
+    } catch (error) {
+        console.error("Error refreshing presence:", error);
+    }
+}
+
 // Optimize edilmiş listener - sadece değişiklikleri takip et
 const listenScrumPoker = (teamId, setterFunc) => {
     // Mevcut listener'ı temizle
@@ -118,6 +147,8 @@ export {
     updateScrumPokerVote,
     leaveScrumPoker,
     joinScrumPoker,
+    cleanupInactiveUsers,
+    refreshPresence,
     listenScrumPoker,
     setVotesVisible,
     listenVotesVisible,
