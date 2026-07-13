@@ -1,5 +1,5 @@
 import {db} from "./Firebase.js";
-import {addDoc, collection, deleteDoc, doc, getDoc, getDocs, onSnapshot, query, setDoc, where} from 'firebase/firestore';
+import {addDoc, arrayUnion, collection, deleteDoc, doc, FieldPath, getDoc, getDocs, onSnapshot, query, setDoc, updateDoc, where} from 'firebase/firestore';
 import {createToast} from "mosha-vue-toastify";
 import {getAuth} from "firebase/auth";
 
@@ -63,26 +63,46 @@ const createTeam = async (teamName, teamCode, email, displayName) => {
 
 const addUserToTeam = async (email, displayName, teamId) => {
     const docRef = doc(db, "teams", teamId);
-    const docSnap = await getDoc(docRef);
-    if (docSnap.exists()) {
-        let data = docSnap.data();
-        if(!data.members){
-            data.members = {}
-        }
-        if (data.members[email]) {
+
+    // Üyeler takım dokümanını okuyabildiği için okuma başarılıysa ve email listedeyse zaten takımdadır.
+    // Üye olmayanların okuması güvenlik kuralları tarafından reddedilir; bu durumda katılmayı deneriz.
+    try {
+        const docSnap = await getDoc(docRef);
+        if (docSnap.exists() && (docSnap.data().memberEmails || []).includes(email)) {
             createToast('Kullanıcı zaten takımda',{type:'danger',position:'top-center'})
             return
         }
-        // Yeni üye observer rolü ile eklenir
-        data.members[email] = {
-            displayName: displayName,
-            role: 'observer',
-            skills: []
-        }
-        if (!data.memberEmails) data.memberEmails = [];
-        if (!data.memberEmails.includes(email)) data.memberEmails.push(email);
-        await setDoc(docRef, data);
+    } catch (error) {
+        // permission-denied: henüz üye değil, katılım denenecek
+    }
+
+    try {
+        // Sadece kendi üyelik alanlarını günceller; dokümanın kalanına dokunmaz.
+        // Güvenlik kuralları yalnızca kullanıcının kendisini observer olarak eklemesine izin verir.
+        await updateDoc(docRef,
+            new FieldPath('members', email), {
+                displayName: displayName || email,
+                role: 'observer',
+                skills: []
+            },
+            'memberEmails', arrayUnion(email)
+        );
         createToast('Takıma başarıyla katıldınız',{type:'success',position:'top-center'})
+    } catch (error) {
+        console.error('Error joining team:', error);
+        createToast('Takıma katılınamadı. Takım ID\'sini kontrol edin.',{type:'danger',position:'top-center'})
+    }
+}
+
+// Kullanıcının takım üyesi olup olmadığını kontrol eder (router guard için).
+// Üye olmayanların okuması güvenlik kuralları tarafından zaten reddedildiği için
+// hata durumunda da erişim yok kabul edilir.
+const isTeamMember = async (teamId, email) => {
+    try {
+        const docSnap = await getDoc(doc(db, "teams", teamId));
+        return docSnap.exists() && (docSnap.data().memberEmails || []).includes(email);
+    } catch (error) {
+        return false;
     }
 }
 
@@ -173,6 +193,7 @@ export {
     getTeamById,
     createTeam,
     addUserToTeam,
+    isTeamMember,
     updateMemberRole,
     removeUserFromTeam,
     updateMemberRoleAndSkills,

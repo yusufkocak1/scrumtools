@@ -2,8 +2,54 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-     match /{document=**} {
-          allow read, write: if request.auth.uid != null;
-     }
+
+    function signedIn() {
+      return request.auth != null && request.auth.token.email != null;
+    }
+
+    function userEmail() {
+      return request.auth.token.email;
+    }
+
+    function isTeamMember(teamId) {
+      return signedIn()
+        && userEmail() in get(/databases/$(database)/documents/teams/$(teamId)).data.memberEmails;
+    }
+
+    match /teams/{teamId} {
+      // Takim dokumanini sadece uyeler okuyabilir.
+      // (listenTeams/getTeams sorgulari "memberEmails array-contains <email>"
+      // kosulu kullandigi icin bu kuralla uyumludur.)
+      allow read: if signedIn() && userEmail() in resource.data.memberEmails;
+
+      // Takim olusturan kisi admin ve tek uye olmak zorunda.
+      allow create: if signedIn()
+        && request.resource.data.adminEmail == userEmail()
+        && request.resource.data.memberEmails == [userEmail()];
+
+      allow update: if signedIn() && (
+        // Uyeler takim dokumanini guncelleyebilir.
+        userEmail() in resource.data.memberEmails
+        // Uye olmayanlar SADECE kendilerini observer olarak ekleyebilir (Join Team akisi).
+        || (
+          !(userEmail() in resource.data.memberEmails)
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['members', 'memberEmails'])
+          && request.resource.data.memberEmails.hasAll(resource.data.memberEmails)
+          && request.resource.data.memberEmails.size() == resource.data.memberEmails.size() + 1
+          && userEmail() in request.resource.data.memberEmails
+          && request.resource.data.get('members', {}).diff(resource.data.get('members', {})).affectedKeys().hasOnly([userEmail()])
+          && request.resource.data.members[userEmail()].role == 'observer'
+        )
+      );
+
+      // Takimi sadece admin silebilir.
+      allow delete: if signedIn() && resource.data.adminEmail == userEmail();
+
+      // Tum alt koleksiyonlar (scrumPoker, tasks, sprints, retroBoards, codeShare, votes...)
+      // sadece takim uyelerine acik.
+      match /{document=**} {
+        allow read, write: if isTeamMember(teamId);
+      }
+    }
   }
 }

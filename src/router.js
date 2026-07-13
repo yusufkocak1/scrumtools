@@ -10,6 +10,8 @@ import Settings from "./pages/Settings.vue";
 import WorkList from "./pages/WorkList.vue";
 import SprintPage from "./components/work/SprintPage.vue";
 import {authService} from "./firebase/AuthService.js";
+import {isTeamMember} from "./firebase/TeamService.js";
+import {createToast} from "mosha-vue-toastify";
 import CodeShare from "./pages/CodeShare.vue";
 import TaskDetail from "./pages/TaskDetail.vue";
 
@@ -91,21 +93,36 @@ const routes = [{
 const router = createRouter({
     history: createWebHistory(), routes,
 })
-router.beforeEach((to, from, next) => {
-    if (to.meta.requiresAuth) {
-        const unsubscribe = authService.onAuthStateChanged((user) => {
-            unsubscribe(); // Bir defaya mahsus dinlemeyi sonlandırıyoruz.
-            if (user) {
-                // Kullanıcı oturum açmış, route'a devam et.
-                next();
-            } else {
-                // Kullanıcı oturum açmamış, login sayfasına yönlendir.
-                next('/login');
-            }
-        });
-    } else {
+const getCurrentUser = () => new Promise((resolve) => {
+    const unsubscribe = authService.onAuthStateChanged((user) => {
+        unsubscribe(); // Bir defaya mahsus dinlemeyi sonlandırıyoruz.
+        resolve(user);
+    });
+});
+
+router.beforeEach(async (to, from, next) => {
+    if (!to.meta.requiresAuth) {
         // Non-protected route, allow access
-        next();
+        return next();
     }
+
+    const user = await getCurrentUser();
+    if (!user) {
+        // Kullanıcı oturum açmamış, login sayfasına yönlendir.
+        return next('/login');
+    }
+
+    // Takım bazlı sayfalarda üyelik kontrolü:
+    // paylaşılan linkle gelen kullanıcı takım üyesi değilse içeri alma.
+    const teamId = to.params.teamId;
+    if (teamId) {
+        const hasAccess = await isTeamMember(teamId, user.email);
+        if (!hasAccess) {
+            createToast('Bu takıma erişim yetkiniz yok', {type: 'danger', position: 'top-center'});
+            return next('/teams');
+        }
+    }
+
+    next();
 });
 export default router

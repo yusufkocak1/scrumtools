@@ -41,6 +41,8 @@
     <div class="flex justify-center">
       <RouterView/>
     </div>
+
+    <FlyingBee v-if="isLogged" :slogans="beeSlogans"/>
   </div>
 </template>
 <script>
@@ -49,6 +51,7 @@ import Navbar from "./components/Navbar.vue";
 import JoinTeam from "./components/team/JoinTeam.vue";
 import CreateTeam from "./components/team/CreateTeam.vue";
 import ConfirmationDialog from "./components/ConfirmationDialog.vue";
+import FlyingBee from "./components/FlyingBee.vue";
 import {getTeams} from "./firebase/TeamService.js";
 import './scripts/collapse.js'
 
@@ -58,9 +61,17 @@ export default {
     Navbar,
     JoinTeam,
     CreateTeam,
-    ConfirmationDialog
+    ConfirmationDialog,
+    FlyingBee
   },
   data: () => ({
+    beeSlogans: [
+      "Şşşt, bal ye! 🍯",
+      "Vız vız... çalışmaya devam!",
+      "Sprint bitmeden bal bitmez!",
+      "Mola vermeyi unutma! ☕",
+      "Bugün harika görünüyorsun!"
+    ],
     isLogged: false,
     name: "",
     loading: true,
