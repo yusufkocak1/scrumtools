@@ -69,8 +69,10 @@ export default {
       "Şşşt, bal ye! 🍯",
       "Vız vız vız... çalışmaya devam!",
       "Sprint bitmeden bal bitmez!",
+      "Yapay zeka bal da yapabliyor mu?",
       "Mola vermeyi unutma! ☕",
-      "Yeni ScrumTools'a geçmemiz lazım, Google amca sıkıntı çıkarıyor!"
+      "Yeni ScrumTools'a geçmemiz lazım, Google amca sıkıntı çıkarıyor!",
+      "Yapay zeka balı yemeyin! 🤖🍯"
     ],
     isLogged: false,
     name: "",
