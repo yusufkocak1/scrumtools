@@ -41,6 +41,12 @@
         <circle cx="17" cy="27" fill="#fff" r="2.6"/>
         <circle cx="17.8" cy="27.8" fill="#000" r="1.3"/>
         <path d="M14 34 q3 2.5 6 0" fill="none" stroke="#fff" stroke-linecap="round" stroke-width="1.4"/>
+        <!-- Güneş gözlüğü (Pala modu) -->
+        <g v-if="wearingSunglasses" class="bee-shades">
+          <path d="M22.5 25.5 L29 23" fill="none" stroke="#101010" stroke-linecap="round" stroke-width="2"/>
+          <ellipse cx="16" cy="27.5" fill="#101010" rx="6.4" ry="5.2" stroke="#000" stroke-width="1"/>
+          <path d="M12 25.5 q2.5 -1.2 5 0" fill="none" opacity="0.7" stroke="#6b6b6b" stroke-linecap="round" stroke-width="1.2"/>
+        </g>
         <!-- Ön kanat -->
         <ellipse class="wing wing-front" cx="32" cy="12" fill="#e3f3ff" opacity="0.95" rx="10" ry="14" stroke="#8fc7f2" stroke-width="1"/>
       </svg>
@@ -110,6 +116,7 @@ export default {
     flightDuration: 2,
     showBubble: false,
     bubbleText: "",
+    wearingSunglasses: false,
     spraying: false,
     banished: false,
     timers: []
@@ -150,6 +157,7 @@ export default {
     flyTo(target) {
       this.clearTimers();
       this.showBubble = false;
+      this.wearingSunglasses = false;
 
       const dist = Math.hypot(target.x - this.x, target.y - this.y);
       this.flightDuration = Math.min(Math.max(dist / 350, 1.2), 4);
@@ -166,11 +174,16 @@ export default {
     },
     speak() {
       if (this.slogans.length > 0) {
-        this.bubbleText = this.slogans[Math.floor(Math.random() * this.slogans.length)];
+        // Slogan string ya da { text, sunglasses } objesi olabilir
+        const pick = this.slogans[Math.floor(Math.random() * this.slogans.length)];
+        this.bubbleText = typeof pick === "string" ? pick : pick.text;
+        this.wearingSunglasses = typeof pick === "object" && !!pick.sunglasses;
         this.showBubble = true;
       }
       this.later(() => {
         this.showBubble = false;
+        // Mesaj bitince gözlüğü çıkar
+        this.wearingSunglasses = false;
         // Bir süre dinlenip başka bir yere uç
         this.later(() => this.flyTo(this.randomPoint()), 30000 + Math.random() * 15000);
       }, this.bubbleDuration);
@@ -314,6 +327,17 @@ export default {
 @keyframes wing-flap {
   from { transform: rotate(-14deg); }
   to { transform: rotate(18deg); }
+}
+
+/* Güneş gözlüğü yukarıdan süzülerek takılır */
+.bee-shades {
+  animation: shades-drop 0.35s ease-out;
+  transform-origin: 16px 27px;
+}
+
+@keyframes shades-drop {
+  from { opacity: 0; transform: translateY(-8px) scale(1.2); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
 }
 
 /* Konuşma baloncuğu */

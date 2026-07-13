@@ -72,7 +72,8 @@ export default {
       "Yapay zeka bal da yapabliyor mu?",
       "Mola vermeyi unutma! ☕",
       "Yeni ScrumTools'a geçmemiz lazım, Google amca sıkıntı çıkarıyor!",
-      "Yapay zeka balı yemeyin! 🤖🍯"
+      "Yapay zeka balı yemeyin! 🤖🍯",
+      { text: "Bıdı bıdı yapma kral. Kalıbının adamı ol işini yap 😎", sunglasses: true }
     ],
     isLogged: false,
     name: "",
