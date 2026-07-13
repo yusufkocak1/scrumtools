@@ -7,9 +7,9 @@
     <div class="bee-inner" :class="{ 'bee-flying': flying, 'bee-landed': !flying }">
       <!-- Konuşma baloncuğu -->
       <transition name="bubble">
-        <div v-if="showBubble" class="bee-bubble" :class="facing === 1 ? 'bubble-left' : 'bubble-right'">
+        <div v-if="showBubble" class="bee-bubble" :class="bubbleClasses">
           {{ bubbleText }}
-          <span class="bubble-tail" :class="facing === 1 ? 'tail-left' : 'tail-right'"></span>
+          <span class="bubble-tail"></span>
         </div>
       </transition>
 
@@ -52,11 +52,13 @@ export default {
         "Vız vız... çalışmaya devam!",
         "Sprint bitmeden bal bitmez!",
         "Mola vermeyi unutma! ☕",
-        "Bugün harika görünüyorsun!"
+        "Yeni ScrumTools'a geçmemiz lazım, Google amca sıkıntı çıkarıyor!"
       ]
     },
     // Baloncuğun ekranda kalma süresi (ms)
-    bubbleDuration: { type: Number, default: 3500 }
+    bubbleDuration: { type: Number, default: 3500 },
+    // Kaçarken sataşmak için kullanıcı adı
+    userName: { type: String, default: "" }
   },
   data: () => ({
     x: -60,
@@ -74,6 +76,13 @@ export default {
         transform: `translate(${this.x}px, ${this.y}px)`,
         transition: `transform ${this.flightDuration}s cubic-bezier(0.45, 0.05, 0.35, 1)`
       };
+    },
+    bubbleClasses() {
+      // Baloncuğu ekran içinde kalacak şekilde konumlandır:
+      // sağ kenara yakınsa sola, üste (navbar'a) yakınsa arının altına aç
+      const side = this.x > window.innerWidth - 240 ? 'bubble-right' : 'bubble-left';
+      const vertical = this.y < 170 ? 'bubble-below' : 'bubble-above';
+      return [side, vertical];
     }
   },
   methods: {
@@ -119,7 +128,7 @@ export default {
       this.later(() => {
         this.showBubble = false;
         // Bir süre dinlenip başka bir yere uç
-        this.later(() => this.flyTo(this.randomPoint()), 2000 + Math.random() * 5000);
+        this.later(() => this.flyTo(this.randomPoint()), 15000 + Math.random() * 15000);
       }, this.bubbleDuration);
     },
     flee() {
@@ -130,6 +139,16 @@ export default {
         target = this.randomPoint();
       }
       this.flyTo(target);
+
+      // Kaçarken sataş (sadece ilk isim)
+      const firstName = this.userName.trim().split(/\s+/)[0];
+      this.bubbleText = firstName
+          ? `${firstName} beni yakalayamaz! 😜`
+          : "Beni yakalayamazsın! 😜";
+      this.showBubble = true;
+      this.later(() => {
+        this.showBubble = false;
+      }, Math.min(this.flightDuration * 1000 - 300, 2500));
     }
   },
   mounted() {
@@ -203,7 +222,6 @@ export default {
 /* Konuşma baloncuğu */
 .bee-bubble {
   position: absolute;
-  bottom: 48px;
   max-width: 190px;
   width: max-content;
   padding: 8px 12px;
@@ -218,22 +236,33 @@ export default {
   pointer-events: none;
 }
 
+.bubble-above { bottom: 48px; }
+.bubble-below { top: 44px; }
 .bubble-left { left: 26px; }
 .bubble-right { right: 26px; }
 
 .bubble-tail {
   position: absolute;
-  bottom: -8px;
   width: 12px;
   height: 12px;
   background: #fff;
-  border-right: 2px solid #ffce31;
-  border-bottom: 2px solid #ffce31;
   transform: rotate(45deg);
 }
 
-.tail-left { left: 12px; }
-.tail-right { right: 12px; }
+.bubble-above .bubble-tail {
+  bottom: -8px;
+  border-right: 2px solid #ffce31;
+  border-bottom: 2px solid #ffce31;
+}
+
+.bubble-below .bubble-tail {
+  top: -8px;
+  border-left: 2px solid #ffce31;
+  border-top: 2px solid #ffce31;
+}
+
+.bubble-left .bubble-tail { left: 12px; }
+.bubble-right .bubble-tail { right: 12px; }
 
 .bubble-enter-active,
 .bubble-leave-active {

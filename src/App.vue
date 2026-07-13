@@ -42,7 +42,7 @@
       <RouterView/>
     </div>
 
-    <FlyingBee v-if="isLogged" :slogans="beeSlogans"/>
+    <FlyingBee v-if="isLogged" :slogans="beeSlogans" :user-name="name"/>
   </div>
 </template>
 <script>
@@ -67,10 +67,10 @@ export default {
   data: () => ({
     beeSlogans: [
       "Şşşt, bal ye! 🍯",
-      "Vız vız... çalışmaya devam!",
+      "Vız vız vız... çalışmaya devam!",
       "Sprint bitmeden bal bitmez!",
       "Mola vermeyi unutma! ☕",
-      "Bugün harika görünüyorsun!"
+      "Yeni ScrumTools'a geçmemiz lazım, Google amca sıkıntı çıkarıyor!"
     ],
     isLogged: false,
     name: "",
