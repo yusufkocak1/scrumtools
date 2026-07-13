@@ -1,10 +1,17 @@
 <template>
   <div
+      v-show="!banished"
       class="bee-container"
       :style="containerStyle"
       @mouseenter="flee"
   >
-    <div class="bee-inner" :class="{ 'bee-flying': flying, 'bee-landed': !flying }">
+    <div class="bee-inner"
+         :class="{ 'bee-flying': flying, 'bee-landed': !flying && !spraying, 'bee-panic': spraying && !flying }">
+      <!-- Duman bulutu -->
+      <div v-if="spraying && !flying" class="smoke-cloud">
+        <span v-for="n in 10" :key="n" class="smoke-puff"></span>
+      </div>
+
       <!-- Konuşma baloncuğu -->
       <transition name="bubble">
         <div v-if="showBubble" class="bee-bubble" :class="bubbleClasses">
@@ -39,6 +46,39 @@
       </svg>
     </div>
   </div>
+
+  <!-- Duman sıkma butonu (mobilde ve arı yokken gizli) -->
+  <button
+      v-show="!banished"
+      class="spray-btn"
+      :class="{ 'spray-active': spraying }"
+      title="Arıya duman sık!"
+      type="button"
+      @click="spray"
+  >
+    <svg class="spray-svg" viewBox="0 0 64 64" width="36" height="36">
+      <!-- Baca (huni) -->
+      <path d="M23 18 L11 4 L31 13 Z" fill="#78909c"/>
+      <!-- Kapak -->
+      <ellipse cx="27" cy="18" fill="#90a4ae" rx="11" ry="4"/>
+      <!-- Gövde (teneke) -->
+      <rect fill="#b0bec5" height="34" rx="4" width="22" x="16" y="18"/>
+      <rect fill="#90a4ae" height="3" width="22" x="16" y="25"/>
+      <rect fill="#90a4ae" height="3" width="22" x="16" y="44"/>
+      <!-- Körük (deri) -->
+      <path d="M38 22 L50 25 L50 49 L38 52 Z" fill="#a1887f"/>
+      <line stroke="#8d6e63" stroke-width="1.5" x1="38" x2="50" y1="28" y2="30"/>
+      <line stroke="#8d6e63" stroke-width="1.5" x1="38" x2="50" y1="34" y2="36"/>
+      <line stroke="#8d6e63" stroke-width="1.5" x1="38" x2="50" y1="40" y2="41"/>
+      <line stroke="#8d6e63" stroke-width="1.5" x1="38" x2="50" y1="46" y2="46"/>
+      <!-- Körük tahtası -->
+      <rect fill="#6d4c41" height="30" rx="2" width="7" x="50" y="22"/>
+    </svg>
+    <!-- Butondan çıkan duman -->
+    <span v-if="spraying" class="btn-puffs">
+      <span v-for="n in 7" :key="n" class="btn-puff"></span>
+    </span>
+  </button>
 </template>
 
 <script>
@@ -58,7 +98,9 @@ export default {
     // Baloncuğun ekranda kalma süresi (ms)
     bubbleDuration: { type: Number, default: 5000 },
     // Kaçarken sataşmak için kullanıcı adı
-    userName: { type: String, default: "" }
+    userName: { type: String, default: "" },
+    // Duman sıkılınca arının kaybolma süresi (ms)
+    banishDuration: { type: Number, default: 5 * 60 * 1000 }
   },
   data: () => ({
     x: -60,
@@ -68,6 +110,8 @@ export default {
     flightDuration: 2,
     showBubble: false,
     bubbleText: "",
+    spraying: false,
+    banished: false,
     timers: []
   }),
   computed: {
@@ -131,7 +175,50 @@ export default {
         this.later(() => this.flyTo(this.randomPoint()), 30000 + Math.random() * 15000);
       }, this.bubbleDuration);
     },
+    spray() {
+      if (this.spraying || this.banished) return;
+      this.clearTimers();
+      this.showBubble = false;
+      this.spraying = true;
+
+      // Dumanı görünce söylensin
+      this.later(() => {
+        this.bubbleText = "Kim sigara içti burada kardeşim?! Sağlığa zararlı demiyor muyuz? 😤";
+        this.showBubble = true;
+      }, 500);
+
+      // Söylene söylene ekran dışına kaç
+      this.later(() => {
+        this.flightDuration = 1.6;
+        this.facing = this.x < window.innerWidth / 2 ? 1 : -1;
+        this.x = this.facing === 1 ? window.innerWidth + 120 : -140;
+        this.y = Math.max(this.y - 150, 40);
+        this.flying = true;
+
+        this.later(() => {
+          this.spraying = false;
+          this.flying = false;
+          this.showBubble = false;
+          this.banished = true;
+          // Refresh olsa bile süre boyunca kayıp kalsın
+          localStorage.setItem("beeBanishedUntil", String(Date.now() + this.banishDuration));
+          this.later(() => this.respawn(), this.banishDuration);
+        }, 1700);
+      }, 2200);
+    },
+    respawn() {
+      localStorage.removeItem("beeBanishedUntil");
+      // Ekran dışına ışınlan, sonra süzülerek geri gel
+      this.flightDuration = 0;
+      this.x = -60;
+      this.y = 100 + Math.random() * Math.max(window.innerHeight - 300, 100);
+      this.facing = 1;
+      this.flying = false;
+      this.banished = false;
+      this.later(() => this.flyTo(this.randomPoint()), 150);
+    },
     flee() {
+      if (this.spraying || this.banished) return;
       // Mouse üzerine gelince mevcut konumdan uzak bir noktaya kaç
       let target = this.randomPoint();
       for (let i = 0; i < 5; i++) {
@@ -152,6 +239,16 @@ export default {
     }
   },
   mounted() {
+    // Duman yemişse süresi dolana kadar gelmesin (refresh'e dayanıklı)
+    const banishedUntil = Number(localStorage.getItem("beeBanishedUntil")) || 0;
+    const remaining = banishedUntil - Date.now();
+    if (remaining > 0) {
+      this.banished = true;
+      this.later(() => this.respawn(), remaining);
+      return;
+    }
+    localStorage.removeItem("beeBanishedUntil");
+
     // Ekran dışından süzülerek gelsin
     this.later(() => this.flyTo(this.randomPoint()), 1500);
   },
@@ -273,5 +370,127 @@ export default {
 .bubble-leave-to {
   opacity: 0;
   transform: translateY(6px) scale(0.8);
+}
+
+/* Duman yiyince panikleyip öksürme */
+.bee-panic {
+  animation: bee-panic 0.14s linear infinite;
+}
+
+@keyframes bee-panic {
+  0%, 100% { transform: translate(-3px, 1px) rotate(-7deg); }
+  50% { transform: translate(3px, -2px) rotate(7deg); }
+}
+
+/* Arının üstündeki duman bulutu */
+.smoke-cloud {
+  position: absolute;
+  inset: -12px;
+  pointer-events: none;
+}
+
+.smoke-puff {
+  position: absolute;
+  left: 18px;
+  top: 18px;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(140, 140, 145, 0.95), rgba(200, 200, 205, 0.4));
+  opacity: 0;
+  animation: smoke-rise 1.4s ease-out infinite;
+}
+
+.smoke-puff:nth-child(1) { --dx: -30px; --dy: -24px; animation-delay: 0s; }
+.smoke-puff:nth-child(2) { --dx: 26px; --dy: -32px; animation-delay: 0.15s; }
+.smoke-puff:nth-child(3) { --dx: -10px; --dy: -40px; animation-delay: 0.3s; }
+.smoke-puff:nth-child(4) { --dx: 34px; --dy: -12px; animation-delay: 0.45s; }
+.smoke-puff:nth-child(5) { --dx: -34px; --dy: 6px; animation-delay: 0.6s; }
+.smoke-puff:nth-child(6) { --dx: 8px; --dy: -50px; animation-delay: 0.75s; }
+.smoke-puff:nth-child(7) { --dx: -22px; --dy: -44px; animation-delay: 0.9s; }
+.smoke-puff:nth-child(8) { --dx: 30px; --dy: -40px; animation-delay: 1.05s; }
+.smoke-puff:nth-child(9) { --dx: 0px; --dy: -28px; animation-delay: 1.2s; }
+.smoke-puff:nth-child(10) { --dx: -14px; --dy: -14px; animation-delay: 1.35s; }
+
+@keyframes smoke-rise {
+  0% { opacity: 0; transform: translate(0, 0) scale(0.4); }
+  20% { opacity: 0.9; }
+  100% { opacity: 0; transform: translate(var(--dx, 0), var(--dy, -30px)) scale(2.8); }
+}
+
+/* Duman sıkma butonu */
+.spray-btn {
+  position: fixed;
+  right: 20px;
+  bottom: 20px;
+  z-index: 9991;
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: #fff;
+  border: 2px solid #e5e7eb;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.spray-btn:hover {
+  transform: scale(1.1);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.25);
+}
+
+.spray-btn:active {
+  transform: scale(0.95);
+}
+
+/* Körük pompalama: büyüyüp küçülerek basıyor */
+.spray-active .spray-svg {
+  animation: smoker-pump 0.45s ease-in-out 5;
+  transform-origin: center;
+}
+
+@keyframes smoker-pump {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.45) rotate(-8deg); }
+}
+
+/* Butonun püskürttüğü duman */
+.btn-puffs {
+  position: absolute;
+  top: 4px;
+  left: 10px;
+  pointer-events: none;
+}
+
+.btn-puff {
+  position: absolute;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: rgba(140, 140, 145, 0.9);
+  opacity: 0;
+  animation: btn-smoke 1s ease-out infinite;
+}
+
+.btn-puff:nth-child(2) { animation-delay: 0.15s; --bx: -46px; --by: -30px; }
+.btn-puff:nth-child(3) { animation-delay: 0.3s; --bx: -30px; --by: -50px; }
+.btn-puff:nth-child(4) { animation-delay: 0.45s; --bx: -52px; --by: -44px; }
+.btn-puff:nth-child(5) { animation-delay: 0.6s; --bx: -24px; --by: -38px; }
+.btn-puff:nth-child(6) { animation-delay: 0.75s; --bx: -44px; --by: -56px; }
+.btn-puff:nth-child(7) { animation-delay: 0.9s; --bx: -36px; --by: -26px; }
+
+@keyframes btn-smoke {
+  0% { opacity: 0.95; transform: translate(0, 0) scale(0.5); }
+  100% { opacity: 0; transform: translate(var(--bx, -38px), var(--by, -42px)) scale(2.4); }
+}
+
+/* Mobilde butonu gizle */
+@media (max-width: 767px) {
+  .spray-btn {
+    display: none;
+  }
 }
 </style>
