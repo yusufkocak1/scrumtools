@@ -62,6 +62,10 @@ public class SecurityConfig {
                         // Aksi halde yanıt commit edildikten sonra AuthorizationDeniedException
                         // fırlatılır ve client'a düzgün bir hata dönülemez.
                         .dispatcherTypeMatchers(DispatcherType.ERROR, DispatcherType.ASYNC).permitAll()
+                        // Yanıt commit edildikten sonra oluşan hatalarda Tomcat /error'ı
+                        // ERROR dispatch yerine INCLUDE ile çağırır; yukarıdaki matcher'a
+                        // takılmaz. /error'ı yol bazında da serbest bırak.
+                        .requestMatchers("/error").permitAll()
                         // Public endpoint'ler
                         .requestMatchers("/api/auth/login", "/api/auth/register").permitAll()
                         // Şifre kurulum/sıfırlama (token tabanlı, public)
