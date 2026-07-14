@@ -22,6 +22,10 @@ public enum ActivityAction {
 
     // Board aksiyonları
     BOARD_CREATED,
-    BOARD_UPDATED
+    BOARD_UPDATED,
+
+    // SCM / Git aksiyonları
+    SCM_BRANCH_CREATED,
+    SCM_COMMIT_LINKED
 }
 

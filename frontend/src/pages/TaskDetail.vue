@@ -189,6 +189,9 @@
           <!-- Task Links -->
           <TaskLinkList v-if="teamId && task?.id" :teamId="teamId" :taskId="task.id" :links="taskLinks" @update="refreshLinks" @open="openLinkedTask" />
 
+          <!-- Geliştirme (Git) Paneli -->
+          <DevPanel v-if="teamId && task?.id" :teamId="teamId" :taskId="task.id" :taskKey="task.customId" />
+
           <!-- Task History -->
           <TaskHistory v-if="teamId && task?.id" :teamId="teamId" :taskId="task.id" />
 
@@ -510,6 +513,7 @@ import AttachmentList from '../components/work/AttachmentList.vue';
 import SubtaskList from '../components/work/SubtaskList.vue';
 import TaskLinkList from '../components/work/TaskLinkList.vue';
 import TaskHistory from '../components/work/TaskHistory.vue';
+import DevPanel from '../components/scm/DevPanel.vue';
 import WatcherList from '../components/work/WatcherList.vue';
 import TiptapEditor from '../components/docs/TiptapEditor.vue';
 import RichContentViewer from '../components/work/RichContentViewer.vue';
@@ -524,6 +528,7 @@ export default {
     SubtaskList,
     TaskLinkList,
     TaskHistory,
+    DevPanel,
     WatcherList,
     TiptapEditor,
     RichContentViewer,

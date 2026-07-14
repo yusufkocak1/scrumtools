@@ -1,6 +1,9 @@
 package com.scrumtools.config;
 
 import com.scrumtools.entity.*;
+import com.scrumtools.entity.enums.Permission;
+import com.scrumtools.entity.enums.PlanFeature;
+import com.scrumtools.entity.enums.RoleScope;
 import com.scrumtools.entity.enums.StatusCategory;
 import com.scrumtools.repository.*;
 import com.scrumtools.service.RoleService;
@@ -23,6 +26,8 @@ public class DataInitializer implements ApplicationRunner {
     private final WorkflowRepository workflowRepository;
     private final WorkflowStatusRepository workflowStatusRepository;
     private final WorkflowTransitionRepository workflowTransitionRepository;
+    private final RoleRepository roleRepository;
+    private final PlanRepository planRepository;
 
     @Override
     @Transactional
@@ -41,6 +46,36 @@ public class DataInitializer implements ApplicationRunner {
         log.info("Sistem workflow şablonları kontrol ediliyor...");
         seedSystemWorkflowTemplates();
         log.info("Workflow şablonları hazır.");
+
+        backfillScmGrants();
+    }
+
+    /**
+     * Git entegrasyonu sonradan eklendiği için mevcut kurulumlardaki seed'li
+     * kayıtlara yeni hakları işler (seed metodları varlık kontrolüyle atladığından
+     * burada backfill gerekir). Idempotent — her boot'ta güvenle çalışır.
+     */
+    private void backfillScmGrants() {
+        for (String code : List.of("PRO", "MAX")) {
+            planRepository.findByCode(code).ifPresent(plan -> {
+                if (!plan.getFeatures().contains(PlanFeature.GIT_INTEGRATION)) {
+                    plan.getFeatures().add(PlanFeature.GIT_INTEGRATION);
+                    planRepository.save(plan);
+                    log.info("{} planına GIT_INTEGRATION özelliği eklendi.", code);
+                }
+            });
+        }
+        for (String roleName : List.of("Project Admin", "Developer")) {
+            roleRepository.findByNameAndScope(roleName, RoleScope.PROJECT)
+                    .filter(Role::getIsDefault)
+                    .ifPresent(role -> {
+                        if (!role.getPermissions().contains(Permission.SCM_CREATE_BRANCH)) {
+                            role.getPermissions().add(Permission.SCM_CREATE_BRANCH);
+                            roleRepository.save(role);
+                            log.info("'{}' rolüne SCM_CREATE_BRANCH izni eklendi.", roleName);
+                        }
+                    });
+        }
     }
 
     /**

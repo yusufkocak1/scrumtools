@@ -27,6 +27,8 @@ public interface TeamRepository extends JpaRepository<Team, UUID> {
 
     List<Team> findByOrganizationId(UUID organizationId);
 
+    List<Team> findByProjectId(UUID projectId);
+
     List<Team> findByOrganizationIsNull();
 
     @Query("SELECT DISTINCT t FROM Team t JOIN t.members m WHERE t.organization.id = :orgId AND LOWER(t.teamName) LIKE LOWER(CONCAT('%', :query, '%'))")

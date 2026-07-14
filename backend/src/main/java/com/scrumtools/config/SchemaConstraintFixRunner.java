@@ -31,6 +31,14 @@ public class SchemaConstraintFixRunner implements ApplicationRunner {
         // NotificationType enum'una SUPPORT_TICKET_* değerleri eklendi;
         // eski kısıt bu değerleri tanımadığı için bildirim insert'leri patlıyordu.
         dropConstraint("notifications", "notifications_type_check");
+
+        // Git entegrasyonu eklenirken genişleyen enum'lar:
+        // Permission.SCM_CREATE_BRANCH, PlanFeature.GIT_INTEGRATION, ActivityAction.SCM_*
+        // DataInitializer.backfillScmGrants bu değerleri mevcut kayıtlara yazar —
+        // eski CHECK kısıtları düşürülmezse boot'ta insert patlar.
+        dropConstraint("role_permissions", "role_permissions_permission_check");
+        dropConstraint("plan_features", "plan_features_feature_check");
+        dropConstraint("activity_events", "activity_events_action_check");
     }
 
     private void dropConstraint(String table, String constraint) {

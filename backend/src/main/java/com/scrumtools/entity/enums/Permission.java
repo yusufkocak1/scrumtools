@@ -63,6 +63,9 @@ public enum Permission {
     DOCS_WRITE,
     DOCS_READ,
 
+    // SCM / Git Entegrasyonu
+    SCM_CREATE_BRANCH,
+
     // Admin
     ADMIN_FULL_ACCESS
 }

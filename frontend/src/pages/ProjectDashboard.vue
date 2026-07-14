@@ -65,6 +65,11 @@
             <h3 class="font-medium text-gray-900 dark:text-white mb-2">Açıklama</h3>
             <p class="text-gray-600 dark:text-gray-400 text-sm">{{ project.description }}</p>
           </div>
+
+          <!-- Git / SCM: Bağlı Repolar -->
+          <div v-if="project.organizationId" class="mt-4">
+            <ScmRepoMappingPanel :project-id="project.id" :organization-id="project.organizationId" />
+          </div>
         </div>
 
         <!-- Üyeler -->
@@ -105,6 +110,7 @@ import { ref, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
 import ProjectSettings from '../components/project/ProjectSettings.vue'
 import ProjectMemberManager from '../components/project/ProjectMemberManager.vue'
+import ScmRepoMappingPanel from '../components/scm/ScmRepoMappingPanel.vue'
 import RoleManager from '../components/roles/RoleManager.vue'
 import PermissionMatrix from '../components/roles/PermissionMatrix.vue'
 import ProjectApi from '../api/ProjectApi.js'

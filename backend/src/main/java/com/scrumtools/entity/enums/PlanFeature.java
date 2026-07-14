@@ -13,5 +13,6 @@ public enum PlanFeature {
     DOCS,
     DASHBOARD_REPORTS,
     ATTACHMENTS,
-    CUSTOM_ROLES
+    CUSTOM_ROLES,
+    GIT_INTEGRATION
 }

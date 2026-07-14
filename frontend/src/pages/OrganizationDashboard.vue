@@ -171,6 +171,14 @@
             </p>
           </div>
 
+          <!-- Entegrasyonlar (Git/SCM) -->
+          <div v-if="activeTab === 'integrations' && currentOrg">
+            <ScmConnectionsTab v-if="isOrgAdmin" :org-id="currentOrg.id" />
+            <p v-else class="text-center py-12 text-gray-400">
+              Git entegrasyonlarını sadece organizasyon sahibi ve adminleri yönetebilir.
+            </p>
+          </div>
+
           <!-- Ayarlar -->
           <div v-if="activeTab === 'settings' && currentOrg">
             <OrgSettings :org="currentOrg" @updated="currentOrg = $event" />
@@ -378,6 +386,7 @@ import OrgSwitcher from '../components/organization/OrgSwitcher.vue'
 import OrgSettings from '../components/organization/OrgSettings.vue'
 import OrgMemberList from '../components/organization/OrgMemberList.vue'
 import BillingTab from '../components/billing/BillingTab.vue'
+import ScmConnectionsTab from '../components/scm/ScmConnectionsTab.vue'
 import ProjectList from '../components/project/ProjectList.vue'
 import PendingInvitations from '../components/invitation/PendingInvitations.vue'
 import InviteModal from '../components/invitation/InviteModal.vue'
@@ -397,6 +406,7 @@ const tabs = [
   { id: 'members',     label: 'Üyeler',    icon: '<svg fill="currentColor" viewBox="0 0 20 20"><path d="M13 6a3 3 0 11-6 0 3 3 0 016 0zM18 8a2 2 0 11-4 0 2 2 0 014 0zM14 15a4 4 0 00-8 0v3h8v-3z"/></svg>' },
   { id: 'invitations', label: 'Davetler',  icon: '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>' },
   { id: 'billing',     label: 'Abonelik',  icon: '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"/></svg>' },
+  { id: 'integrations', label: 'Entegrasyonlar', icon: '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"/></svg>' },
   { id: 'settings',    label: 'Ayarlar',   icon: '<svg fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M11.49 3.17c-.38-1.56-2.6-1.56-2.98 0a1.532 1.532 0 01-2.286.948c-1.372-.836-2.942.734-2.106 2.106.54.886.061 2.042-.947 2.287-1.561.379-1.561 2.6 0 2.978a1.532 1.532 0 01.947 2.287c-.836 1.372.734 2.942 2.106 2.106a1.532 1.532 0 012.287.947c.379 1.561 2.6 1.561 2.978 0a1.533 1.533 0 012.287-.947c1.372.836 2.942-.734 2.106-2.106a1.533 1.533 0 01.947-2.287c1.561-.379 1.561-2.6 0-2.978a1.532 1.532 0 01-.947-2.287c.836-1.372-.734-2.942-2.106-2.106a1.532 1.532 0 01-2.287-.947zM10 13a3 3 0 100-6 3 3 0 000 6z" clip-rule="evenodd"/></svg>' },
 ]
 

@@ -96,7 +96,8 @@ public class RoleService {
                             Permission.BOARD_CREATE, Permission.BOARD_EDIT, Permission.BOARD_DELETE,
                             Permission.COMMENT_CREATE, Permission.COMMENT_EDIT_ALL, Permission.COMMENT_DELETE_ALL,
                             Permission.ATTACHMENT_UPLOAD, Permission.ATTACHMENT_DELETE_ALL,
-                            Permission.REPORT_VIEW, Permission.REPORT_EXPORT, Permission.WORKFLOW_MANAGE));
+                            Permission.REPORT_VIEW, Permission.REPORT_EXPORT, Permission.WORKFLOW_MANAGE,
+                            Permission.SCM_CREATE_BRANCH));
             createDefaultRole("Scrum Master", RoleScope.PROJECT,
                     EnumSet.of(Permission.SPRINT_CREATE, Permission.SPRINT_START, Permission.SPRINT_COMPLETE,
                             Permission.SPRINT_EDIT, Permission.BOARD_CREATE, Permission.BOARD_EDIT,
@@ -115,7 +116,7 @@ public class RoleService {
                             Permission.ISSUE_MANAGE_SUBTASKS,
                             Permission.COMMENT_CREATE, Permission.COMMENT_EDIT_OWN, Permission.COMMENT_DELETE_OWN,
                             Permission.ATTACHMENT_UPLOAD, Permission.ATTACHMENT_DELETE_OWN,
-                            Permission.REPORT_VIEW));
+                            Permission.REPORT_VIEW, Permission.SCM_CREATE_BRANCH));
             createDefaultRole("QA / Tester", RoleScope.PROJECT,
                     EnumSet.of(Permission.ISSUE_CREATE, Permission.ISSUE_EDIT_OWN, Permission.ISSUE_CHANGE_STATUS,
                             Permission.COMMENT_CREATE, Permission.COMMENT_EDIT_OWN, Permission.COMMENT_DELETE_OWN,

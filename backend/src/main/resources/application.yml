@@ -46,6 +46,17 @@ iyzico:
   # Sandbox: https://sandbox-api.iyzipay.com | Prod: https://api.iyzipay.com
   base-url: ${IYZICO_BASE_URL:https://sandbox-api.iyzipay.com}
 
+# ─── SCM / Git Entegrasyonu ──────────────────────────────────────────────────
+scm:
+  # AES-256 anahtarı (base64, 32 byte). Boşsa Git entegrasyonu kapalı kabul edilir.
+  # Üretmek için: openssl rand -base64 32
+  crypto-key: ${SCM_CRYPTO_KEY:}
+  # Self-hosted SCM'ler iç ağdaysa true yapın (SSRF korumasını gevşetir)
+  allow-private-hosts: ${SCM_ALLOW_PRIVATE_HOSTS:false}
+  # Webhook callback'lerinde kullanılacak public adres (prod: https://scrumtools.kocak.net.tr)
+  # Boşsa webhook kaydı atlanır (webhookStatus=NONE), poller telafi eder.
+  webhook-base-url: ${SCM_WEBHOOK_BASE_URL:}
+
 # ─── MinIO (S3-compatible object storage) ────────────────────────────────────
 minio:
   endpoint: ${MINIO_ENDPOINT:http://localhost:9000}

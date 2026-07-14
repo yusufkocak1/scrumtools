@@ -126,7 +126,8 @@ public class PlanService {
                 25, 10,
                 EnumSet.of(PlanFeature.SCRUM_POKER, PlanFeature.RETRO, PlanFeature.WORK_BOARD,
                         PlanFeature.CODE_SHARE, PlanFeature.QUIZ, PlanFeature.DOCS,
-                        PlanFeature.DASHBOARD_REPORTS, PlanFeature.ATTACHMENTS),
+                        PlanFeature.DASHBOARD_REPORTS, PlanFeature.ATTACHMENTS,
+                        PlanFeature.GIT_INTEGRATION),
                 new BigDecimal("499.00"), new BigDecimal("4990.00"),
                 null, false, 1);
 
