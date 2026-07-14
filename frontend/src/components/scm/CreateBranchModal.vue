@@ -27,17 +27,24 @@
         <!-- Kaynak branch -->
         <div>
           <label class="label">Kaynak Branch</label>
+          <select
+            v-if="remoteBranches.length"
+            v-model="form.sourceRef"
+            required
+            class="input-field font-mono"
+          >
+            <option v-for="b in remoteBranches" :key="b.name" :value="b.name">
+              {{ b.name }}
+            </option>
+          </select>
           <input
+            v-else
             v-model="form.sourceRef"
             type="text"
             required
             class="input-field font-mono"
-            list="source-branches"
             placeholder="main"
           />
-          <datalist id="source-branches">
-            <option v-for="b in remoteBranches" :key="b.name" :value="b.name" />
-          </datalist>
         </div>
 
         <!-- Branch adı -->
@@ -131,8 +138,14 @@ async function loadRemoteBranches() {
   if (!props.projectId || !form.value.repositoryId) return
   try {
     remoteBranches.value = await getRepoBranches(props.projectId, form.value.repositoryId)
+    const names = remoteBranches.value.map(b => b.name)
+    if (names.length && !names.includes(form.value.sourceRef)) {
+      form.value.sourceRef = names.includes(selectedRepo.value?.defaultBranch)
+        ? selectedRepo.value.defaultBranch
+        : names[0]
+    }
   } catch {
-    // canlı liste çekilemezse datalist boş kalır; ad elle yazılabilir
+    // canlı liste çekilemezse select yerine input gösterilir; ad elle yazılabilir
   }
 }
 
