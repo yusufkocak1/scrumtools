@@ -43,9 +43,9 @@
         <path d="M14 34 q3 2.5 6 0" fill="none" stroke="#fff" stroke-linecap="round" stroke-width="1.4"/>
         <!-- Güneş gözlüğü (Pala modu) -->
         <g v-if="wearingSunglasses" class="bee-shades">
-          <path d="M22.5 25.5 L29 23" fill="none" stroke="#101010" stroke-linecap="round" stroke-width="2"/>
-          <ellipse cx="16" cy="27.5" fill="#101010" rx="6.4" ry="5.2" stroke="#000" stroke-width="1"/>
-          <path d="M12 25.5 q2.5 -1.2 5 0" fill="none" opacity="0.7" stroke="#6b6b6b" stroke-linecap="round" stroke-width="1.2"/>
+          <path d="M24 25.5 L31 22.5" fill="none" stroke="#101010" stroke-linecap="round" stroke-width="2.4"/>
+          <ellipse cx="16" cy="27.5" fill="#101010" rx="8.6" ry="7" stroke="#000" stroke-width="1.2"/>
+          <path d="M10.5 25 q3.5 -1.8 7 0" fill="none" opacity="0.7" stroke="#6b6b6b" stroke-linecap="round" stroke-width="1.5"/>
         </g>
         <!-- Ön kanat -->
         <ellipse class="wing wing-front" cx="32" cy="12" fill="#e3f3ff" opacity="0.95" rx="10" ry="14" stroke="#8fc7f2" stroke-width="1"/>
