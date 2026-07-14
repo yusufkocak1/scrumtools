@@ -190,7 +190,7 @@
           <TaskLinkList v-if="teamId && task?.id" :teamId="teamId" :taskId="task.id" :links="taskLinks" @update="refreshLinks" @open="openLinkedTask" />
 
           <!-- Geliştirme (Git) Paneli -->
-          <DevPanel v-if="teamId && task?.id" :teamId="teamId" :taskId="task.id" :taskKey="task.customId" />
+          <DevPanel v-if="teamId && task?.id" :teamId="teamId" :taskId="task.id" :taskKey="task.customId" :taskTitle="task.title" />
 
           <!-- Task History -->
           <TaskHistory v-if="teamId && task?.id" :teamId="teamId" :taskId="task.id" />

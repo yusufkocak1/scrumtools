@@ -126,6 +126,9 @@
           </form>
         </div>
 
+        <!-- Git Hesapları (kişisel PAT) -->
+        <UserScmAccountsCard />
+
         <!-- Bekleyen Davetler -->
         <div class="bg-white rounded-xl shadow border border-gray-200">
           <div class="px-6 py-4 border-b border-gray-100">
@@ -146,6 +149,7 @@
 import { ref, onMounted } from 'vue'
 import UserApi from '../api/UserApi.js'
 import PendingInvitations from '../components/invitation/PendingInvitations.vue'
+import UserScmAccountsCard from '../components/scm/UserScmAccountsCard.vue'
 
 const profile = ref(null)
 const loading = ref(false)

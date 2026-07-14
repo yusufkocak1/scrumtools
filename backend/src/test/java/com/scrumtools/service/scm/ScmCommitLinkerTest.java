@@ -64,5 +64,24 @@ class ScmCommitLinkerTest {
                 ScmCommitLinker.extractTaskKeys("feature/SCRM-123-login-sayfasi-hatasi"));
         assertEquals(Set.of("PAY-1"),
                 ScmCommitLinker.extractTaskKeys("bugfix/PAY-1-hotfix"));
+        // Sonunda ayraç olmadan biten branch adı (feature/DEV-19)
+        assertEquals(Set.of("DEV-19"), ScmCommitLinker.extractTaskKeys("feature/DEV-19"));
+    }
+
+    @Test
+    void keyMatchedAnywhereInText() {
+        // Anahtar metnin başında olmak zorunda değil; parantez/ köşeli parantez sarabilir
+        assertEquals(Set.of("DEV-19"), ScmCommitLinker.extractTaskKeys("(DEV-19) SCM env eklendi"));
+        assertEquals(Set.of("DEV-19"), ScmCommitLinker.extractTaskKeys("fix: DEV-19 hata giderildi"));
+        assertEquals(Set.of("DEV-19"),
+                ScmCommitLinker.extractTaskKeys("merge branch feature/DEV-19 into master"));
+    }
+
+    @Test
+    void commitMessagePlusBranchNameCombined() {
+        // Webhook, mesaj + branch adını birlikte tarar — mesajda anahtar olmasa da
+        // branch adındaki anahtar commit'i task'a bağlar
+        assertEquals(Set.of("DEV-19"),
+                ScmCommitLinker.extractTaskKeys("refactor: null check eklendi\nfeature/DEV-19"));
     }
 }

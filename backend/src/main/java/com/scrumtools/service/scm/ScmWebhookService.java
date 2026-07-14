@@ -2,11 +2,14 @@ package com.scrumtools.service.scm;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.scrumtools.entity.ScmBranch;
 import com.scrumtools.entity.ScmCommit;
 import com.scrumtools.entity.ScmConnection;
 import com.scrumtools.entity.ScmRepository;
 import com.scrumtools.entity.Task;
+import com.scrumtools.entity.enums.ScmBranchStatus;
 import com.scrumtools.entity.enums.ScmProvider;
+import com.scrumtools.repository.ScmBranchRepository;
 import com.scrumtools.repository.ScmCommitRepository;
 import com.scrumtools.repository.ScmConnectionRepository;
 import com.scrumtools.repository.ScmRepositoryRepository;
@@ -46,6 +49,7 @@ public class ScmWebhookService {
     private final ScmConnectionRepository connectionRepository;
     private final ScmRepositoryRepository scmRepositoryRepository;
     private final ScmCommitRepository scmCommitRepository;
+    private final ScmBranchRepository scmBranchRepository;
     private final ScmCommitLinker commitLinker;
     private final AuditService auditService;
     private final ObjectMapper objectMapper = new ObjectMapper();
@@ -90,9 +94,16 @@ public class ScmWebhookService {
         }
         ScmRepository repo = repoOpt.get();
 
-        String branchName = branchFromRef(str(payload.get("ref")));
+        String ref = str(payload.get("ref"));
+        String branchName = branchFromRef(ref);
         List<Map<String, Object>> commits = asList(payload.get("commits"));
         boolean suspended = repo.getConnection().getOrganization().isSuspendedOrg();
+
+        // Branch keşfi: adında task anahtarı geçen branch'ler push'ta task'a bağlanır
+        if (ref != null && ref.startsWith("refs/heads/")) {
+            processBranch(repo, branchName, str(payload.get("after")),
+                    isBranchDeleted(payload), pusherIdentity(payload), suspended);
+        }
 
         int linked = 0;
         for (Map<String, Object> commit : commits.stream().limit(MAX_COMMITS_PER_PUSH).toList()) {
@@ -107,6 +118,53 @@ public class ScmWebhookService {
         }
     }
 
+    /**
+     * Push edilen branch'i işler: adında task anahtarı geçiyorsa ilgili task'lara
+     * bağlanır (upsert). Silinen branch DELETED işaretlenir, yeniden push'lanan
+     * tekrar ACTIVE olur — kayıt silinmez, görünürlük kaybolmaz.
+     */
+    private void processBranch(ScmRepository repo, String branchName, String afterSha,
+                               boolean deleted, String pusher, boolean suspendedOrg) {
+        List<Task> tasks = commitLinker.resolveTasks(repo, branchName);
+        if (tasks.isEmpty()) return;
+
+        for (Task task : tasks) {
+            ScmBranch branch = scmBranchRepository
+                    .findByRepositoryIdAndTaskIdAndName(repo.getId(), task.getId(), branchName)
+                    .orElse(null);
+
+            if (deleted) {
+                if (branch != null && branch.getStatus() != ScmBranchStatus.DELETED) {
+                    branch.setStatus(ScmBranchStatus.DELETED);
+                    scmBranchRepository.save(branch);
+                }
+                continue;
+            }
+
+            if (branch == null) {
+                branch = ScmBranch.builder()
+                        .repository(repo)
+                        .task(task)
+                        .name(branchName)
+                        .webUrl(branchWebUrl(repo, branchName))
+                        .createdViaApp(false)
+                        .status(ScmBranchStatus.ACTIVE)
+                        .lastCommitSha(afterSha)
+                        .build();
+                scmBranchRepository.save(branch);
+                if (!suspendedOrg) {
+                    auditService.recordChange(task, "branch", null, branchName, pusher);
+                }
+                log.info("SCM webhook: branch keşfedildi ve bağlandı: {} → {}",
+                        branchName, task.getCustomId());
+            } else {
+                branch.setStatus(ScmBranchStatus.ACTIVE);
+                if (afterSha != null) branch.setLastCommitSha(afterSha);
+                scmBranchRepository.save(branch);
+            }
+        }
+    }
+
     /** Tek commit'i işler; bir task'a bağlandıysa true döner. */
     private boolean processCommit(ScmRepository repo, Map<String, Object> commit,
                                   String branchName, boolean suspendedOrg) {
@@ -115,7 +173,10 @@ public class ScmWebhookService {
         if (sha == null || message == null) return false;
         if (scmCommitRepository.existsByRepositoryIdAndSha(repo.getId(), sha)) return false; // idempotent
 
-        List<Task> tasks = commitLinker.resolveTasks(repo, message);
+        // Anahtar commit mesajında YA DA branch adında geçebilir (feature/DEV-19'a
+        // atılan commit'ler mesajda anahtar olmasa da task'a bağlanır)
+        List<Task> tasks = commitLinker.resolveTasks(repo,
+                branchName == null ? message : message + "\n" + branchName);
         if (tasks.isEmpty()) return false; // eşleşmeyen commit kaydedilmez (tablo şişmesi önlenir)
 
         Map<String, Object> author = asMap(commit.get("author"));
@@ -224,6 +285,36 @@ public class ScmWebhookService {
     private String branchFromRef(String ref) {
         if (ref == null) return null;
         return ref.startsWith("refs/heads/") ? ref.substring("refs/heads/".length()) : ref;
+    }
+
+    /** GitHub/Gitea: deleted=true; GitLab: after tamamı sıfır SHA. */
+    private boolean isBranchDeleted(Map<String, Object> payload) {
+        if (Boolean.TRUE.equals(payload.get("deleted"))) return true;
+        String after = str(payload.get("after"));
+        return after != null && !after.isEmpty() && after.chars().allMatch(c -> c == '0');
+    }
+
+    /** Push'u yapan kişi (audit için) — sağlayıcıya göre farklı alanlarda gelir. */
+    private String pusherIdentity(Map<String, Object> payload) {
+        Map<String, Object> pusher = asMap(payload.get("pusher"));
+        String identity = str(pusher.get("email"));                       // GitHub/Gitea
+        if (identity == null) identity = str(pusher.get("name"));         // GitHub
+        if (identity == null) identity = str(pusher.get("login"));        // Gitea
+        if (identity == null) identity = str(payload.get("user_email"));  // GitLab
+        if (identity == null) identity = str(payload.get("user_username"));
+        return identity;
+    }
+
+    /** Sağlayıcıya göre branch web adresi (webhook'ta hazır gelmez, türetilir). */
+    private String branchWebUrl(ScmRepository repo, String branchName) {
+        if (repo.getWebUrl() == null) return null;
+        String path = switch (repo.getConnection().getProvider()) {
+            case GITLAB -> "/-/tree/";
+            case GITEA -> "/src/branch/";
+            case BITBUCKET -> "/branch/";
+            case GITHUB -> "/tree/";
+        };
+        return repo.getWebUrl() + path + branchName;
     }
 
     private String shortMessage(String message) {

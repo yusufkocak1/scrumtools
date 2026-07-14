@@ -14,6 +14,16 @@
           </svg>
           Geliştirme
         </h3>
+        <button
+          v-if="canCreateBranch"
+          @click="showCreateBranch = true"
+          class="text-xs font-medium text-indigo-600 hover:text-indigo-800 border border-indigo-200 hover:border-indigo-300 rounded-lg px-2.5 py-1 transition-colors flex items-center gap-1"
+        >
+          <svg class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 16 16">
+            <path d="M9.5 3.25a2.25 2.25 0 113 2.122V6A2.5 2.5 0 0110 8.5H6a1 1 0 00-1 1v1.128a2.251 2.251 0 11-1.5 0V5.372a2.25 2.25 0 111.5 0v1.836A2.492 2.492 0 016 7h4a1 1 0 001-1v-.628A2.25 2.25 0 019.5 3.25z"/>
+          </svg>
+          Branch Aç
+        </button>
       </div>
 
       <div v-if="loading" class="flex justify-center py-4">
@@ -117,25 +127,43 @@
         </template>
       </template>
     </div>
+
+    <CreateBranchModal
+      v-if="showCreateBranch && data"
+      :teamId="teamId"
+      :taskId="taskId"
+      :projectId="data.projectId"
+      :taskKey="taskKey"
+      :taskTitle="taskTitle"
+      :repos="data.repos"
+      :hasUserAccount="data.hasUserAccount"
+      @close="showCreateBranch = false"
+      @created="onBranchCreated"
+    />
   </div>
 </template>
 
 <script>
 import { getTaskScm } from '../../api/ScmApi.js'
+import CreateBranchModal from './CreateBranchModal.vue'
 
 export default {
   name: 'DevPanel',
+  components: { CreateBranchModal },
   props: {
     teamId: { type: String, required: true },
     taskId: { type: String, required: true },
     // Boş durum ipuçlarında gösterilecek task anahtarı (örn. SCRM-12)
     taskKey: { type: String, default: null },
+    // Branch adı önerisi için task başlığı
+    taskTitle: { type: String, default: '' },
   },
   data() {
     return {
       data: null,
       loading: true,
       commitLimit: 5,
+      showCreateBranch: false,
     }
   },
   computed: {
@@ -158,6 +186,10 @@ export default {
     taskKeyHint() {
       return this.taskKey || 'task anahtarını (örn. SCRM-12)'
     },
+    canCreateBranch() {
+      return !!this.data && this.data.featureEnabled && this.data.canCreateBranch
+        && this.data.repos.length > 0
+    },
   },
   watch: {
     taskId() { this.load() },
@@ -176,6 +208,10 @@ export default {
       } finally {
         this.loading = false
       }
+    },
+    onBranchCreated() {
+      this.showCreateBranch = false
+      this.load()
     },
     branchStatusLabel(status) {
       return { ACTIVE: 'Aktif', MERGED: 'Merged', DELETED: 'Silindi' }[status] || status

@@ -77,6 +77,23 @@ export const getRepoBranches = async (projectId, repoId, search = '') => {
     return data
 }
 
+// ─── Kişisel SCM hesapları ────────────────────────────────────────────────────
+
+export const getMyScmAccounts = async () => {
+    const { data } = await apiClient.get('/api/users/me/scm-accounts')
+    return data
+}
+
+/** Kişisel PAT bağlar: { provider, baseUrl, token }. Aynı provider+baseUrl varsa günceller. */
+export const connectMyScmAccount = async (account) => {
+    const { data } = await apiClient.post('/api/users/me/scm-accounts', account)
+    return data
+}
+
+export const deleteMyScmAccount = async (accountId) => {
+    await apiClient.delete(`/api/users/me/scm-accounts/${accountId}`)
+}
+
 // ─── Task dev paneli ──────────────────────────────────────────────────────────
 
 /**
@@ -86,5 +103,11 @@ export const getRepoBranches = async (projectId, repoId, search = '') => {
  */
 export const getTaskScm = async (teamId, taskId) => {
     const { data } = await apiClient.get(`/api/teams/${teamId}/tasks/${taskId}/scm`)
+    return data
+}
+
+/** Task'tan branch açar: { repositoryId, branchName, sourceRef } */
+export const createTaskBranch = async (teamId, taskId, payload) => {
+    const { data } = await apiClient.post(`/api/teams/${teamId}/tasks/${taskId}/scm/branches`, payload)
     return data
 }
