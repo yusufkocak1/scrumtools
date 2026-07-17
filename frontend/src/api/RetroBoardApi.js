@@ -37,6 +37,17 @@ export const renameBoard = async (teamId, boardId, retroBoardName) => {
     return data
 }
 
+/**
+ * Board adını ve kolon yapısını günceller.
+ * @param {Object} payload { retroBoardName, columns, columnRenames }
+ *   columns: yeni sıralı kolon listesi; columnRenames: { eskiAd: yeniAd }
+ * Silinen kolonların item'ları backend'de kalıcı olarak silinir.
+ */
+export const updateBoard = async (teamId, boardId, payload) => {
+    const { data } = await apiClient.put(base(teamId, boardId), payload)
+    return data
+}
+
 export const deleteBoard = async (teamId, boardId) => {
     await apiClient.delete(base(teamId, boardId))
 }

@@ -16,21 +16,20 @@
         <div v-if="isLoading" class="fixed inset-0 bg-white bg-opacity-75 flex items-center justify-center z-[10000]">
           <div class="animate-spin rounded-full h-32 w-32 border-b-2 border-gray-900"></div>
         </div>
-        <div v-else class="bg-white rounded-2xl shadow-sm border border-gray-200 w-full">
-          <div class="flex flex-wrap gap-4 justify-center p-4">
-            <RetroColumn
-                v-for="(column, index) in board?.columns"
-                :key="index"
-                :board-id="boardId"
-                :column="column"
-                :is-admin="isAdmin"
-                :members="team?.members"
-                :team-id="teamId"
-                :items="itemsByColumn[column] || []"
-                @addItem="addItem"
-                @openDetail="openDetail"
-            />
-          </div>
+        <div v-else :class="['grid grid-cols-1 gap-4 sm:gap-5 items-start w-full', gridColsClass]">
+          <RetroColumn
+              v-for="(column, index) in board?.columns"
+              :key="column"
+              :accent-index="index"
+              :board-id="boardId"
+              :column="column"
+              :is-admin="isAdmin"
+              :members="team?.members"
+              :team-id="teamId"
+              :items="itemsByColumn[column] || []"
+              @addItem="addItem"
+              @openDetail="openDetail"
+          />
         </div>
       </div>
 
@@ -48,6 +47,19 @@
             @close="showItemDetail = false"
         />
       </div>
+
+      <!-- Board Settings Modal: mobilde bottom-sheet, masaüstünde ortalanmış modal -->
+      <div v-if="showSettings"
+           class="fixed inset-0 z-[999] flex items-end sm:items-center justify-center bg-black bg-opacity-60 backdrop-blur-sm p-0 sm:p-4 transition-opacity duration-300"
+           @click.self="showSettings = false">
+        <RetroBoardSettings
+            :board="board"
+            :board-id="boardId"
+            :team-id="teamId"
+            @close="showSettings = false"
+            @saved="handleSettingsSaved"
+        />
+      </div>
     </div>
   </div>
 </template>
@@ -61,12 +73,13 @@ import RetroColumn from "../components/retro/RetroColumn.vue";
 import RetroItem from "../components/retro/RetroItem.vue";
 import RetroItemDetail from "../components/retro/RetroItemDetail.vue";
 import RetroBoardHeader from "../components/retro/RetroBoardHeader.vue";
+import RetroBoardSettings from "../components/retro/RetroBoardSettings.vue";
 import SideBar from "../components/SideBar.vue";
 import { createToast } from "mosha-vue-toastify";
 
 export default {
   name: "RetroBoard",
-  components: { SideBar, RetroBoardHeader, RetroItemDetail, RetroItem, RetroColumn },
+  components: { SideBar, RetroBoardHeader, RetroBoardSettings, RetroItemDetail, RetroItem, RetroColumn },
   props: {
     boardId: { type: String, required: true },
     teamId: { type: String, required: true }
@@ -77,6 +90,7 @@ export default {
       team: null,
       anonymousMode: false,
       showItemDetail: false,
+      showSettings: false,
       selectedItem: null,
       allRetroItems: [],
       debounceTimer: null,
@@ -171,6 +185,25 @@ export default {
 
       // Sync motoru: flush geldiğinde etkilenen kolonları yenile
       this.syncEngine = createBoardSync(this.teamId, this.boardId, async (columns, events) => {
+        // Board yapısı değiştiyse (isim/kolonlar) önce board'u tazele
+        if (events.some(e => e.event === 'BOARD_UPDATED')) {
+          try {
+            const fresh = await getBoard(this.teamId, this.boardId);
+            if (fresh) {
+              this.board = fresh;
+              // Silinen/yeniden adlandırılan kolonların eski anahtarlarını temizle
+              const valid = new Set(fresh.columns || []);
+              const pruned = {};
+              Object.keys(this.itemsByColumn).forEach(k => {
+                if (valid.has(k)) pruned[k] = this.itemsByColumn[k];
+              });
+              this.itemsByColumn = pruned;
+            }
+          } catch (e) {
+            console.warn('Board yenilenemedi', e);
+          }
+        }
+
         // Hangi kolonlar etkilendi?
         const allColumns = this.board?.columns || [];
         const toRefresh = columns.has('__ALL__') ? allColumns : [...columns].filter(c => allColumns.includes(c));
@@ -382,12 +415,32 @@ export default {
     },
 
     handleOpenSettings() {
-      createToast("Settings feature is coming soon!", { type: "info", position: "top-center" });
+      this.showSettings = true;
+    },
+
+    /**
+     * Settings modalı kaydedildiğinde: board'u güncelle,
+     * kolon yapısı değişmiş olabileceği için tüm item'ları baştan yükle.
+     */
+    handleSettingsSaved(updatedBoard) {
+      this.showSettings = false;
+      if (!updatedBoard) return;
+      this.board = updatedBoard;
+      this.itemsByColumn = {};
+      this.loadAllColumnItems(updatedBoard.columns || []);
     }
   },
   computed: {
     columns() {
       return this.board?.columns;
+    },
+    /** Kolon sayısına göre responsive grid düzeni */
+    gridColsClass() {
+      const n = this.board?.columns?.length || 0;
+      if (n <= 1) return 'sm:grid-cols-1';
+      if (n === 2) return 'sm:grid-cols-2';
+      if (n === 3) return 'sm:grid-cols-2 xl:grid-cols-3';
+      return 'sm:grid-cols-2 xl:grid-cols-4';
     },
     isAdmin() {
       return this.team?.adminEmail === localStorage.getItem("user");

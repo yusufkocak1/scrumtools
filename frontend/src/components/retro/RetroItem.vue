@@ -1,5 +1,5 @@
 <template>
-  <div :class="['bg-white border border-gray-200 rounded-2xl p-4 shadow-sm hover:shadow-lg transition-all duration-200 hover:border-blue-200 mb-3', getBorderColorByStatus]">
+  <div :class="['bg-white border border-gray-200 rounded-xl p-3.5 shadow-sm hover:shadow-md transition-all duration-200 hover:border-blue-200', getBorderColorByStatus]">
     <!-- Header with Avatar and User Info -->
     <div class="flex items-start gap-3">
       <!-- Avatar -->

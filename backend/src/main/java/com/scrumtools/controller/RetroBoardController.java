@@ -39,11 +39,11 @@ public class RetroBoardController {
     }
 
     @PutMapping("/{boardId}")
-    public ResponseEntity<RetroBoardResponse> renameBoard(
+    public ResponseEntity<RetroBoardResponse> updateBoard(
             @PathVariable UUID teamId,
             @PathVariable UUID boardId,
-            @RequestBody Map<String, String> body) {
-        return ResponseEntity.ok(retroBoardService.renameBoard(teamId, boardId, body.get("retroBoardName")));
+            @RequestBody UpdateRetroBoardRequest req) {
+        return ResponseEntity.ok(retroBoardService.updateBoard(teamId, boardId, req));
     }
 
     @DeleteMapping("/{boardId}")

@@ -55,11 +55,58 @@ public class RetroBoardService {
         return RetroBoardResponse.from(boardRepository.save(board));
     }
 
+    /**
+     * Board adını ve kolon yapısını günceller.
+     *  - columnRenames: eski ad → yeni ad; item'ların columnName alanı taşınır.
+     *  - columns listesinde olmayan kolonların item'ları silinir.
+     * Sonunda BOARD_UPDATED WS eventi yayınlanır (columnName boş → istemci tüm kolonları yeniler).
+     */
     @Transactional
-    public RetroBoardResponse renameBoard(UUID teamId, UUID boardId, String newName) {
+    public RetroBoardResponse updateBoard(UUID teamId, UUID boardId, UpdateRetroBoardRequest req) {
         RetroBoard board = findBoard(boardId, teamId);
-        board.setRetroBoardName(newName);
-        return RetroBoardResponse.from(boardRepository.save(board));
+
+        if (req.getRetroBoardName() != null && !req.getRetroBoardName().isBlank()) {
+            board.setRetroBoardName(req.getRetroBoardName().trim());
+        }
+
+        if (req.getColumns() != null) {
+            List<String> newColumns = req.getColumns().stream()
+                    .filter(c -> c != null && !c.isBlank())
+                    .map(String::trim)
+                    .distinct()
+                    .collect(Collectors.toList());
+            if (newColumns.isEmpty()) {
+                throw new RuntimeException("Board must have at least one column");
+            }
+
+            List<RetroItem> items = itemRepository.findByRetroBoardId(boardId);
+
+            // 1) Yeniden adlandırma: item'ları yeni kolon adına taşı
+            Map<String, String> renames = req.getColumnRenames() != null ? req.getColumnRenames() : Map.of();
+            for (RetroItem item : items) {
+                String renamed = renames.get(item.getColumnName());
+                if (renamed != null && !renamed.isBlank()) {
+                    item.setColumnName(renamed.trim());
+                }
+            }
+
+            // 2) Silinen kolonların item'larını kaldır, kalanları kaydet
+            List<RetroItem> orphaned = items.stream()
+                    .filter(i -> !newColumns.contains(i.getColumnName()))
+                    .collect(Collectors.toList());
+            if (!orphaned.isEmpty()) {
+                board.getItems().removeAll(orphaned);
+                itemRepository.deleteAll(orphaned);
+            }
+            items.removeAll(orphaned);
+            itemRepository.saveAll(items);
+
+            board.setColumns(newColumns);
+        }
+
+        RetroBoardResponse response = RetroBoardResponse.from(boardRepository.save(board));
+        notify(teamId, boardId, "BOARD_UPDATED", null, null);
+        return response;
     }
 
     @Transactional
