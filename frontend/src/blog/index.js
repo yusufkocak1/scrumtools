@@ -11,6 +11,7 @@ import backlogOrganizasyonu from './posts/urun-is-listesi-nasil-organize-edilmel
 import takimBolunmesi from './posts/buyuyen-scrum-takimi-nasil-bolunur.js'
 import isParcalama from './posts/buyuk-isler-nasil-parcalanir.js'
 import analizGelistirmeTest from './posts/analiz-gelistirme-test-ayni-sprintte-mi.js'
+import kabulVeRelease from './posts/cevik-olmayan-musteri-kabul-testi-release-yonetimi.js'
 
 // Yeniden eskiye sıralı liste
 export const posts = [
@@ -24,6 +25,7 @@ export const posts = [
     takimBolunmesi,
     isParcalama,
     analizGelistirmeTest,
+    kabulVeRelease,
 ].sort((a, b) => b.date.localeCompare(a.date))
 
 export function getPost(slug) {
