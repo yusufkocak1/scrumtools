@@ -357,14 +357,14 @@ function onClickOutside(e) {
 onMounted(() => document.addEventListener('click', onClickOutside))
 onBeforeUnmount(() => document.removeEventListener('click', onClickOutside))
 
-// Watch for route changes
-watch(routeProjectId, async (newId) => {
-  if (newId && newId !== selectedProject.value?.id) {
-    const found = allProjects.value.find(p => p.id === newId)
-    if (found) selectedProject.value = found
-    localStorage.setItem('docs_last_project_id', newId)
-    await loadSpaces()
-  }
+// Watch for route changes — space yüklemesinin tek noktası burası:
+// selectProject route'u değiştirir, spaces bu watcher üzerinden yüklenir
+watch(routeProjectId, async (newId, oldId) => {
+  if (!newId || newId === oldId) return
+  const found = allProjects.value.find(p => p.id === newId)
+  if (found) selectedProject.value = found
+  localStorage.setItem('docs_last_project_id', newId)
+  await loadSpaces()
 })
 
 async function loadAllProjects() {
@@ -390,21 +390,31 @@ function selectProject(proj) {
   showProjectDropdown.value = false
   projectSearch.value = ''
   localStorage.setItem('docs_last_project_id', proj.id)
-  // URL'yi güncelle
-  router.replace({name: 'Docs', params: {projectId: proj.id}})
-  loadSpaces()
+  // URL'yi güncelle — spaces, routeProjectId watcher'ı üzerinden yüklenir.
+  // Route zaten bu projedeyse (ör. sayfa /docs iken localStorage seçimi) watcher
+  // tetiklenmeyeceği için loadSpaces'i doğrudan çağırıyoruz.
+  if (routeProjectId.value === proj.id) {
+    loadSpaces()
+  } else {
+    router.replace({name: 'Docs', params: {projectId: proj.id}})
+  }
 }
+
+// Hızlı proje geçişlerinde geç gelen eski yanıtın güncel listeyi ezmemesi için istek sayacı
+let spacesRequestSeq = 0
 
 async function loadSpaces() {
   if (!effectiveProjectId.value) return
+  const reqId = ++spacesRequestSeq
   loading.value = true
   try {
     const res = await DocApi.getSpaces(effectiveProjectId.value)
+    if (reqId !== spacesRequestSeq) return
     spaces.value = res.data
   } catch (e) {
     console.error('Spaces yüklenemedi:', e)
   } finally {
-    loading.value = false
+    if (reqId === spacesRequestSeq) loading.value = false
   }
 }
 

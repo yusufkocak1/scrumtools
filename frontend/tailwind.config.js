@@ -1,4 +1,5 @@
 import withMT from "@material-tailwind/html/utils/withMT";
+import twColors from "tailwindcss/colors";
 
 module.exports = withMT({
     darkMode: 'class',
@@ -13,7 +14,17 @@ module.exports = withMT({
             xl: '1280px',
             '2xl': '1536px',
         },
-        extend: {},
+        extend: {
+            // withMT varsayılan Tailwind paletini Material paletiyle değiştiriyor;
+            // tasarımda kullanılan ama Material palette olmayan renkleri geri ekliyoruz
+            colors: {
+                emerald: twColors.emerald,
+                rose: twColors.rose,
+                sky: twColors.sky,
+                violet: twColors.violet,
+                fuchsia: twColors.fuchsia,
+            },
+        },
     },
     plugins: [require('@tailwindcss/typography')],
 
