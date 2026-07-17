@@ -10,6 +10,7 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -106,9 +107,69 @@ public class RetroBoardService {
     public RetroItemResponse updateStatus(UUID teamId, UUID boardId, UUID itemId, String status) {
         RetroItem item = findItem(itemId, boardId);
         item.setStatus(status);
+        // Karar verildiğinde aktif tartışma zamanlayıcısı da kapanır
+        boolean hadDiscussion = item.getDiscussionEndsAt() != null;
+        item.setDiscussionEndsAt(null);
+        item.setDiscussionDurationSeconds(null);
         RetroItem saved = itemRepository.save(item);
+        if (hadDiscussion) {
+            notifyDiscussion(teamId, boardId, "DISCUSSION_STOPPED", saved);
+        }
         notify(teamId, boardId, "ITEM_UPDATED", saved.getColumnName(), itemId.toString());
         return RetroItemResponse.from(saved);
+    }
+
+    // ─── Discussion timer ─────────────────────────────────────────────────────
+
+    private static final int MIN_DISCUSSION_SECONDS = 10;
+    private static final int MAX_DISCUSSION_SECONDS = 2 * 60 * 60; // 2 saat
+
+    @Transactional
+    public RetroItemResponse startDiscussion(UUID teamId, UUID boardId, UUID itemId, Integer durationSeconds) {
+        RetroItem item = findItem(itemId, boardId);
+        int duration = clampDuration(durationSeconds);
+        item.setDiscussionEndsAt(Instant.now().plusSeconds(duration));
+        item.setDiscussionDurationSeconds(duration);
+        RetroItem saved = itemRepository.save(item);
+        notifyDiscussion(teamId, boardId, "DISCUSSION_STARTED", saved);
+        return RetroItemResponse.from(saved);
+    }
+
+    @Transactional
+    public RetroItemResponse extendDiscussion(UUID teamId, UUID boardId, UUID itemId, Integer additionalSeconds) {
+        RetroItem item = findItem(itemId, boardId);
+        int extra = clampDuration(additionalSeconds);
+        Instant now = Instant.now();
+        Instant endsAt = item.getDiscussionEndsAt();
+
+        if (endsAt == null || !endsAt.isAfter(now)) {
+            // Süre dolmuş (veya hiç yok) → ek süre yeni bir tur gibi baştan sayılır
+            item.setDiscussionEndsAt(now.plusSeconds(extra));
+            item.setDiscussionDurationSeconds(extra);
+        } else {
+            // Hâlâ çalışıyor → mevcut sürenin üzerine eklenir
+            item.setDiscussionEndsAt(endsAt.plusSeconds(extra));
+            int total = item.getDiscussionDurationSeconds() != null ? item.getDiscussionDurationSeconds() : 0;
+            item.setDiscussionDurationSeconds(total + extra);
+        }
+        RetroItem saved = itemRepository.save(item);
+        notifyDiscussion(teamId, boardId, "DISCUSSION_EXTENDED", saved);
+        return RetroItemResponse.from(saved);
+    }
+
+    @Transactional
+    public RetroItemResponse stopDiscussion(UUID teamId, UUID boardId, UUID itemId) {
+        RetroItem item = findItem(itemId, boardId);
+        item.setDiscussionEndsAt(null);
+        item.setDiscussionDurationSeconds(null);
+        RetroItem saved = itemRepository.save(item);
+        notifyDiscussion(teamId, boardId, "DISCUSSION_STOPPED", saved);
+        return RetroItemResponse.from(saved);
+    }
+
+    private int clampDuration(Integer seconds) {
+        if (seconds == null) throw new RuntimeException("durationSeconds is required");
+        return Math.max(MIN_DISCUSSION_SECONDS, Math.min(MAX_DISCUSSION_SECONDS, seconds));
     }
 
     @Transactional
@@ -220,24 +281,42 @@ public class RetroBoardService {
      * Topic: /topic/retro/{teamId}/{boardId}
      */
     private void notify(UUID teamId, UUID boardId, String event, String columnName, String itemId) {
+        notify(teamId, boardId, event, columnName, itemId, Map.of());
+    }
+
+    private void notify(UUID teamId, UUID boardId, String event, String columnName, String itemId,
+                        Map<String, String> extras) {
         String topic = "/topic/retro/" + teamId + "/" + boardId;
         String triggeredBy = "";
         try {
             triggeredBy = SecurityContextHolder.getContext().getAuthentication().getName();
         } catch (Exception ignored) {}
 
-        Map<String, String> payload = Map.of(
-                "event",       event,
-                "columnName",  columnName  != null ? columnName  : "",
-                "itemId",      itemId      != null ? itemId      : "",
-                "triggeredBy", triggeredBy,
-                "timestamp",   java.time.Instant.now().toString()
-        );
+        Map<String, String> payload = new java.util.HashMap<>(extras);
+        payload.put("event",       event);
+        payload.put("columnName",  columnName  != null ? columnName  : "");
+        payload.put("itemId",      itemId      != null ? itemId      : "");
+        payload.put("triggeredBy", triggeredBy);
+        payload.put("timestamp",   Instant.now().toString());
         try {
             messagingTemplate.convertAndSend(topic, payload);
         } catch (Exception e) {
             log.warn("[WS] RetroBoard notification gönderilemedi: topic={}, error={}", topic, e.getMessage());
         }
+    }
+
+    /**
+     * Tartışma zamanlayıcısı olayları veri taşır (notification-only istisnası):
+     * istemciler debounce/refetch beklemeden sayaç durumunu anında senkronlar.
+     */
+    private void notifyDiscussion(UUID teamId, UUID boardId, String event, RetroItem item) {
+        Map<String, String> extras = Map.of(
+                "discussionEndsAt",
+                item.getDiscussionEndsAt() != null ? item.getDiscussionEndsAt().toString() : "",
+                "discussionDurationSeconds",
+                item.getDiscussionDurationSeconds() != null ? item.getDiscussionDurationSeconds().toString() : ""
+        );
+        notify(teamId, boardId, event, item.getColumnName(), item.getId().toString(), extras);
     }
 }
 

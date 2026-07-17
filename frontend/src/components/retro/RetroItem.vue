@@ -14,6 +14,27 @@
         <!-- User Info -->
         <div class="flex items-center gap-2 mb-2">
           <span class="font-semibold text-gray-900 text-sm">{{ ownerName || 'Anonymous' }}</span>
+
+          <!-- Canlı tartışma rozeti -->
+          <span
+            v-if="discussionState === 'running'"
+            class="flex items-center gap-1 ml-auto px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-700 text-xs font-medium tabular-nums flex-shrink-0"
+          >
+            <span class="relative flex w-1.5 h-1.5">
+              <span class="absolute inline-flex h-full w-full rounded-full bg-indigo-400 opacity-75 animate-ping"></span>
+              <span class="relative inline-flex w-1.5 h-1.5 rounded-full bg-indigo-500"></span>
+            </span>
+            {{ discussionCountdown }}
+          </span>
+          <span
+            v-else-if="discussionState === 'expired'"
+            class="flex items-center gap-1 ml-auto px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 text-xs font-medium flex-shrink-0"
+          >
+            <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+              <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clip-rule="evenodd"/>
+            </svg>
+            Time's up
+          </span>
         </div>
 
         <!-- Item Content -->
@@ -89,7 +110,10 @@ export default {
       owner: "",
       votes: [],
       isDestroyed: false,
-      lastVoteTime: 0
+      lastVoteTime: 0,
+      // Tartışma rozeti için saat; interval yalnızca aktif tartışma varken çalışır
+      nowTs: Date.now(),
+      tickInterval: null
     }
   },
   props: {
@@ -109,9 +133,24 @@ export default {
         }
       },
       immediate: true
+    },
+    discussionState: {
+      handler() {
+        this.syncTicker()
+      },
+      immediate: true
     }
   },
   methods: {
+    syncTicker() {
+      const needsTick = this.discussionState === 'running'
+      if (needsTick && !this.tickInterval) {
+        this.tickInterval = setInterval(() => { this.nowTs = Date.now() }, 500)
+      } else if (!needsTick && this.tickInterval) {
+        clearInterval(this.tickInterval)
+        this.tickInterval = null
+      }
+    },
     openDetail() {
       // Throttle detail opening
       const now = Date.now()
@@ -158,6 +197,26 @@ export default {
     }
   },
   computed: {
+    discussionEndsAtTs() {
+      if (!this.item?.discussionEndsAt) return null
+      const t = new Date(this.item.discussionEndsAt).getTime()
+      return isNaN(t) ? null : t
+    },
+    discussionRemaining() {
+      if (!this.discussionEndsAtTs) return 0
+      return Math.max(0, Math.ceil((this.discussionEndsAtTs - this.nowTs) / 1000))
+    },
+    /** null = rozet yok; 'running' = geri sayım; 'expired' = süre doldu, karar bekliyor */
+    discussionState() {
+      if (this.item?.status || !this.discussionEndsAtTs) return null
+      return this.discussionRemaining > 0 ? 'running' : 'expired'
+    },
+    discussionCountdown() {
+      const r = this.discussionRemaining
+      const m = Math.floor(r / 60)
+      const s = r % 60
+      return `${m}:${String(s).padStart(2, '0')}`
+    },
     isOwner() {
       return this.item.owner === localStorage.getItem('user') || this.isAdmin
     },
@@ -216,7 +275,10 @@ export default {
   },
   beforeUnmount() {
     this.isDestroyed = true
-    // No more individual listeners to clean up
+    if (this.tickInterval) {
+      clearInterval(this.tickInterval)
+      this.tickInterval = null
+    }
   }
 }
 </script>

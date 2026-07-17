@@ -34,9 +34,9 @@
         </div>
       </div>
 
-      <!-- Item Detail Modal -->
+      <!-- Item Detail Modal: mobilde bottom-sheet, masaüstünde ortalanmış modal -->
       <div v-if="showItemDetail"
-           class="fixed inset-0 z-[999] flex items-center justify-center bg-black bg-opacity-60 backdrop-blur-sm p-4 transition-opacity duration-300"
+           class="fixed inset-0 z-[999] flex items-end sm:items-center justify-center bg-black bg-opacity-60 backdrop-blur-sm p-0 sm:p-4 transition-opacity duration-300"
            @click.self="showItemDetail = false">
         <RetroItemDetail
             ref="itemDetailRef"
@@ -221,9 +221,38 @@ export default {
       // Tek WS subscription: tüm board değişiklikleri buraya gelir
       connect(() => {
         subscribe(this.wsTopic, (msg) => {
+          // Tartışma zamanlayıcısı olayları veri taşır: debounce/refetch beklemeden
+          // anında uygula ki sayaç tüm istemcilerde senkron aksın
+          if (msg?.event && msg.event.startsWith('DISCUSSION_')) {
+            this.applyDiscussionEvent(msg);
+            return;
+          }
           this.syncEngine.push(msg);
         });
       });
+    },
+
+    /**
+     * WS'den gelen DISCUSSION_STARTED / DISCUSSION_EXTENDED / DISCUSSION_STOPPED
+     * olayındaki zamanlayıcı alanlarını ilgili item'a anında yazar.
+     */
+    applyDiscussionEvent(msg) {
+      const itemId = msg?.itemId;
+      if (!itemId) return;
+      const endsAt = msg.discussionEndsAt || null;
+      const duration = msg.discussionDurationSeconds ? Number(msg.discussionDurationSeconds) : null;
+
+      Object.values(this.itemsByColumn).forEach(items => {
+        const target = (items || []).find(i => i.id === itemId);
+        if (target) {
+          target.discussionEndsAt = endsAt;
+          target.discussionDurationSeconds = duration;
+        }
+      });
+      if (this.selectedItem?.id === itemId) {
+        this.selectedItem.discussionEndsAt = endsAt;
+        this.selectedItem.discussionDurationSeconds = duration;
+      }
     },
 
     cleanup() {

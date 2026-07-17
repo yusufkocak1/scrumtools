@@ -78,6 +78,41 @@ export const deleteItem = async (teamId, boardId, columnName, itemId) => {
     )
 }
 
+// ─── Discussion timer ─────────────────────────────────────────────────────────
+
+/**
+ * Bir item için tartışma zamanlayıcısı başlatır.
+ * Backend DISCUSSION_STARTED WS eventi yayınlar (payload'da discussionEndsAt taşır).
+ */
+export const startDiscussion = async (teamId, boardId, columnName, itemId, durationSeconds) => {
+    const { data } = await apiClient.post(
+        `${base(teamId, boardId)}/columns/${encodeURIComponent(columnName)}/items/${itemId}/discussion`,
+        { durationSeconds }
+    )
+    return data
+}
+
+/**
+ * Çalışan zamanlayıcıya süre ekler; süre dolmuşsa ek süre yeni tur olarak baştan sayılır.
+ */
+export const extendDiscussion = async (teamId, boardId, columnName, itemId, additionalSeconds) => {
+    const { data } = await apiClient.patch(
+        `${base(teamId, boardId)}/columns/${encodeURIComponent(columnName)}/items/${itemId}/discussion`,
+        { additionalSeconds }
+    )
+    return data
+}
+
+/**
+ * Zamanlayıcıyı iptal eder (karar vermeden kapatma).
+ */
+export const stopDiscussion = async (teamId, boardId, columnName, itemId) => {
+    const { data } = await apiClient.delete(
+        `${base(teamId, boardId)}/columns/${encodeURIComponent(columnName)}/items/${itemId}/discussion`
+    )
+    return data
+}
+
 // ─── Votes ────────────────────────────────────────────────────────────────────
 
 /**

@@ -4,6 +4,7 @@ import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
 
+import java.time.Instant;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -37,6 +38,14 @@ public class RetroItem {
 
     /** ACCEPTED | REJECTED | CONFLICT | null (pending) */
     private String status;
+
+    /** Discussion timer: absolute end instant (UTC). null = no timer set. */
+    @Column(name = "discussion_ends_at")
+    private Instant discussionEndsAt;
+
+    /** Total planned duration of the current discussion in seconds (for progress display). */
+    @Column(name = "discussion_duration_seconds")
+    private Integer discussionDurationSeconds;
 
     /** Owner email (or "Anonymous") */
     @Column(nullable = false)

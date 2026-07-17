@@ -103,6 +103,37 @@ public class RetroBoardController {
         return ResponseEntity.noContent().build();
     }
 
+    // ─── Discussion timer ─────────────────────────────────────────────────────
+
+    @PostMapping("/{boardId}/columns/{columnName}/items/{itemId}/discussion")
+    public ResponseEntity<RetroItemResponse> startDiscussion(
+            @PathVariable UUID teamId,
+            @PathVariable UUID boardId,
+            @PathVariable String columnName,
+            @PathVariable UUID itemId,
+            @RequestBody RetroDiscussionRequest req) {
+        return ResponseEntity.ok(retroBoardService.startDiscussion(teamId, boardId, itemId, req.getDurationSeconds()));
+    }
+
+    @PatchMapping("/{boardId}/columns/{columnName}/items/{itemId}/discussion")
+    public ResponseEntity<RetroItemResponse> extendDiscussion(
+            @PathVariable UUID teamId,
+            @PathVariable UUID boardId,
+            @PathVariable String columnName,
+            @PathVariable UUID itemId,
+            @RequestBody RetroDiscussionRequest req) {
+        return ResponseEntity.ok(retroBoardService.extendDiscussion(teamId, boardId, itemId, req.getAdditionalSeconds()));
+    }
+
+    @DeleteMapping("/{boardId}/columns/{columnName}/items/{itemId}/discussion")
+    public ResponseEntity<RetroItemResponse> stopDiscussion(
+            @PathVariable UUID teamId,
+            @PathVariable UUID boardId,
+            @PathVariable String columnName,
+            @PathVariable UUID itemId) {
+        return ResponseEntity.ok(retroBoardService.stopDiscussion(teamId, boardId, itemId));
+    }
+
     // ─── Votes ────────────────────────────────────────────────────────────────
 
     @PostMapping("/{boardId}/columns/{columnName}/items/{itemId}/votes")

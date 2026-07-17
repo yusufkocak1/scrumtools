@@ -4,6 +4,7 @@ import com.scrumtools.entity.RetroItem;
 import lombok.Builder;
 import lombok.Data;
 
+import java.time.Instant;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -17,6 +18,8 @@ public class RetroItemResponse {
     private String value;
     private String status;
     private String owner;
+    private Instant discussionEndsAt;
+    private Integer discussionDurationSeconds;
     private int voteScore;
     private List<VoteDto> votes;
     private List<CommentDto> comments;
@@ -69,6 +72,8 @@ public class RetroItemResponse {
                 .value(item.getValue())
                 .status(item.getStatus())
                 .owner(item.getOwner())
+                .discussionEndsAt(item.getDiscussionEndsAt())
+                .discussionDurationSeconds(item.getDiscussionDurationSeconds())
                 .voteScore(score)
                 .votes(votes)
                 .comments(comments)
