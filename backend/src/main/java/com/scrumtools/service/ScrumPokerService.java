@@ -1,6 +1,7 @@
 package com.scrumtools.service;
 
 import com.scrumtools.dto.PokerSessionResponse;
+import com.scrumtools.dto.PokerTaskInfo;
 import com.scrumtools.dto.PokerVoteResponse;
 import com.scrumtools.entity.*;
 import com.scrumtools.repository.*;
@@ -11,6 +12,7 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -19,9 +21,10 @@ import java.util.stream.Collectors;
 /**
  * ScrumPoker servisi — Data-Carrying WebSocket stratejisi.
  *
- * Her oy/görünürlük değişikliğinde güncel veri doğrudan WebSocket üzerinden broadcast edilir.
+ * Her oy/görünürlük/görev değişikliğinde güncel veri doğrudan WebSocket üzerinden broadcast edilir.
  *   /topic/poker/{teamId}/votes       → tam oy listesi (List<PokerVoteResponse>)
  *   /topic/poker/{teamId}/visibility  → { "votesVisible": true/false }
+ *   /topic/poker/{teamId}/task        → { "task": PokerTaskInfo | null }
  */
 @Slf4j
 @Service
@@ -32,6 +35,8 @@ public class ScrumPokerService {
     private final PokerVoteRepository voteRepository;
     private final TeamRepository teamRepository;
     private final TeamMemberRepository teamMemberRepository;
+    private final TaskRepository taskRepository;
+    private final AuditService auditService;
     private final SimpMessagingTemplate messagingTemplate;
 
     // ─── Session ──────────────────────────────────────────────────────────────
@@ -43,7 +48,7 @@ public class ScrumPokerService {
         PokerSession session = getOrCreateSession(teamId);
         List<PokerVoteResponse> votes = voteRepository.findByTeamId(teamId)
                 .stream().map(PokerVoteResponse::from).collect(Collectors.toList());
-        return PokerSessionResponse.from(session, votes);
+        return PokerSessionResponse.from(session, votes, resolveActiveTask(session));
     }
 
     /**
@@ -90,7 +95,7 @@ public class ScrumPokerService {
 
         List<PokerVoteResponse> votes = voteRepository.findByTeamId(teamId)
                 .stream().map(PokerVoteResponse::from).collect(Collectors.toList());
-        return PokerSessionResponse.from(session, votes);
+        return PokerSessionResponse.from(session, votes, resolveActiveTask(session));
     }
 
     /**
@@ -164,23 +169,74 @@ public class ScrumPokerService {
      */
     @Transactional
     public void newRound(UUID teamId) {
-        // Tüm oyları sıfırla
-        List<PokerVote> votes = voteRepository.findByTeamId(teamId);
-        long now = System.currentTimeMillis();
-        votes.forEach(v -> {
-            v.setVote("-");
-            v.setTimestamp(now);
-        });
-        voteRepository.saveAll(votes);
+        resetRound(teamId, getOrCreateSession(teamId));
+    }
 
-        // Görünürlüğü kapat
+    // ─── Work Modülü Entegrasyonu (görev puanlama) ────────────────────────────
+
+    /**
+     * Work modülündeki bir görevi oturuma bağlar ve taze bir tur başlatır.
+     * Takımdaki herkes bağlanan görevi WebSocket üzerinden görür.
+     */
+    @Transactional
+    public PokerTaskInfo setActiveTask(UUID teamId, UUID taskId) {
+        Task task = taskRepository.findById(taskId)
+                .orElseThrow(() -> new RuntimeException("Task not found"));
+        if (!task.getTeam().getId().equals(teamId)) throw new RuntimeException("Task does not belong to team");
+
         PokerSession session = getOrCreateSession(teamId);
-        session.setVotesVisible(false);
+        session.setActiveTaskId(task.getId());
         sessionRepository.save(session);
 
-        // Her ikisini de broadcast et
-        broadcastVotes(teamId);
-        broadcastVisibility(teamId, false);
+        // Görev değişti — önceki turun oyları bu görev için anlamsız, sıfırla
+        resetRound(teamId, session);
+
+        PokerTaskInfo info = PokerTaskInfo.from(task);
+        broadcastTask(teamId, info);
+        return info;
+    }
+
+    /**
+     * Görev bağını kaldırır — oturum bağımsız moda döner, oylar korunur.
+     */
+    @Transactional
+    public void clearActiveTask(UUID teamId) {
+        PokerSession session = getOrCreateSession(teamId);
+        session.setActiveTaskId(null);
+        sessionRepository.save(session);
+        broadcastTask(teamId, null);
+    }
+
+    /**
+     * Tartışma sonrası seçilen puanı bağlı görevin storyPoints alanına işler
+     * (görev geçmişine audit kaydı düşer), görev bağını kaldırır ve yeni tur başlatır.
+     * Dönen bilgideki customId ile frontend görev sayfasına geri döner.
+     */
+    @Transactional
+    public PokerTaskInfo applyScore(UUID teamId, Integer points) {
+        if (points == null || points < 0) throw new RuntimeException("Geçersiz puan");
+
+        PokerSession session = getOrCreateSession(teamId);
+        if (session.getActiveTaskId() == null) throw new RuntimeException("Oturuma bağlı bir görev yok");
+
+        Task task = taskRepository.findById(session.getActiveTaskId())
+                .orElseThrow(() -> new RuntimeException("Task not found"));
+        if (!task.getTeam().getId().equals(teamId)) throw new RuntimeException("Task does not belong to team");
+
+        String userEmail = SecurityContextHolder.getContext().getAuthentication().getName();
+        auditService.recordChange(task, "storyPoints",
+                task.getStoryPoints() != null ? task.getStoryPoints().toString() : null,
+                points.toString(), userEmail);
+        task.setStoryPoints(points);
+        taskRepository.save(task);
+
+        // Bağı kaldır + yeni tur — masa bağımsız kullanım için temiz kalır
+        session.setActiveTaskId(null);
+        sessionRepository.save(session);
+        broadcastTask(teamId, null);
+        resetRound(teamId, session);
+
+        return PokerTaskInfo.from(task);
     }
 
     // ─── Helpers ──────────────────────────────────────────────────────────────
@@ -191,6 +247,35 @@ public class ScrumPokerService {
                     .orElseThrow(() -> new RuntimeException("Team not found"));
             return sessionRepository.save(PokerSession.builder().team(team).build());
         });
+    }
+
+    /**
+     * Turu sıfırlar: tüm oylar "-", votesVisible=false; oy listesi + görünürlük broadcast edilir.
+     */
+    private void resetRound(UUID teamId, PokerSession session) {
+        List<PokerVote> votes = voteRepository.findByTeamId(teamId);
+        long now = System.currentTimeMillis();
+        votes.forEach(v -> {
+            v.setVote("-");
+            v.setTimestamp(now);
+        });
+        voteRepository.saveAll(votes);
+
+        session.setVotesVisible(false);
+        sessionRepository.save(session);
+
+        broadcastVotes(teamId);
+        broadcastVisibility(teamId, false);
+    }
+
+    /**
+     * Oturumdaki activeTaskId'yi görev özetine çözümler; görev silinmişse null döner.
+     */
+    private PokerTaskInfo resolveActiveTask(PokerSession session) {
+        if (session.getActiveTaskId() == null) return null;
+        return taskRepository.findById(session.getActiveTaskId())
+                .map(PokerTaskInfo::from)
+                .orElse(null);
     }
 
     /**
@@ -216,6 +301,20 @@ public class ScrumPokerService {
             messagingTemplate.convertAndSend(topic, Map.of("votesVisible", visible));
         } catch (Exception e) {
             log.warn("[WS] Poker visibility broadcast başarısız: topic={}, error={}", topic, e.getMessage());
+        }
+    }
+
+    /**
+     * /topic/poker/{teamId}/task → { "task": PokerTaskInfo | null }
+     */
+    private void broadcastTask(UUID teamId, PokerTaskInfo task) {
+        String topic = "/topic/poker/" + teamId + "/task";
+        Map<String, Object> payload = new HashMap<>();
+        payload.put("task", task);
+        try {
+            messagingTemplate.convertAndSend(topic, payload);
+        } catch (Exception e) {
+            log.warn("[WS] Poker task broadcast başarısız: topic={}, error={}", topic, e.getMessage());
         }
     }
 }

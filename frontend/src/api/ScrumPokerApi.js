@@ -81,3 +81,32 @@ export const newRound = async (teamId) => {
     await apiClient.post(`${base(teamId)}/new-round`)
 }
 
+// ─── Work Modülü Entegrasyonu ────────────────────────────────────────────────
+
+/**
+ * Work modülündeki bir görevi poker oturumuna bağlar (puanlama için).
+ * Backend yeni tur başlatır ve görevi /topic/poker/{teamId}/task üzerinden broadcast eder.
+ * @returns {Promise<{taskId, customId, title, issueType, storyPoints}>}
+ */
+export const setPokerTask = async (teamId, taskId) => {
+    const { data } = await apiClient.patch(`${base(teamId)}/task`, { taskId })
+    return data
+}
+
+/**
+ * Görev bağını kaldırır — oturum bağımsız moda döner.
+ */
+export const clearPokerTask = async (teamId) => {
+    await apiClient.patch(`${base(teamId)}/task`, { taskId: '' })
+}
+
+/**
+ * Tartışma sonrası seçilen puanı bağlı göreve işler.
+ * Backend görev bağını kaldırır ve yeni tur başlatır.
+ * @returns {Promise<{taskId, customId, title, issueType, storyPoints}>} — customId ile göreve dönülür
+ */
+export const applyScore = async (teamId, points) => {
+    const { data } = await apiClient.post(`${base(teamId)}/apply-score`, { points })
+    return data
+}
+

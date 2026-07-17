@@ -34,5 +34,13 @@ public class PokerSession {
     @Column(nullable = false)
     @Builder.Default
     private String cardType = "fibonacci";
+
+    /**
+     * Work modülünden puanlama için bağlanan görev (opsiyonel).
+     * Bilinçli olarak FK yerine düz UUID tutulur — görev silinirse oturum kilitlenmez,
+     * çözümlenemeyen id null gibi davranır. Bağımsız oturumlarda null.
+     */
+    @Column(name = "active_task_id")
+    private UUID activeTaskId;
 }
 

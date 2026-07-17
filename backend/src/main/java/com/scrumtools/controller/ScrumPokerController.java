@@ -1,6 +1,7 @@
 package com.scrumtools.controller;
 
 import com.scrumtools.dto.PokerSessionResponse;
+import com.scrumtools.dto.PokerTaskInfo;
 import com.scrumtools.dto.PokerVoteResponse;
 import com.scrumtools.service.ScrumPokerService;
 import lombok.RequiredArgsConstructor;
@@ -87,6 +88,35 @@ public class ScrumPokerController {
     public ResponseEntity<Void> newRound(@PathVariable UUID teamId) {
         scrumPokerService.newRound(teamId);
         return ResponseEntity.noContent().build();
+    }
+
+    // ─── Work Modülü Entegrasyonu ─────────────────────────────────────────────
+
+    /**
+     * Work modülündeki bir görevi oturuma bağlar (puanlama için) ve yeni tur başlatır.
+     * Boş/null taskId gönderilirse mevcut bağ kaldırılır.
+     */
+    @PatchMapping("/task")
+    public ResponseEntity<PokerTaskInfo> setTask(
+            @PathVariable UUID teamId,
+            @RequestBody Map<String, String> body) {
+        String taskId = body.get("taskId");
+        if (taskId == null || taskId.isBlank()) {
+            scrumPokerService.clearActiveTask(teamId);
+            return ResponseEntity.noContent().build();
+        }
+        return ResponseEntity.ok(scrumPokerService.setActiveTask(teamId, UUID.fromString(taskId)));
+    }
+
+    /**
+     * Tartışma sonrası seçilen puanı bağlı göreve işler, bağı kaldırır, yeni tur başlatır.
+     * Dönen customId ile frontend görev sayfasına geri döner.
+     */
+    @PostMapping("/apply-score")
+    public ResponseEntity<PokerTaskInfo> applyScore(
+            @PathVariable UUID teamId,
+            @RequestBody Map<String, Integer> body) {
+        return ResponseEntity.ok(scrumPokerService.applyScore(teamId, body.get("points")));
     }
 }
 

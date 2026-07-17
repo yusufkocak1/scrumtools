@@ -46,6 +46,15 @@
           <!-- Actions -->
           <div class="flex items-center gap-2">
             <button
+              @click="estimateWithPoker"
+              :disabled="startingPoker"
+              class="inline-flex items-center px-4 py-2 rounded-lg border border-amber-200 text-sm font-medium text-amber-700 bg-amber-50 hover:bg-amber-100 hover:border-amber-300 transition-all shadow-sm disabled:opacity-50 disabled:cursor-wait"
+              title="Scrum Poker ile takımca puanla"
+            >
+              <span class="mr-2 text-base leading-none">🃏</span>
+              {{ startingPoker ? 'Başlatılıyor...' : 'Puanla' }}
+            </button>
+            <button
               @click="editTask"
               class="inline-flex items-center px-4 py-2 rounded-lg border border-gray-200 text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 hover:border-gray-300 transition-all shadow-sm"
             >
@@ -507,6 +516,7 @@
 <script>
 import { updateTask, searchByCustomId, getLinks, getSubtasks } from '../api/WorkApi.js';
 import { addComment, uploadAttachment } from '../api/WorkApi.js';
+import { setPokerTask } from '../api/ScrumPokerApi.js';
 import { getTeamReleases, getTaskDeployments } from '../api/ReleaseApi.js';
 import AddTaskForm from '../components/work/AddTaskForm.vue';
 import AttachmentList from '../components/work/AttachmentList.vue';
@@ -548,6 +558,7 @@ export default {
       subtasks: [],
       releases: [],
       taskDeployments: [],
+      startingPoker: false,
       // Inline description edit state
       editingDescription: false,
       tempDescription: '',
@@ -690,6 +701,21 @@ export default {
     },
     async editTask() {
       this.showEditForm = true;
+    },
+    // Görevi takımın poker oturumuna bağlar ve ScrumPoker sayfasına geçer.
+    // Puan uygulandığında ScrumPoker sayfası bu göreve geri yönlendirir.
+    async estimateWithPoker() {
+      if (!this.teamId || !this.task?.id) return;
+      this.startingPoker = true;
+      try {
+        await setPokerTask(this.teamId, this.task.id);
+        this.$router.push({ name: 'ScrumPoker', params: { teamId: this.teamId } });
+      } catch (e) {
+        console.error('Error starting poker estimation:', e);
+        alert('Scrum Poker oturumu başlatılamadı. Lütfen tekrar deneyin.');
+      } finally {
+        this.startingPoker = false;
+      }
     },
     cancelTask(){
       this.updateTaskField('status', "Cancelled");
