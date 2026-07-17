@@ -5,7 +5,9 @@
       <div class="animate-spin rounded-full h-32 w-32 border-b-2 border-gray-900"></div>
     </div>
 
+    <!-- Landing gibi kendi header'ı olan sayfalarda global navbar gizlenir -->
     <Navbar
+        v-if="!$route.meta.hideNavbar"
         :isLogged="isLogged"
         :name="name"
         @logout="handleLogout"
@@ -52,7 +54,8 @@ export default {
       apiLogout()
       this.teamList = []
       this.selectedTeam = ''
-      this.$router.push('/login')
+      // Çıkışta login yerine tanıtım sayfasına dön
+      this.$router.push('/')
     },
     selectTeam(teamId) {
       this.selectedTeam = teamId;
@@ -98,18 +101,18 @@ export default {
         this.getAllTeams()
         this.auth.fetchProfile().catch(() => {})
       } catch {
+        // Token geçersiz → oturumu temizle; isLogged watcher'ı landing'e yönlendirir
         this.auth.logout()
-        this.$router.push('/login')
       }
-    } else {
-      this.$router.push('/login')
     }
+    // JWT yoksa yönlendirme yapılmaz: ziyaretçi landing'i (/) görür,
+    // korumalı rotalara girişi router guard zaten /login'e yönlendirir.
     this.loading = false
   },
   watch: {
     isLogged(val) {
       if (!val) {
-        this.$router.push('/login')
+        this.$router.push('/')
       } else {
         this.getAllTeams()
       }

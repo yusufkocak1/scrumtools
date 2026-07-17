@@ -1,6 +1,7 @@
 import {createRouter, createWebHistory} from 'vue-router'
 
 import HomeView from './pages/Home.vue'
+import Landing from './pages/Landing.vue'
 import Login from "./pages/Login.vue";
 import RetroBoard from "./pages/RetroBoard.vue";
 import Retrospective from "./pages/Retrospective.vue";
@@ -20,7 +21,21 @@ import AdminPanel from "./pages/AdminPanel.vue";
 import Dashboard from "./pages/Dashboard.vue";
 
 const routes = [{
+    // Tanıtım (landing) sayfası — giriş yapmamış ziyaretçiler burayı görür.
+    // Giriş yapmış kullanıcılar uygulama ana sayfasına (/home) yönlendirilir,
+    // böylece mevcut push('/') çağrıları çalışmaya devam eder.
     path: '/',
+    name: 'Landing',
+    component: Landing,
+    meta: {requiresAuth: false, hideNavbar: true},
+    beforeEnter: () => {
+        if (localStorage.getItem('jwt')) {
+            return {path: '/home'}
+        }
+        return true
+    }
+}, {
+    path: '/home',
     name: 'Home',
     component: HomeView,
     meta: {

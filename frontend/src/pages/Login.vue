@@ -202,6 +202,11 @@ export default {
   mounted() {
     if (localStorage.getItem("jwt")) {
       this.$router.push('/')
+      return
+    }
+    // Landing'deki "Ücretsiz Başla" → /login?mode=signup ile kayıt sekmesi açılır
+    if (this.$route.query.mode === 'signup') {
+      this.mode = 'signup'
     }
   },
   data: () => ({
