@@ -1,7 +1,7 @@
 <template>
-  <div class="flex flex-wrap items-center gap-2.5 px-4 py-2.5 bg-white border-b border-gray-100">
+  <div class="flex flex-nowrap sm:flex-wrap items-center gap-2 sm:gap-2.5 px-3 sm:px-4 py-2.5 bg-white border-b border-gray-100 overflow-x-auto no-scrollbar">
     <!-- Hızlı filtreler -->
-    <div class="flex flex-wrap gap-2">
+    <div class="flex flex-nowrap sm:flex-wrap gap-2 shrink-0">
       <!-- Status quick filter -->
       <div class="relative">
         <select
@@ -58,10 +58,10 @@
     </div>
 
     <!-- Ayırıcı -->
-    <div v-if="activeFilters.length" class="w-px h-5 bg-gray-200"></div>
+    <div v-if="activeFilters.length" class="w-px h-5 bg-gray-200 shrink-0"></div>
 
     <!-- Aktif filtre chip'leri -->
-    <TransitionGroup name="chip" tag="div" class="flex flex-wrap gap-1.5">
+    <TransitionGroup name="chip" tag="div" class="flex flex-nowrap sm:flex-wrap gap-1.5 shrink-0">
       <FilterChip
         v-for="f in activeFilters"
         :key="f.field"
@@ -72,7 +72,7 @@
 
     <!-- Gelişmiş filtre butonu -->
     <button
-      class="inline-flex items-center gap-1.5 text-xs text-gray-600 hover:text-blue-700 px-3 py-1.5 rounded-lg border border-gray-200 hover:border-blue-300 hover:bg-blue-50/50 bg-white transition-all shadow-sm"
+      class="inline-flex shrink-0 items-center gap-1.5 text-xs text-gray-600 hover:text-blue-700 px-3 py-1.5 rounded-lg border border-gray-200 hover:border-blue-300 hover:bg-blue-50/50 bg-white transition-all shadow-sm whitespace-nowrap"
       @click="$emit('open-builder')"
     >
       <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -88,7 +88,7 @@
     <!-- Temizle -->
     <button
       v-if="activeFilters.length"
-      class="inline-flex items-center gap-1 text-xs text-red-500 hover:text-red-700 hover:bg-red-50 px-2 py-1 rounded-md transition-colors"
+      class="inline-flex shrink-0 items-center gap-1 text-xs text-red-500 hover:text-red-700 hover:bg-red-50 px-2 py-1 rounded-md whitespace-nowrap transition-colors"
       @click="$emit('clear-filters')"
     >
       <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">

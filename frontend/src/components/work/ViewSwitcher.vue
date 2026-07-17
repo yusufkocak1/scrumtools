@@ -1,9 +1,9 @@
 <template>
-  <div class="inline-flex bg-gray-100/80 rounded-lg p-1 gap-0.5 border border-gray-200/60">
+  <div class="flex w-max min-w-full sm:min-w-0 sm:w-auto bg-gray-100/80 rounded-lg p-1 gap-0.5 border border-gray-200/60">
     <button
       v-for="v in views"
       :key="v.key"
-      class="flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold rounded-md transition-all duration-150"
+      class="flex flex-1 sm:flex-initial items-center justify-center gap-1.5 px-3 sm:px-3.5 py-2 text-xs font-semibold rounded-md whitespace-nowrap transition-all duration-150"
       :class="modelValue === v.key
         ? 'bg-white text-gray-900 shadow-sm ring-1 ring-gray-200/80'
         : 'text-gray-500 hover:text-gray-700 hover:bg-white/50'"

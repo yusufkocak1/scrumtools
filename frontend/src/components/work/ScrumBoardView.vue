@@ -47,11 +47,11 @@
     <template v-else>
       <!-- ═══ Sprint Sekme Barı ═══ -->
       <div class="bg-white border-b border-gray-200 flex-shrink-0">
-        <div class="flex items-center gap-1 px-4 pt-2 overflow-x-auto scrollbar-thin">
+        <div class="flex items-center gap-1 px-3 sm:px-4 pt-2 overflow-x-auto no-scrollbar">
           <button
             v-for="sprint in activeSprints"
             :key="sprint.id"
-            class="relative flex items-center gap-2 px-4 py-2.5 text-sm font-medium rounded-t-lg border border-b-0 transition-all whitespace-nowrap min-w-0"
+            class="relative flex items-center gap-2 px-3 sm:px-4 py-2.5 text-sm font-medium rounded-t-lg border border-b-0 transition-all whitespace-nowrap shrink-0"
             :class="selectedSprintId === sprint.id
               ? 'bg-white text-blue-700 border-gray-200 shadow-sm z-10 -mb-px'
               : 'bg-gray-50 text-gray-500 border-transparent hover:text-gray-700 hover:bg-gray-100'"
@@ -75,9 +75,9 @@
       </div>
 
       <!-- ═══ Seçili Sprint Bilgi Barı ═══ -->
-      <div v-if="selectedSprint" class="bg-gradient-to-r from-blue-50 via-indigo-50 to-purple-50 border-b border-blue-200/60 px-5 py-3 flex-shrink-0">
+      <div v-if="selectedSprint" class="bg-gradient-to-r from-blue-50 via-indigo-50 to-purple-50 border-b border-blue-200/60 px-3 sm:px-5 py-2.5 sm:py-3 flex-shrink-0">
         <div class="flex items-center justify-between flex-wrap gap-2">
-          <div class="flex items-center gap-3 flex-wrap">
+          <div class="flex items-center gap-2 sm:gap-3 flex-wrap">
             <div class="flex items-center gap-2">
               <div class="w-2 h-2 rounded-full bg-blue-500 animate-pulse"></div>
               <span class="text-sm font-bold text-gray-900">{{ selectedSprint.name }}</span>
@@ -94,7 +94,7 @@
               {{ selectedRemainingDays > 0 ? selectedRemainingDays + ' gün kaldı' : 'Bugün bitiyor!' }}
             </span>
           </div>
-          <div class="flex items-center gap-4">
+          <div class="flex items-center gap-3 sm:gap-4 flex-wrap">
             <!-- Sprint istatistikleri -->
             <div class="flex items-center gap-3 text-xs">
               <span class="text-gray-600"><span class="font-bold text-gray-900">{{ sprintTasks.length }}</span> görev</span>

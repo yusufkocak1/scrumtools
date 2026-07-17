@@ -4,60 +4,60 @@
 
     <div class="flex-1 min-w-0 flex flex-col overflow-hidden">
       <!-- Üst Bar -->
-      <div class="bg-white border-b border-gray-200 px-4 sm:px-6 py-3 flex flex-wrap items-center justify-between gap-2 sm:gap-4">
-        <h1 class="text-lg font-semibold text-gray-900 hidden sm:block">
+      <div class="bg-white border-b border-gray-200 px-3 sm:px-6 py-2 sm:py-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-4">
+        <h1 class="text-lg font-semibold text-gray-900 hidden sm:block shrink-0">
           {{ currentViewLabel }}
         </h1>
 
-        <div class="flex items-center gap-3 ml-auto">
-          <!-- Görünüm seçici -->
-          <ViewSwitcher v-model="activeView" />
+        <div class="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 w-full sm:w-auto sm:ml-auto min-w-0">
+          <!-- Görünüm seçici: mobilde tam genişlik, sığmazsa yatay kaydırma -->
+          <div class="w-full sm:w-auto overflow-x-auto no-scrollbar">
+            <ViewSwitcher v-model="activeView" />
+          </div>
 
-          <!-- Board seçici (sadece Board modunda) -->
-          <div v-if="activeView === 'board' && boards.length > 1" class="flex items-center gap-1">
+          <!-- Board kontrolleri (sadece Board modunda) -->
+          <div v-if="activeView === 'board'" class="flex items-center gap-2 sm:gap-3 min-w-0">
+            <!-- Board seçici -->
             <select
+              v-if="boards.length > 1"
               v-model="selectedBoardId"
-              class="text-xs rounded-md border border-gray-300 px-2 py-1.5 bg-white focus:ring-2 focus:ring-blue-500 focus:outline-none"
+              class="flex-1 sm:flex-none min-w-0 text-xs rounded-md border border-gray-300 px-2 py-1.5 bg-white focus:ring-2 focus:ring-blue-500 focus:outline-none"
             >
               <option v-for="b in boards" :key="b.id" :value="b.id">
                 {{ b.name }} ({{ b.boardType === 'SCRUM' ? 'Scrum' : 'Kanban' }})
               </option>
             </select>
-          </div>
 
-          <!-- Gruplama seçici (sadece Board modunda) -->
-          <div v-if="activeView === 'board'" class="flex items-center gap-1">
+            <!-- Gruplama seçici -->
             <select
               v-model="boardGroupBy"
-              class="text-xs rounded-md border border-gray-300 px-2 py-1.5 bg-white focus:ring-2 focus:ring-blue-500 focus:outline-none"
+              class="flex-1 sm:flex-none min-w-0 text-xs rounded-md border border-gray-300 px-2 py-1.5 bg-white focus:ring-2 focus:ring-blue-500 focus:outline-none"
             >
               <option value="status">Grupla: Status</option>
               <option value="assignee">Grupla: Kişi</option>
             </select>
+
+            <!-- Board yönetim butonu -->
+            <button
+              class="shrink-0 text-xs text-gray-500 hover:text-gray-700 border border-gray-300 hover:border-gray-400 rounded-md px-2 py-1.5 transition"
+              @click="showBoardSettings = true"
+              title="Board Yönetimi"
+            >
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                  d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/>
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+              </svg>
+            </button>
+
+            <!-- Yeni board oluştur -->
+            <button
+              class="shrink-0 text-xs text-gray-500 hover:text-blue-600 border border-gray-300 hover:border-blue-400 rounded-md px-2 py-1.5 whitespace-nowrap transition"
+              @click="showCreateBoard = true"
+            >
+              + Board
+            </button>
           </div>
-
-          <!-- Board yönetim butonu -->
-          <button
-            v-if="activeView === 'board'"
-            class="text-xs text-gray-500 hover:text-gray-700 border border-gray-300 hover:border-gray-400 rounded-md px-2 py-1.5 transition"
-            @click="showBoardSettings = true"
-            title="Board Yönetimi"
-          >
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/>
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
-            </svg>
-          </button>
-
-          <!-- Yeni board oluştur -->
-          <button
-            v-if="activeView === 'board'"
-            class="text-xs text-gray-500 hover:text-blue-600 border border-gray-300 hover:border-blue-400 rounded-md px-2 py-1.5 transition"
-            @click="showCreateBoard = true"
-          >
-            + Board
-          </button>
         </div>
       </div>
 
