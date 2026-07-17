@@ -6,6 +6,15 @@
         <div class="w-full max-w-7xl mx-auto">
           <div class="flex flex-col items-center space-y-8">
 
+            <!-- Sayfa başlığı + takım seçici -->
+            <div class="w-full flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+              <div>
+                <h1 class="text-2xl font-bold text-gray-900">Scrum Poker</h1>
+                <p v-if="team.teamName" class="text-sm text-gray-500">{{ team.teamName }}</p>
+              </div>
+              <TeamList :teamList="teams" :selectedTeamId="teamId" align="left" @select="handleTeamSelect"></TeamList>
+            </div>
+
             <!-- Linked Task Banner (Work modülü entegrasyonu) -->
             <div v-if="activeTask" class="w-full bg-white border-2 border-amber-200/70 rounded-2xl shadow-lg overflow-hidden">
               <div class="h-1 w-full bg-gradient-to-r from-amber-400 to-orange-500"></div>
@@ -161,13 +170,14 @@ import { useRouter } from 'vue-router'
 import PokerTable from "../components/poker/pokerTable.vue";
 import PokerCard from "../components/poker/pokerCard.vue";
 import SideBar from "../components/SideBar.vue";
-import { getTeamById } from "../api/TeamApi.js";
+import TeamList from "../components/team/TeamList.vue";
+import { getTeamById, getMyTeams } from "../api/TeamApi.js";
 import * as ScrumPokerApi from "../api/ScrumPokerApi.js";
 import { connect, subscribe, unsubscribe } from "../api/websocket.js";
 
 export default {
   name: "ScrumPoker",
-  components: {PokerCard, PokerTable, SideBar},
+  components: {PokerCard, PokerTable, SideBar, TeamList},
   props: {
     teamId: String
   },
@@ -186,9 +196,14 @@ export default {
     const customPoints = ref('')
     const applying = ref(false)
 
-    const votesTopicKey = `/topic/poker/${props.teamId}/votes`
-    const visibilityTopicKey = `/topic/poker/${props.teamId}/visibility`
-    const taskTopicKey = `/topic/poker/${props.teamId}/task`
+    // Takım seçici — takım listesi sayfada gösterilir, seçim route'u değiştirir
+    const teams = ref([])
+
+    const topicsFor = (teamId) => [
+      `/topic/poker/${teamId}/votes`,
+      `/topic/poker/${teamId}/visibility`,
+      `/topic/poker/${teamId}/task`,
+    ]
 
     let updateTimeout = null
 
@@ -289,20 +304,24 @@ export default {
       }
     })
 
-    onMounted(async () => {
+    // Takım oturumunu kurar: takım bilgisi + poker session + WS subscription'ları
+    const joinTeam = async (teamId) => {
       try {
-        // Takım bilgisini çek
-        const teamData = await getTeamById(props.teamId)
+        // Takım bilgisini çek (eski takımın alanları kalmasın diye önce temizle)
+        const teamData = await getTeamById(teamId)
+        Object.keys(team).forEach(key => delete team[key])
         Object.assign(team, teamData)
 
         // Oturuma katıl + mevcut oyları ve varsa bağlı görevi al
-        const session = await ScrumPokerApi.joinPoker(props.teamId)
+        const session = await ScrumPokerApi.joinPoker(teamId)
         isVotesVisible.value = session.votesVisible
         applyVotes(session.votes)
         activeTask.value = session.task || null
 
         // WebSocket bağlantısını kur ve topic'lere subscribe ol
         connect(() => {
+          const [votesTopicKey, visibilityTopicKey, taskTopicKey] = topicsFor(teamId)
+
           // Votes topic — Data-Carrying: gelen mesaj doğrudan oy listesi
           subscribe(votesTopicKey, (data) => {
             applyVotes(data)
@@ -323,20 +342,55 @@ export default {
           })
         })
       } catch (error) {
-        console.error("Error mounting ScrumPoker:", error)
+        console.error("Error joining poker session:", error)
       }
+    }
+
+    // Takım oturumunu kapatır: WS subscription'ları + poker session
+    const leaveTeam = (teamId) => {
+      topicsFor(teamId).forEach(unsubscribe)
+      ScrumPokerApi.leavePoker(teamId).catch(console.error)
+    }
+
+    const resetRoundState = () => {
+      votes.value = new Map()
+      isVotesVisible.value = false
+      selectedPokerCardNumber.value = null
+      activeTask.value = null
+      resetScoreSelection()
+    }
+
+    // Sayfadaki takım seçici: seçim route'u değiştirir, watch yeni oturumu kurar
+    const handleTeamSelect = (teamId) => {
+      if (teamId === props.teamId) return
+      localStorage.setItem("selectedTeam", teamId)
+      window.dispatchEvent(new CustomEvent('teamChanged', {
+        detail: {
+          teamId: teamId,
+          teamName: teams.value.find(t => t.id === teamId)?.teamName || ''
+        }
+      }))
+      router.push(`/scrumPoker/${teamId}`)
+    }
+
+    // Route param değişince (takım değişimi) eski oturumu kapat, yenisini kur
+    watch(() => props.teamId, (newTeamId, oldTeamId) => {
+      if (oldTeamId) leaveTeam(oldTeamId)
+      resetRoundState()
+      if (newTeamId) joinTeam(newTeamId)
+    })
+
+    onMounted(() => {
+      getMyTeams()
+        .then(list => { teams.value = list || [] })
+        .catch(e => console.error('Takımlar yüklenemedi:', e))
+
+      joinTeam(props.teamId)
     })
 
     onUnmounted(() => {
       if (updateTimeout) clearTimeout(updateTimeout)
-
-      // WebSocket subscription'larını temizle
-      unsubscribe(votesTopicKey)
-      unsubscribe(visibilityTopicKey)
-      unsubscribe(taskTopicKey)
-
-      // Oturumdan ayrıl
-      ScrumPokerApi.leavePoker(props.teamId).catch(console.error)
+      leaveTeam(props.teamId)
     })
 
     return {
@@ -348,6 +402,9 @@ export default {
       fibonacciNumbers,
       selectPokerCard,
       newRound: handleNewRound,
+      // Takım seçici
+      teams,
+      handleTeamSelect,
       // Work modülü entegrasyonu
       activeTask,
       average,

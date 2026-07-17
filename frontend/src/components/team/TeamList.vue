@@ -45,7 +45,8 @@
     >
       <div
         v-if="isOpen"
-        class="absolute right-0 z-50 w-72 mt-2 bg-white border border-gray-200 rounded-xl shadow-lg overflow-hidden"
+        class="absolute z-50 w-72 mt-2 bg-white border border-gray-200 rounded-xl shadow-lg overflow-hidden"
+        :class="align === 'left' ? 'left-0' : 'right-0'"
       >
 
         <!-- Teams List -->
@@ -102,6 +103,16 @@ export default {
       type: Array,
       default: () => []
     },
+    // Dışarıdan (route/sayfa) belirlenen seçili takım — verilirse localStorage yerine bu kullanılır
+    selectedTeamId: {
+      type: String,
+      default: ""
+    },
+    // Dropdown hizalaması: navbar'da 'right', sayfa içinde 'left'
+    align: {
+      type: String,
+      default: "right"
+    }
   },
   data() {
     return {
@@ -121,6 +132,12 @@ export default {
         this.initializeSelection();
       },
       immediate: true
+    },
+    selectedTeamId(val) {
+      if (val) {
+        this.selectedTeam = val;
+        this.previousTeamId = val;
+      }
     }
   },
   created() {
@@ -129,6 +146,12 @@ export default {
   methods: {
     initializeSelection() {
       if (this.teamList.length > 0) {
+        // Sayfa seçimi zaten belirlediyse (örn. route param) emit etmeden senkronize ol
+        if (this.selectedTeamId && this.teamList.find(team => team.id === this.selectedTeamId)) {
+          this.selectedTeam = this.selectedTeamId;
+          this.previousTeamId = this.selectedTeam;
+          return;
+        }
         const savedTeam = localStorage.getItem("selectedTeam");
         if (savedTeam && this.teamList.find(team => team.id === savedTeam)) {
           this.selectedTeam = savedTeam;

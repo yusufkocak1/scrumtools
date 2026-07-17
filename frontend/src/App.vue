@@ -6,30 +6,10 @@
     </div>
 
     <Navbar
-        ref="navbar"
         :isLogged="isLogged"
         :name="name"
-        :selectedTeam="selectedTeam"
-        :teamList="teamList"
         @logout="handleLogout"
-        @team-select="handleTeamSelectRequest"
     />
-
-    <!-- Team Change Confirmation Dialog -->
-    <div v-if="showTeamChangeConfirm"
-         class="fixed inset-0 z-[999] grid h-screen w-screen place-items-center bg-black bg-opacity-60 backdrop-blur-sm transition-opacity duration-300">
-      <ConfirmationDialog
-          v-if="showTeamChangeConfirm"
-          :message="`Are you sure you want to switch to ${pendingTeamName} team?`"
-          cancel-text="Cancel"
-          confirm-text="Yes, Switch"
-          description="You will be redirected to the homepage and your current work may be lost."
-          title="Switch Team"
-          type="warning"
-          @cancel="cancelTeamChange"
-          @confirm="confirmTeamChange"
-      />
-    </div>
 
     <div class="w-full min-w-0">
       <RouterView/>
@@ -44,7 +24,6 @@
 import { me, logout as apiLogout } from "./api/AuthApi.js";
 import { useAuth } from "./composables/useAuth.js";
 import Navbar from "./components/Navbar.vue";
-import ConfirmationDialog from "./components/ConfirmationDialog.vue";
 import UpgradeModal from "./components/billing/UpgradeModal.vue";
 import { getMyTeams } from "./api/TeamApi.js";
 import './scripts/collapse.js'
@@ -53,7 +32,6 @@ export default {
   name: "App",
   components: {
     Navbar,
-    ConfirmationDialog,
     UpgradeModal
   },
   setup() {
@@ -64,9 +42,6 @@ export default {
     loading: true,
     teamList: [],
     selectedTeam: "",
-    showTeamChangeConfirm: false,
-    pendingTeamId: "",
-    pendingTeamName: "",
   }),
   computed: {
     isLogged() { return this.auth.isAuthenticated.value },
@@ -108,31 +83,6 @@ export default {
           this.selectedTeam = ""
         }
       }).catch(err => console.error('Takımlar yüklenemedi:', err))
-    },
-    handleTeamSelectRequest(teamId) {
-      if (this.selectedTeam === teamId) return;
-      if (!this.selectedTeam) {
-        this.selectTeam(teamId);
-        return;
-      }
-      const selectedTeam = this.teamList.find(team => team.id === teamId);
-      if (selectedTeam) {
-        this.pendingTeamId = selectedTeam.id;
-        this.pendingTeamName = selectedTeam.teamName || '';
-        this.showTeamChangeConfirm = true;
-      }
-    },
-    confirmTeamChange() {
-      this.showTeamChangeConfirm = false;
-      this.selectTeam(this.pendingTeamId);
-      this.pendingTeamId = "";
-      this.pendingTeamName = "";
-    },
-    cancelTeamChange() {
-      this.showTeamChangeConfirm = false;
-      this.pendingTeamId = "";
-      this.pendingTeamName = "";
-      this.$refs.navbar.$refs.teamList.resetToSelected();
     }
   },
   async created() {
