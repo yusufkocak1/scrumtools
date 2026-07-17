@@ -36,6 +36,10 @@ public class Project {
     @Column(nullable = false)
     private String key; // e.g. "SCRM", "PAY"
 
+    // Task customId üretimi için kalıcı sayaç (null = mevcut task'lerden başlatılacak)
+    @Column(name = "task_sequence")
+    private Long taskSequence;
+
     @Column(columnDefinition = "TEXT")
     private String description;
 

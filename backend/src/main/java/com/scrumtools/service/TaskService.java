@@ -24,6 +24,7 @@ public class TaskService {
     private final TaskRepository taskRepository;
     private final TaskCommentRepository commentRepository;
     private final TeamRepository teamRepository;
+    private final ProjectRepository projectRepository;
     private final SprintRepository sprintRepository;
     private final ReleaseRepository releaseRepository;
     private final ReleaseService releaseService;
@@ -95,22 +96,39 @@ public class TaskService {
 
     @Transactional
     public TaskResponse createTask(UUID teamId, TaskRequest req) {
-        // Sayaç güncellemesi race condition yaratmasın diye team satırı kilitli okunur
-        Team team = teamRepository.findByIdForUpdate(teamId)
+        Team team = teamRepository.findById(teamId)
                 .orElseThrow(() -> new RuntimeException("Team not found"));
 
         String userEmail = SecurityContextHolder.getContext().getAuthentication().getName();
 
-        // Kalıcı sayaç ile customId üret. Eski COUNT tabanlı yöntem, task silinince
-        // aynı customId'yi ikinci kez üretebiliyordu; sayaç boşsa mevcut customId'lerin
+        // customId proje bazlı üretilir: PROJEKEY-N (sayaç projede, aynı projedeki tüm
+        // takımlar ortak numara alır). Takım projeye bağlı değilse eski TEAMCODE-N
+        // davranışına düşülür. Sayaç güncellemesi race condition yaratmasın diye ilgili
+        // satır (proje ya da takım) kilitli okunur; sayaç boşsa mevcut customId'lerin
         // en büyük sonekinden başlatılır.
-        Long sequence = team.getTaskSequence();
-        if (sequence == null) {
-            sequence = maxCustomIdSuffix(teamId);
+        Project project = null;
+        String customId;
+        if (team.getProject() != null) {
+            project = projectRepository.findByIdForUpdate(team.getProject().getId())
+                    .orElseThrow(() -> new RuntimeException("Project not found"));
+            Long sequence = project.getTaskSequence();
+            if (sequence == null) {
+                sequence = maxCustomIdSuffixForProject(project);
+            }
+            sequence = sequence + 1;
+            project.setTaskSequence(sequence);
+            customId = project.getKey() + "-" + sequence;
+        } else {
+            team = teamRepository.findByIdForUpdate(teamId)
+                    .orElseThrow(() -> new RuntimeException("Team not found"));
+            Long sequence = team.getTaskSequence();
+            if (sequence == null) {
+                sequence = maxCustomIdSuffix(teamId);
+            }
+            sequence = sequence + 1;
+            team.setTaskSequence(sequence);
+            customId = team.getTeamCode() + "-" + sequence;
         }
-        sequence = sequence + 1;
-        team.setTaskSequence(sequence);
-        String customId = team.getTeamCode() + "-" + sequence;
 
         Sprint sprint = null;
         if (req.getSprintId() != null && !req.getSprintId().isBlank()) {
@@ -131,6 +149,7 @@ public class TaskService {
 
         Task task = Task.builder()
                 .team(team)
+                .project(project)
                 .sprint(sprint)
                 .release(release)
                 .parentTask(parentTask)
@@ -460,7 +479,21 @@ public class TaskService {
 
     /** Takımdaki mevcut customId'lerin en büyük sayısal soneki (sayaç başlatma için). */
     private long maxCustomIdSuffix(UUID teamId) {
-        return taskRepository.findCustomIdsByTeamId(teamId).stream()
+        return maxSuffix(taskRepository.findCustomIdsByTeamId(teamId), null);
+    }
+
+    /**
+     * Projedeki mevcut customId'lerin en büyük sayısal soneki (proje sayacı başlatma için).
+     * Sadece proje anahtarıyla başlayan ID'ler sayılır — takım kodu proje anahtarından
+     * farklıysa eski TEAMCODE-N görevleri numaralandırmayı etkilemez.
+     */
+    private long maxCustomIdSuffixForProject(Project project) {
+        return maxSuffix(taskRepository.findCustomIdsByProjectId(project.getId()), project.getKey() + "-");
+    }
+
+    private long maxSuffix(List<String> customIds, String requiredPrefix) {
+        return customIds.stream()
+                .filter(cid -> requiredPrefix == null || cid.startsWith(requiredPrefix))
                 .map(cid -> cid.substring(cid.lastIndexOf('-') + 1))
                 .filter(s -> !s.isEmpty() && s.chars().allMatch(Character::isDigit))
                 .mapToLong(Long::parseLong)

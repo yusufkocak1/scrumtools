@@ -22,6 +22,7 @@ import java.util.*;
 @Entity
 @Table(name = "tasks", indexes = {
         @Index(name = "idx_task_team", columnList = "team_id"),
+        @Index(name = "idx_task_project", columnList = "project_id"),
         @Index(name = "idx_task_custom_id", columnList = "customId"),
         @Index(name = "idx_task_sprint", columnList = "sprint_id"),
         @Index(name = "idx_task_release", columnList = "release_id"),
@@ -43,6 +44,14 @@ public class Task {
     @JoinColumn(name = "team_id", nullable = false)
     private Team team;
 
+    /**
+     * Görevin ait olduğu proje — customId bu projenin key'i ile üretilir (PROJEKEY-N).
+     * Null olabilir: takımı projeye bağlanmamış eski görevler team bazlı isimlendirmede kalır.
+     */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "project_id")
+    private Project project;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "sprint_id")
     private Sprint sprint;
@@ -62,7 +71,9 @@ public class Task {
     private List<Task> subtasks = new ArrayList<>();
 
     /**
-     * TEAMCODE-N formatında benzersiz iş öğesi kimliği (backend üretir, race condition'a karşı DB sequence ile korunur).
+     * PROJEKEY-N formatında benzersiz iş öğesi kimliği (backend üretir, sayaç proje satırı
+     * kilitlenerek artırılır — aynı projedeki tüm takımlar ortak numara alır).
+     * Takım projeye bağlı değilse TEAMCODE-N formatına düşer; eski görevler mevcut ID'lerini korur.
      */
     @Column(nullable = false)
     private String customId;

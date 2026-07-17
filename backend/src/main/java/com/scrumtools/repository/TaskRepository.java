@@ -1,8 +1,10 @@
 package com.scrumtools.repository;
 
+import com.scrumtools.entity.Project;
 import com.scrumtools.entity.Task;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -38,6 +40,15 @@ public interface TaskRepository extends JpaRepository<Task, UUID> {
     /** Takımdaki tüm customId'ler — kalıcı sayaç başlatılırken max sonek hesaplamak için. */
     @Query("SELECT t.customId FROM Task t WHERE t.team.id = :teamId")
     List<String> findCustomIdsByTeamId(@Param("teamId") UUID teamId);
+
+    /** Projedeki tüm customId'ler — proje sayacı başlatılırken max sonek hesaplamak için. */
+    @Query("SELECT t.customId FROM Task t WHERE t.project.id = :projectId")
+    List<String> findCustomIdsByProjectId(@Param("projectId") UUID projectId);
+
+    /** Takım projeye bağlanınca projesiz görevleri projeye ata (customId'ler korunur). */
+    @Modifying
+    @Query("UPDATE Task t SET t.project = :project WHERE t.team.id = :teamId AND t.project IS NULL")
+    int assignProjectToTeamTasks(@Param("teamId") UUID teamId, @Param("project") Project project);
 
     // ─── Release sorguları ────────────────────────────────────────────────────
 

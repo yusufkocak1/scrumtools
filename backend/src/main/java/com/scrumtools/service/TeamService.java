@@ -12,6 +12,7 @@ import com.scrumtools.entity.enums.OrgRole;
 import com.scrumtools.repository.OrganizationMemberRepository;
 import com.scrumtools.repository.OrganizationRepository;
 import com.scrumtools.repository.ProjectRepository;
+import com.scrumtools.repository.TaskRepository;
 import com.scrumtools.repository.TeamMemberRepository;
 import com.scrumtools.repository.TeamRepository;
 import com.scrumtools.repository.UserRepository;
@@ -35,6 +36,7 @@ public class TeamService {
     private final OrganizationRepository organizationRepository;
     private final OrganizationMemberRepository organizationMemberRepository;
     private final ProjectRepository projectRepository;
+    private final TaskRepository taskRepository;
 
     // ─── Get Teams By Organisation ────────────────────────────────────────────
 
@@ -249,6 +251,13 @@ public class TeamService {
                 throw new IllegalArgumentException("Proje, takımın organizasyonuna ait değil.");
             }
             team.setProject(project);
+
+            // Takımın projesiz görevleri projeye bağlanır (customId'leri korunur;
+            // proje bağı olan görevler dokunulmaz — task artık projeye aittir).
+            int migrated = taskRepository.assignProjectToTeamTasks(teamId, project);
+            if (migrated > 0) {
+                log.info("Takım projeye bağlandı: {} görev {} projesine taşındı.", migrated, project.getKey());
+            }
         }
 
         team = teamRepository.save(team);

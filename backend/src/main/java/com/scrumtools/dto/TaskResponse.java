@@ -17,6 +17,8 @@ public class TaskResponse {
 
     private String id;
     private String teamId;
+    private String projectId;
+    private String projectKey;
     private String sprintId;
     private String releaseId;
     private String releaseName;
@@ -100,6 +102,8 @@ public class TaskResponse {
         return TaskResponse.builder()
                 .id(task.getId().toString())
                 .teamId(task.getTeam().getId().toString())
+                .projectId(task.getProject() != null ? task.getProject().getId().toString() : null)
+                .projectKey(task.getProject() != null ? task.getProject().getKey() : null)
                 .sprintId(task.getSprint() != null ? task.getSprint().getId().toString() : null)
                 .releaseId(task.getRelease() != null ? task.getRelease().getId().toString() : null)
                 .releaseName(task.getRelease() != null ? task.getRelease().getName() : null)
