@@ -1,17 +1,17 @@
 <template>
   <div class="tiptap-editor h-full flex flex-col">
     <!-- Main Toolbar -->
-    <div class="bg-white border-b px-4 py-2 flex flex-wrap items-center gap-1">
+    <div class="bg-white border-b border-slate-200 px-3 py-1.5 flex flex-wrap items-center gap-0.5">
       <!-- Mode toggle -->
-      <div v-if="!compact" class="flex border rounded-lg overflow-hidden mr-2">
+      <div v-if="!compact" class="flex bg-slate-100 rounded-lg p-0.5 mr-2">
         <button @click="switchMode('visual')"
-                :class="['px-2.5 py-1 text-xs font-medium transition',
-                  editorMode === 'visual' ? 'bg-indigo-500 text-white' : 'bg-gray-50 text-gray-600 hover:bg-gray-100']">
-          ✏️ Görsel
+                :class="['px-2.5 py-1 text-xs rounded-md transition',
+                  editorMode === 'visual' ? 'bg-white shadow-sm text-indigo-600 font-medium' : 'text-slate-500 hover:text-slate-700']">
+          Görsel
         </button>
         <button @click="switchMode('html')"
-                :class="['px-2.5 py-1 text-xs font-medium transition',
-                  editorMode === 'html' ? 'bg-indigo-500 text-white' : 'bg-gray-50 text-gray-600 hover:bg-gray-100']">
+                :class="['px-2.5 py-1 text-xs rounded-md transition',
+                  editorMode === 'html' ? 'bg-white shadow-sm text-indigo-600 font-medium' : 'text-slate-500 hover:text-slate-700']">
           &lt;/&gt; HTML
         </button>
       </div>
@@ -29,7 +29,7 @@
                 :class="toolBtnClass(editor?.isActive('strike'))" title="Üstü çizili">
           <s>S</s>
         </button>
-        <span class="w-px h-5 bg-gray-300 mx-1"></span>
+        <span class="w-px h-5 bg-slate-200 mx-1.5"></span>
 
         <button @click="editor?.chain().focus().toggleHeading({level: 1}).run()"
                 :class="toolBtnClass(editor?.isActive('heading', {level: 1}))" title="Başlık 1">
@@ -43,21 +43,27 @@
                 :class="toolBtnClass(editor?.isActive('heading', {level: 3}))" title="Başlık 3">
           H3
         </button>
-        <span class="w-px h-5 bg-gray-300 mx-1"></span>
+        <span class="w-px h-5 bg-slate-200 mx-1.5"></span>
 
         <button @click="editor?.chain().focus().toggleBulletList().run()"
                 :class="toolBtnClass(editor?.isActive('bulletList'))" title="Madde listesi">
-          • List
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round"
+                  d="M8.25 6.75h12M8.25 12h12m-12 5.25h12M3.75 6.75h.007v.008H3.75V6.75zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zM3.75 12h.007v.008H3.75V12zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm-.375 5.25h.007v.008H3.75v-.008zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0z"/>
+          </svg>
         </button>
         <button @click="editor?.chain().focus().toggleOrderedList().run()"
                 :class="toolBtnClass(editor?.isActive('orderedList'))" title="Numaralı liste">
-          1. List
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round"
+                  d="M8.242 5.992h12m-12 6.003H20.24m-12 5.999h12M4.117 7.495v-3.75H2.99m1.125 3.75H2.99m1.125 0H5.24m-1.92 2.577a1.125 1.125 0 111.591 1.59l-1.83 1.83h2.16M2.99 15.745h1.125a1.125 1.125 0 010 2.25H3.74m0-.002h.375a1.125 1.125 0 010 2.25H2.99"/>
+          </svg>
         </button>
         <button @click="editor?.chain().focus().toggleBlockquote().run()"
                 :class="toolBtnClass(editor?.isActive('blockquote'))" title="Alıntı">
           ❝
         </button>
-        <span class="w-px h-5 bg-gray-300 mx-1"></span>
+        <span class="w-px h-5 bg-slate-200 mx-1.5"></span>
 
         <button @click="editor?.chain().focus().toggleCodeBlock().run()"
                 :class="toolBtnClass(editor?.isActive('codeBlock'))" title="Kod bloğu">
@@ -65,34 +71,53 @@
         </button>
         <button @click="editor?.chain().focus().toggleHighlight().run()"
                 :class="toolBtnClass(editor?.isActive('highlight'))" title="Vurgula">
-          🖍
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round"
+                  d="M9.53 16.122a3 3 0 00-5.78 1.128 2.25 2.25 0 01-2.4 2.245 4.5 4.5 0 008.4-2.245c0-.399-.078-.78-.22-1.128zm0 0a15.998 15.998 0 003.388-1.62m-5.043-.025a15.994 15.994 0 011.622-3.395m3.42 3.42a15.995 15.995 0 004.764-4.648l3.876-5.814a1.151 1.151 0 00-1.597-1.597L14.146 6.32a15.996 15.996 0 00-4.649 4.763m3.42 3.42a6.776 6.776 0 00-3.42-3.42"/>
+          </svg>
         </button>
         <button @click="setLink" :class="toolBtnClass(editor?.isActive('link'))" title="Link">
-          🔗
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round"
+                  d="M13.19 8.688a4.5 4.5 0 011.242 7.244l-4.5 4.5a4.5 4.5 0 01-6.364-6.364l1.757-1.757m13.35-.622l1.757-1.757a4.5 4.5 0 00-6.364-6.364l-4.5 4.5a4.5 4.5 0 001.242 7.244"/>
+          </svg>
         </button>
-        <span class="w-px h-5 bg-gray-300 mx-1"></span>
+        <span class="w-px h-5 bg-slate-200 mx-1.5"></span>
 
-        <button @click="showImageModal = true" class="px-2 py-1 rounded text-sm hover:bg-gray-100" title="Resim ekle">
-          🖼️
+        <button @click="showImageModal = true" :class="toolBtnClass(false)" title="Resim ekle">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round"
+                  d="M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5l1.409-1.409a2.25 2.25 0 013.182 0l2.909 2.909m-18 3.75h16.5a1.5 1.5 0 001.5-1.5V6a1.5 1.5 0 00-1.5-1.5H3.75A1.5 1.5 0 002.25 6v12a1.5 1.5 0 001.5 1.5zm10.5-11.25h.008v.008h-.008V8.25z"/>
+          </svg>
         </button>
-        <button @click="insertTable" class="px-2 py-1 rounded text-sm hover:bg-gray-100" title="Tablo ekle">
-          📊
+        <button @click="insertTable" :class="toolBtnClass(false)" title="Tablo ekle">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round"
+                  d="M3.75 6A2.25 2.25 0 016 3.75h12A2.25 2.25 0 0120.25 6v12A2.25 2.25 0 0118 20.25H6A2.25 2.25 0 013.75 18V6zM3.75 9.75h16.5M3.75 14.25h16.5M9.75 3.75v16.5M14.25 3.75v16.5"/>
+          </svg>
         </button>
-        <button @click="uploadFile" v-if="!compact" class="px-2 py-1 rounded text-sm hover:bg-gray-100" title="Dosya yükle">
-          📎
+        <button @click="uploadFile" v-if="!compact" :class="toolBtnClass(false)" title="Dosya yükle">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round"
+                  d="M18.375 12.739l-7.693 7.693a4.5 4.5 0 01-6.364-6.364l10.94-10.94A3 3 0 1119.5 7.372L8.552 18.32m.009-.01l-.01.01m5.699-9.941l-7.81 7.81a1.5 1.5 0 002.112 2.13"/>
+          </svg>
         </button>
-        <span v-if="!compact" class="w-px h-5 bg-gray-300 mx-1"></span>
-        <button v-if="!compact" @click="showMarkdownImport = true" class="px-2 py-1 rounded text-sm hover:bg-gray-100"
+        <span v-if="!compact" class="w-px h-5 bg-slate-200 mx-1.5"></span>
+        <button v-if="!compact" @click="showMarkdownImport = true" :class="toolBtnClass(false)"
                 title="Markdown içe aktar">
-          📥 MD
+          <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round"
+                  d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3"/>
+          </svg>
+          <span class="text-xs font-medium">MD</span>
         </button>
       </template>
     </div>
 
     <!-- Table Toolbar (visible when cursor is inside a table) -->
     <div v-if="editorMode === 'visual' && editor?.isActive('table')"
-         class="bg-gray-50 border-b px-4 py-1.5 flex flex-wrap items-center gap-1">
-      <span class="text-xs text-gray-500 mr-2 font-medium">Tablo:</span>
+         class="bg-slate-50 border-b border-slate-200 px-4 py-1.5 flex flex-wrap items-center gap-1">
+      <span class="text-xs text-slate-500 mr-2 font-medium">Tablo:</span>
       <button @click="editor?.chain().focus().addRowBefore().run()"
               class="table-tool-btn" title="Üste satır ekle">
         ↑ Satır
@@ -109,16 +134,16 @@
               class="table-tool-btn" title="Sağa sütun ekle">
         → Sütun
       </button>
-      <span class="w-px h-4 bg-gray-300 mx-1"></span>
+      <span class="w-px h-4 bg-slate-200 mx-1"></span>
       <button @click="editor?.chain().focus().deleteRow().run()"
-              class="table-tool-btn text-red-600 hover:!bg-red-50" title="Satır sil">
+              class="table-tool-btn text-rose-600 hover:!bg-rose-50" title="Satır sil">
         ✕ Satır
       </button>
       <button @click="editor?.chain().focus().deleteColumn().run()"
-              class="table-tool-btn text-red-600 hover:!bg-red-50" title="Sütun sil">
+              class="table-tool-btn text-rose-600 hover:!bg-rose-50" title="Sütun sil">
         ✕ Sütun
       </button>
-      <span class="w-px h-4 bg-gray-300 mx-1"></span>
+      <span class="w-px h-4 bg-slate-200 mx-1"></span>
       <button @click="editor?.chain().focus().mergeCells().run()"
               class="table-tool-btn" title="Hücreleri birleştir">
         ⊞ Birleştir
@@ -131,10 +156,10 @@
               class="table-tool-btn" title="Başlık satırı">
         ▤ Başlık
       </button>
-      <span class="w-px h-4 bg-gray-300 mx-1"></span>
+      <span class="w-px h-4 bg-slate-200 mx-1"></span>
       <button @click="editor?.chain().focus().deleteTable().run()"
-              class="table-tool-btn text-red-600 hover:!bg-red-50" title="Tabloyu sil">
-        🗑️ Tablo
+              class="table-tool-btn text-rose-600 hover:!bg-rose-50" title="Tabloyu sil">
+        Tabloyu Sil
       </button>
     </div>
 
@@ -147,12 +172,12 @@
 
     <!-- HTML Source Editor -->
     <div v-if="editorMode === 'html' && !compact" class="flex-1 overflow-hidden flex flex-col">
-      <div class="px-4 py-1.5 bg-gray-50 border-b flex items-center gap-2">
-        <span class="text-xs text-gray-500">HTML kaynak kodu düzenleyin. Görsel moda dönünce içerik güncellenecektir.</span>
+      <div class="px-4 py-1.5 bg-slate-50 border-b border-slate-200 flex items-center gap-2">
+        <span class="text-xs text-slate-500">HTML kaynak kodu düzenleyin. Görsel moda dönünce içerik güncellenecektir.</span>
       </div>
       <textarea
           v-model="sourceCode"
-          class="flex-1 w-full p-4 font-mono text-sm bg-gray-900 text-green-400 resize-none outline-none"
+          class="flex-1 w-full p-4 font-mono text-sm bg-slate-900 text-emerald-400 resize-none outline-none"
           spellcheck="false"
           placeholder="HTML içeriğinizi buraya yazın veya yapıştırın..."
       ></textarea>
@@ -164,38 +189,45 @@
 
     <!-- Image Insert Modal -->
     <teleport to="body">
-      <div v-if="showImageModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
+      <div v-if="showImageModal" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-sm"
            @click.self="showImageModal = false">
-        <div class="bg-white rounded-xl shadow-2xl w-full max-w-md mx-4 overflow-hidden">
-          <div class="px-6 py-4 border-b flex items-center justify-between">
-            <h3 class="font-semibold text-gray-800 text-lg">🖼️ Resim Ekle</h3>
-            <button @click="showImageModal = false" class="text-gray-400 hover:text-gray-600 text-xl">✕</button>
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md mx-4 overflow-hidden">
+          <div class="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
+            <h3 class="font-semibold text-slate-800">Resim Ekle</h3>
+            <button @click="showImageModal = false" class="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
+              </svg>
+            </button>
           </div>
           <div class="p-6 space-y-4">
             <!-- Tab seçimi -->
-            <div class="flex border rounded-lg overflow-hidden">
+            <div class="flex bg-slate-100 rounded-xl p-1 gap-1">
               <button @click="imageTab = 'upload'"
-                      :class="['flex-1 py-2 text-sm font-medium transition', imageTab === 'upload' ? 'bg-indigo-500 text-white' : 'bg-gray-50 text-gray-600 hover:bg-gray-100']">
-                📁 Dosya Yükle
+                      :class="['flex-1 py-1.5 text-sm rounded-lg transition', imageTab === 'upload' ? 'bg-white shadow-sm text-indigo-600 font-medium' : 'text-slate-500 hover:text-slate-700']">
+                Dosya Yükle
               </button>
               <button @click="imageTab = 'url'"
-                      :class="['flex-1 py-2 text-sm font-medium transition', imageTab === 'url' ? 'bg-indigo-500 text-white' : 'bg-gray-50 text-gray-600 hover:bg-gray-100']">
-                🔗 URL ile Ekle
+                      :class="['flex-1 py-1.5 text-sm rounded-lg transition', imageTab === 'url' ? 'bg-white shadow-sm text-indigo-600 font-medium' : 'text-slate-500 hover:text-slate-700']">
+                URL ile Ekle
               </button>
             </div>
 
             <!-- Upload Tab -->
             <div v-if="imageTab === 'upload'">
-              <label class="block w-full border-2 border-dashed border-gray-300 rounded-lg p-6 text-center cursor-pointer hover:border-indigo-400 hover:bg-indigo-50 transition">
+              <label class="group block w-full border-2 border-dashed border-slate-200 rounded-xl p-6 text-center cursor-pointer hover:border-indigo-300 hover:bg-indigo-50/50 transition">
                 <input type="file" accept="image/*" class="hidden" @change="onImageModalFileSelect"/>
                 <div v-if="imageUploading" class="text-indigo-600">
                   <div class="animate-spin inline-block w-6 h-6 border-2 border-indigo-500 border-t-transparent rounded-full mb-2"></div>
                   <p class="text-sm">Yükleniyor...</p>
                 </div>
                 <div v-else>
-                  <div class="text-3xl mb-2">📷</div>
-                  <p class="text-sm text-gray-500">Resim seçmek için tıklayın</p>
-                  <p class="text-xs text-gray-400 mt-1">PNG, JPG, GIF, WebP - Maks. 10MB</p>
+                  <svg class="w-8 h-8 mx-auto text-slate-400 group-hover:text-indigo-500 transition mb-2" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round"
+                          d="M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5l1.409-1.409a2.25 2.25 0 013.182 0l2.909 2.909m-18 3.75h16.5a1.5 1.5 0 001.5-1.5V6a1.5 1.5 0 00-1.5-1.5H3.75A1.5 1.5 0 002.25 6v12a1.5 1.5 0 001.5 1.5zm10.5-11.25h.008v.008h-.008V8.25z"/>
+                  </svg>
+                  <p class="text-sm text-slate-500">Resim seçmek için tıklayın</p>
+                  <p class="text-xs text-slate-400 mt-1">PNG, JPG, GIF, WebP - Maks. 10MB</p>
                 </div>
               </label>
             </div>
@@ -203,19 +235,19 @@
             <!-- URL Tab -->
             <div v-if="imageTab === 'url'" class="space-y-3">
               <div>
-                <label class="text-sm text-gray-600 block mb-1">Resim URL'si</label>
+                <label class="text-sm text-slate-600 block mb-1">Resim URL'si</label>
                 <input v-model="imageUrl" type="url" placeholder="https://example.com/image.png"
-                       class="w-full border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-300 focus:border-indigo-400 outline-none"
+                       class="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-100 focus:border-indigo-300 outline-none transition placeholder:text-slate-400"
                        @keyup.enter="insertImageFromUrl"/>
               </div>
-              <div v-if="imageUrl" class="border rounded-lg p-2 bg-gray-50">
-                <img :src="imageUrl" alt="Önizleme" class="max-h-32 mx-auto rounded"
+              <div v-if="imageUrl" class="border border-slate-200 rounded-xl p-2 bg-slate-50">
+                <img :src="imageUrl" alt="Önizleme" class="max-h-32 mx-auto rounded-lg"
                      @error="imagePreviewError = true" @load="imagePreviewError = false"/>
-                <p v-if="imagePreviewError" class="text-xs text-red-500 text-center mt-1">Resim yüklenemedi</p>
+                <p v-if="imagePreviewError" class="text-xs text-rose-500 text-center mt-1">Resim yüklenemedi</p>
               </div>
               <button @click="insertImageFromUrl"
                       :disabled="!imageUrl || imagePreviewError"
-                      class="w-full py-2 bg-indigo-500 text-white rounded-lg text-sm font-medium hover:bg-indigo-600 disabled:opacity-50 disabled:cursor-not-allowed transition">
+                      class="w-full py-2 bg-indigo-600 text-white rounded-xl text-sm font-medium hover:bg-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed shadow-sm shadow-indigo-200 transition">
                 Ekle
               </button>
             </div>
@@ -226,31 +258,35 @@
 
     <!-- Link Modal -->
     <teleport to="body">
-      <div v-if="showLinkModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
+      <div v-if="showLinkModal" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-sm"
            @click.self="showLinkModal = false">
-        <div class="bg-white rounded-xl shadow-2xl w-full max-w-md mx-4 overflow-hidden">
-          <div class="px-6 py-4 border-b flex items-center justify-between">
-            <h3 class="font-semibold text-gray-800 text-lg">🔗 Link Ekle</h3>
-            <button @click="showLinkModal = false" class="text-gray-400 hover:text-gray-600 text-xl">✕</button>
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md mx-4 overflow-hidden">
+          <div class="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
+            <h3 class="font-semibold text-slate-800">Link Ekle</h3>
+            <button @click="showLinkModal = false" class="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
+              </svg>
+            </button>
           </div>
           <div class="p-6 space-y-3">
             <div>
-              <label class="text-sm text-gray-600 block mb-1">URL</label>
+              <label class="text-sm text-slate-600 block mb-1">URL</label>
               <input v-model="linkUrl" type="url" placeholder="https://example.com"
-                     class="w-full border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-300 focus:border-indigo-400 outline-none"
+                     class="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-100 focus:border-indigo-300 outline-none transition placeholder:text-slate-400"
                      @keyup.enter="applyLink"/>
             </div>
             <div class="flex gap-2 justify-end">
               <button v-if="editor?.isActive('link')" @click="removeLink"
-                      class="px-4 py-2 text-sm text-red-600 hover:bg-red-50 rounded-lg transition mr-auto">
+                      class="px-4 py-2 text-sm font-medium text-rose-500 hover:bg-rose-50 rounded-xl transition mr-auto">
                 Linki Kaldır
               </button>
               <button @click="showLinkModal = false"
-                      class="px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-lg transition">
+                      class="px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100 rounded-xl transition">
                 İptal
               </button>
               <button @click="applyLink" :disabled="!linkUrl.trim()"
-                      class="px-4 py-2 bg-indigo-500 text-white text-sm font-medium rounded-lg hover:bg-indigo-600 disabled:opacity-50 disabled:cursor-not-allowed transition">
+                      class="px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-xl hover:bg-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed shadow-sm shadow-indigo-200 transition">
                 Ekle
               </button>
             </div>
@@ -261,34 +297,38 @@
 
     <!-- Markdown Import Modal -->
     <teleport to="body">
-      <div v-if="showMarkdownImport" class="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
+      <div v-if="showMarkdownImport" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-sm"
            @click.self="showMarkdownImport = false">
-        <div class="bg-white rounded-xl shadow-2xl w-full max-w-2xl mx-4 overflow-hidden flex flex-col"
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-2xl mx-4 overflow-hidden flex flex-col"
              style="max-height: 80vh;">
-          <div class="px-6 py-4 border-b flex items-center justify-between shrink-0">
-            <h3 class="font-semibold text-gray-800 text-lg">📥 Markdown İçe Aktar</h3>
-            <button @click="showMarkdownImport = false" class="text-gray-400 hover:text-gray-600 text-xl">✕</button>
+          <div class="px-6 py-4 border-b border-slate-100 flex items-center justify-between shrink-0">
+            <h3 class="font-semibold text-slate-800">Markdown İçe Aktar</h3>
+            <button @click="showMarkdownImport = false" class="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
+              </svg>
+            </button>
           </div>
           <div class="p-6 flex flex-col gap-4 flex-1 min-h-0">
-            <p class="text-sm text-gray-500 shrink-0">
+            <p class="text-sm text-slate-500 shrink-0">
               Markdown formatında metni aşağıya yapıştırın. İçerik otomatik olarak zengin formata dönüştürülecektir.
             </p>
 
             <!-- Import mode: replace or append -->
             <div class="flex gap-3 shrink-0">
-              <label class="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
-                <input type="radio" v-model="mdImportMode" value="replace" class="text-indigo-500"/>
+              <label class="flex items-center gap-2 text-sm text-slate-600 cursor-pointer">
+                <input type="radio" v-model="mdImportMode" value="replace" class="text-indigo-600"/>
                 Tüm içeriği değiştir
               </label>
-              <label class="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
-                <input type="radio" v-model="mdImportMode" value="append" class="text-indigo-500"/>
+              <label class="flex items-center gap-2 text-sm text-slate-600 cursor-pointer">
+                <input type="radio" v-model="mdImportMode" value="append" class="text-indigo-600"/>
                 Cursor konumuna ekle
               </label>
             </div>
 
             <textarea
                 v-model="mdImportContent"
-                class="flex-1 w-full border rounded-lg p-3 font-mono text-sm resize-none outline-none focus:ring-2 focus:ring-indigo-300 focus:border-indigo-400"
+                class="flex-1 w-full border border-slate-200 rounded-xl p-3 font-mono text-sm resize-none outline-none focus:ring-2 focus:ring-indigo-100 focus:border-indigo-300 transition placeholder:text-slate-400"
                 placeholder="# Başlık&#10;&#10;Paragraf metni burada...&#10;&#10;- Madde 1&#10;- Madde 2&#10;&#10;**Kalın** ve *italik* metin"
                 spellcheck="false"
             ></textarea>
@@ -296,23 +336,23 @@
             <!-- Preview -->
             <div v-if="mdImportContent" class="shrink-0">
               <button @click="mdShowPreview = !mdShowPreview"
-                      class="text-xs text-indigo-600 hover:text-indigo-800 mb-1">
+                      class="text-xs font-medium text-indigo-600 hover:text-indigo-800 mb-1 transition">
                 {{ mdShowPreview ? '▼ Önizlemeyi gizle' : '▶ Önizlemeyi göster' }}
               </button>
               <div v-if="mdShowPreview"
-                   class="border rounded-lg p-3 bg-gray-50 prose prose-sm prose-indigo max-w-none max-h-40 overflow-y-auto"
+                   class="border border-slate-200 rounded-xl p-3 bg-slate-50 prose prose-sm prose-indigo max-w-none max-h-40 overflow-y-auto"
                    v-html="mdPreviewHtml">
               </div>
             </div>
 
             <div class="flex gap-2 justify-end shrink-0">
               <button @click="showMarkdownImport = false"
-                      class="px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-lg transition">
+                      class="px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100 rounded-xl transition">
                 İptal
               </button>
               <button @click="applyMarkdownImport"
                       :disabled="!mdImportContent.trim()"
-                      class="px-4 py-2 bg-indigo-500 text-white text-sm font-medium rounded-lg hover:bg-indigo-600 disabled:opacity-50 disabled:cursor-not-allowed transition">
+                      class="px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-xl hover:bg-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed shadow-sm shadow-indigo-200 transition">
                 İçe Aktar
               </button>
             </div>
@@ -508,8 +548,8 @@ onBeforeUnmount(() => {
 
 function toolBtnClass(isActive) {
   return [
-    'px-2 py-1 rounded text-sm transition',
-    isActive ? 'bg-indigo-100 text-indigo-700' : 'hover:bg-gray-100 text-gray-700'
+    'h-8 min-w-[2rem] px-1.5 inline-flex items-center justify-center rounded-lg text-sm transition',
+    isActive ? 'bg-indigo-100 text-indigo-700' : 'text-slate-600 hover:bg-slate-100 hover:text-slate-800'
   ]
 }
 
@@ -762,16 +802,16 @@ function onDrop(event) {
 
 .table-tool-btn {
   padding: 2px 8px;
-  border-radius: 4px;
+  border-radius: 6px;
   font-size: 0.75rem;
   font-weight: 500;
-  color: #374151;
+  color: #475569;
   transition: all 0.15s;
   white-space: nowrap;
 }
 
 .table-tool-btn:hover {
-  background-color: #e5e7eb;
+  background-color: #e2e8f0;
 }
 </style>
 
