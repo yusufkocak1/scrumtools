@@ -188,6 +188,18 @@ const routes = [{
     props: true,
     meta: {requiresAuth: true}
 }, {
+    // SEO blog — giriş gerektirmez, Landing gibi kendi header/footer'ını kullanır
+    path: '/blog',
+    name: 'Blog',
+    component: () => import('./pages/Blog.vue'),
+    meta: {requiresAuth: false, hideNavbar: true}
+}, {
+    path: '/blog/:slug',
+    name: 'BlogPost',
+    component: () => import('./pages/BlogPost.vue'),
+    props: true,
+    meta: {requiresAuth: false, hideNavbar: true}
+}, {
     // Catch-all: tanımsız URL'leri ana sayfaya yönlendir
     path: '/:pathMatch(.*)*',
     redirect: '/'

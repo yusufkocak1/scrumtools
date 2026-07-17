@@ -19,6 +19,7 @@
           <a href="#features" class="hover:text-blue-600 transition-colors">Özellikler</a>
           <a href="#how-it-works" class="hover:text-blue-600 transition-colors">Nasıl Çalışır?</a>
           <a href="#pricing" class="hover:text-blue-600 transition-colors">Paketler</a>
+          <router-link to="/blog" class="hover:text-blue-600 transition-colors">Blog</router-link>
         </nav>
 
         <div class="flex items-center gap-2 lg:gap-3">
@@ -253,6 +254,7 @@
         <div class="flex items-center gap-6 text-sm">
           <a href="#features" class="hover:text-white transition-colors">Özellikler</a>
           <a href="#pricing" class="hover:text-white transition-colors">Paketler</a>
+          <router-link to="/blog" class="hover:text-white transition-colors">Blog</router-link>
           <button @click="gotoLogin" class="hover:text-white transition-colors">Giriş Yap</button>
         </div>
         <p class="text-xs">
@@ -264,6 +266,8 @@
 </template>
 
 <script>
+import { setSeo, resetSeo, SITE_URL, SITE_NAME } from '../utils/seo.js'
+
 export default {
   name: 'Landing',
   data: () => ({
@@ -379,6 +383,26 @@ export default {
     gotoSignup() {
       this.$router.push({ path: '/login', query: { mode: 'signup' } })
     },
+  },
+  created() {
+    setSeo({
+      title: 'ScrumTools — Çevik Takımlar için Scrum Poker, Retro ve Sprint Yönetimi',
+      description: 'Sprint panosu, planlama pokeri, retro panoları, backlog ve raporlar tek platformda. Çevik takımınız için kurulum gerektirmeyen Scrum araçları — ücretsiz başlayın.',
+      path: '/',
+      jsonLd: [{
+        '@context': 'https://schema.org',
+        '@type': 'SoftwareApplication',
+        name: SITE_NAME,
+        url: SITE_URL,
+        applicationCategory: 'BusinessApplication',
+        operatingSystem: 'Web',
+        inLanguage: 'tr',
+        offers: { '@type': 'Offer', price: '0', priceCurrency: 'TRY', description: 'Ücretsiz başlangıç paketi' }
+      }]
+    })
+  },
+  unmounted() {
+    resetSeo()
   },
 }
 </script>

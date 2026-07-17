@@ -1,0 +1,24 @@
+User-agent: *
+Allow: /
+Allow: /blog
+# Giriş gerektiren uygulama sayfaları — dizine eklenmeleri gereksiz
+Disallow: /home
+Disallow: /login
+Disallow: /admin
+Disallow: /settings
+Disallow: /profile
+Disallow: /organizations
+Disallow: /projects/
+Disallow: /task/
+Disallow: /teams
+Disallow: /dashboard
+Disallow: /support
+Disallow: /docs
+Disallow: /retrospective
+Disallow: /retroBoard/
+Disallow: /scrumPoker/
+Disallow: /workList/
+Disallow: /codeShare/
+Disallow: /quiz/
+
+Sitemap: https://scrumtools.kocak.net.tr/sitemap.xml
