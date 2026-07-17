@@ -71,7 +71,7 @@ export default {
         },
         {
             q: 'Retro kararları nasıl takip edilmeli?',
-            a: 'Her aksiyonun bir sahibi ve doğrulanabilir bir tanımı olmalı, bir sonraki retrospektifin açılışında önceki aksiyonların durumu gözden geçirilmelidir. Bazı takımlar en önemli aksiyonu sprint backlog'una iş olarak ekler.'
+            a: 'Her aksiyonun bir sahibi ve doğrulanabilir bir tanımı olmalı, bir sonraki retrospektifin açılışında önceki aksiyonların durumu gözden geçirilmelidir. Bazı takımlar en önemli aksiyonu sprint backlog\'una iş olarak ekler.'
         },
         {
             q: 'Takım retroya isteksizse ne yapılmalı?',

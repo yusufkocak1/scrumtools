@@ -8,7 +8,7 @@ export default {
     date: '2026-06-22',
     readingMinutes: 9,
     excerpt: 'Scrum, karmaşık ürünler geliştiren takımların işlerini kısa döngülerle planlayıp düzenli olarak denetlemesine dayanan, dünyanın en yaygın çevik çerçevesidir. Bu rehber; rolleri, etkinlikleri ve eserleriyle Scrum\'ın bütününü aktarır.',
-    related: ['scrum-poker-nedir', 'sprint-retrospektifi-nedir', 'kanban-ile-scrum-farklari'],
+    related: ['scrum-poker-nedir', 'sprint-retrospektifi-nedir', 'kanban-ile-scrum-farklari', 'urun-is-listesi-nasil-organize-edilmeli'],
     html: `
 <p><strong>Scrum</strong>, karmaşık problemler üzerinde çalışan takımların, işlerini <em>sprint</em> adı verilen kısa ve sabit uzunluktaki döngüler hâlinde planlamasına, her döngünün sonunda kullanılabilir bir ürün parçası ortaya koymasına ve hem ürünü hem çalışma biçimini düzenli olarak gözden geçirmesine dayanan bir çerçevedir (framework). 1990'ların başında Ken Schwaber ve Jeff Sutherland tarafından geliştirilmiş, ilk kez 1995'te resmî olarak sunulmuştur. Çerçevenin güncel ve tek resmî tanımı, ücretsiz yayımlanan <em>Scrum Guide</em> belgesidir (son sürüm: Kasım 2020).</p>
 

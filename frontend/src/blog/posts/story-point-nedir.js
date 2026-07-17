@@ -8,7 +8,7 @@ export default {
     date: '2026-06-29',
     readingMinutes: 7,
     excerpt: 'Story point, bir işin eforunu saat yerine göreli bir ölçekle ifade eden tahmin birimidir. Karmaşıklık, belirsizlik ve iş miktarını tek bir değerde birleştirir; doğru kullanıldığında planlamayı hem hızlandırır hem isabetli kılar.',
-    related: ['scrum-poker-nedir', 'burndown-grafigi-nedir', 'scrum-nedir'],
+    related: ['scrum-poker-nedir', 'burndown-grafigi-nedir', 'urun-is-listesi-nasil-organize-edilmeli'],
     html: `
 <p><strong>Story point</strong>, çevik takımların bir backlog maddesinin gerektirdiği toplam eforu ifade etmek için kullandığı göreli ölçü birimidir. Tek bir değerin içinde üç bileşeni birleştirir: işin <strong>miktarı</strong> (ne kadar iş var), <strong>karmaşıklığı</strong> (ne kadar zor) ve <strong>belirsizliği</strong> (ne kadar bilinmez var). Bu yönüyle story point, "bu iş kaç saat sürer?" sorusunun değil, "bu iş, bildiğimiz şu işe göre ne kadar büyük?" sorusunun cevabıdır.</p>
 
