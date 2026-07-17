@@ -8,6 +8,9 @@ import kanbanScrum from './posts/kanban-ile-scrum-farklari.js'
 import burndownNedir from './posts/burndown-grafigi-nedir.js'
 import retroNedir from './posts/sprint-retrospektifi-nedir.js'
 import backlogOrganizasyonu from './posts/urun-is-listesi-nasil-organize-edilmeli.js'
+import takimBolunmesi from './posts/buyuyen-scrum-takimi-nasil-bolunur.js'
+import isParcalama from './posts/buyuk-isler-nasil-parcalanir.js'
+import analizGelistirmeTest from './posts/analiz-gelistirme-test-ayni-sprintte-mi.js'
 
 // Yeniden eskiye sıralı liste
 export const posts = [
@@ -18,6 +21,9 @@ export const posts = [
     burndownNedir,
     retroNedir,
     backlogOrganizasyonu,
+    takimBolunmesi,
+    isParcalama,
+    analizGelistirmeTest,
 ].sort((a, b) => b.date.localeCompare(a.date))
 
 export function getPost(slug) {
