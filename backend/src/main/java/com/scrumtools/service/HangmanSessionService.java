@@ -22,11 +22,19 @@ import java.util.regex.Pattern;
  *   • Ortak kelime herkese gösterilir, sırası gelen oyuncu tahmin eder.
  *   • Doğru harf  → +10, sıra AYNI oyuncuda kalır (seri yapabilir).
  *   • Yanlış harf → -5, adam bir parça asılır, sıra sonraki oyuncuya geçer.
- *   • Kelime tahmini doğru  → +50 bonus, tur biter.
+ *   • Kelime tahmini doğru  → kalan FARKLI harf sayısı × 10 puan, tur biter.
  *   • Kelime tahmini yanlış → adam ASILMAZ, sadece sıra sonraki oyuncuya geçer.
- *   • Kelimeyi son harfiyle tamamlayan da +50 bonus alır.
  *   • Moderatör kelimeleri kendi belirlediyse oynayamaz (izleyici olur).
  *   • Oyun sürerken katılan oyuncu sıranın sonuna eklenir.
+ *
+ * Puanlama tasarımı — istismara kapalı:
+ *   Her kelime sabit bir "puan havuzu" eder: (farklı harf sayısı) × 10. Kelimeyi
+ *   tahmin eden, havuzun kalanını topluca alır. Bu yüzden "harfleri tek tek topla,
+ *   en sonda kelimeyi tahmin et" taktiği ekstra puan KAZANDIRMAZ — erken tahmin
+ *   etmekle aynı toplamı verir. Ayrı bir kelime bonusu bilinçli olarak yoktur;
+ *   bonus eklenirse istismar geri gelir.
+ *
+ * Değişmez (invariant): totalScore == correctLetterCount × 10 - wrongLetterCount × 5
  *
  * WebSocket stratejisi: Data-Carrying
  *   /topic/hangman/{teamId}/state → oturumun tam durumu
@@ -41,7 +49,6 @@ public class HangmanSessionService {
 
     static final int SCORE_CORRECT_LETTER = 10;
     static final int SCORE_WRONG_LETTER = -5;
-    static final int SCORE_WORD_BONUS = 50;
 
     /** Canlı akışta gösterilecek tahmin sayısı. */
     private static final int RECENT_GUESS_LIMIT = 12;
@@ -234,9 +241,8 @@ public class HangmanSessionService {
 
         boolean solved = isFullyRevealed(round);
         if (solved) {
-            // Kelimeyi son harfiyle tamamlayan da bonusu alır.
-            delta += SCORE_WORD_BONUS;
-            player.setTotalScore(player.getTotalScore() + SCORE_WORD_BONUS);
+            // Ayrıca bonus YOK: son harf de diğer harfler kadar değer.
+            // Aksi hâlde harfleri tek tek toplayıp sonunda bitirmek ekstra kazandırırdı.
             player.setWordsSolved(player.getWordsSolved() + 1);
         }
 
@@ -277,8 +283,14 @@ public class HangmanSessionService {
         int delta = 0;
 
         if (correct) {
-            delta = SCORE_WORD_BONUS;
+            // Kelimeyi bilen, kalan harflerin TAMAMINI bilmiş sayılır.
+            // Böylece "harfleri tek tek topla, en sonda tahmin et" istismarı ortadan kalkar:
+            // kelime her hâlükârda aynı toplam puanı eder, kim açarsa o alır.
+            int remaining = countUnrevealedLetters(round);
+            delta = remaining * SCORE_CORRECT_LETTER;
+
             player.setTotalScore(player.getTotalScore() + delta);
+            player.setCorrectLetterCount(player.getCorrectLetterCount() + remaining);
             player.setWordsSolved(player.getWordsSolved() + 1);
             participantRepository.save(player);
 
@@ -425,6 +437,24 @@ public class HangmanSessionService {
     private List<HangmanParticipant> players(UUID sessionId) {
         return participantRepository.findBySessionIdOrderByTurnOrderAsc(sessionId)
                 .stream().filter(p -> !Boolean.TRUE.equals(p.getSpectator())).toList();
+    }
+
+    /**
+     * Henüz açılmamış FARKLI harf sayısı — kelime tahmininin puan değeri budur.
+     *
+     * Harf tahmininde bir harf, kelimede kaç kez geçerse geçsin tek seferde +10 kazandırır;
+     * bu yüzden burada da tekrarlar değil farklı harfler sayılır. Böylece "kelimeyi bilmek"
+     * ile "kalan harfleri tek tek bilmek" tam olarak aynı puanı eder.
+     */
+    private int countUnrevealedLetters(HangmanRound round) {
+        Set<String> remaining = new LinkedHashSet<>();
+        for (char c : round.getWord().toCharArray()) {
+            String ch = String.valueOf(c);
+            if (!round.getGuessedLetters().contains(ch)) {
+                remaining.add(ch);
+            }
+        }
+        return remaining.size();
     }
 
     private boolean isFullyRevealed(HangmanRound round) {

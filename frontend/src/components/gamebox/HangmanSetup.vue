@@ -100,8 +100,13 @@
           <p>• Ortak kelimeyi herkes görür, sırası gelen oyuncu tahmin eder.</p>
           <p>• Doğru harf <strong class="text-green-600">+10</strong> — sıra sende kalır, seri yapabilirsin.</p>
           <p>• Yanlış harf <strong class="text-red-600">-5</strong> — adam asılır, sıra sonrakine geçer.</p>
-          <p>• Kelimeyi bilen <strong class="text-indigo-600">+50</strong> bonus alır.</p>
+          <p>• Kelimeyi bilen, <strong class="text-indigo-600">kalan tüm harfleri</strong> bilmiş sayılır
+            ve hepsinin puanını alır.</p>
           <p>• Kelime tahmini yanlışsa adam <strong>asılmaz</strong>, sadece sıranı kaybedersin.</p>
+          <p class="pt-1 text-xs text-gray-500">
+            Harfleri tek tek toplayıp en sonda tahmin etmek ekstra puan kazandırmaz —
+            kelime her hâlükârda aynı toplamı eder.
+          </p>
         </div>
 
         <button

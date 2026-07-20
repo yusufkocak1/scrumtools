@@ -91,8 +91,8 @@
                   💡 Kelimeyi biliyor musun?
                 </p>
                 <p class="text-xs text-gray-500 mb-3">
-                  Doğru bilirsen <strong class="text-indigo-600">+50</strong> puan.
-                  Yanlış bilirsen adam asılmaz, sadece sıranı kaybedersin.
+                  Doğru bilirsen <strong class="text-indigo-600">kalan tüm harflerin</strong> puanını
+                  birden alırsın. Yanlış bilirsen adam asılmaz, sadece sıranı kaybedersin.
                 </p>
                 <div class="flex gap-2">
                   <input

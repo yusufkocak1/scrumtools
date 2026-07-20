@@ -62,7 +62,7 @@ public class HangmanParticipant {
     @Builder.Default
     private Integer wrongLetterCount = 0;
 
-    /** Kelimeyi bitirme sayısı (bonus kazandığı tur sayısı). */
+    /** Kelimeyi bitirme sayısı — sadece istatistik; puanı doğrudan etkilemez. */
     @Column(nullable = false)
     @Builder.Default
     private Integer wordsSolved = 0;
