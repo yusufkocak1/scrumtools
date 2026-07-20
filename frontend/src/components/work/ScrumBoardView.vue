@@ -177,7 +177,7 @@
 
 <script setup>
 import { ref, computed, watch, onMounted } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import BoardColumn   from './BoardColumn.vue'
 import BoardSwimlane from './BoardSwimlane.vue'
 import FilterBar     from './FilterBar.vue'
@@ -198,6 +198,7 @@ const props = defineProps({
   groupBy: { type: String, default: 'status' }
 })
 
+const route  = useRoute()
 const router = useRouter()
 
 // ─── State ────────────────────────────────────────────────────────────────────
@@ -227,9 +228,22 @@ async function loadData() {
     // Birden fazla sprint aynı anda aktif olabilir
     activeSprints.value = sprintList.filter(s => s.status === 'open')
 
-    // Eğer önceki seçim hâlâ aktifse koru, değilse ilk aktif sprint'i seç
+    // Eğer önceki seçim hâlâ aktifse koru, değilse; Backlog'dan bir sprint
+    // kartına tıklanarak gelindiyse query'deki sprintId'yi seç, yoksa ilk
+    // aktif sprint'e düş
     if (!activeSprints.value.find(s => s.id === selectedSprintId.value)) {
-      selectedSprintId.value = activeSprints.value.length > 0 ? activeSprints.value[0].id : null
+      const requested = activeSprints.value.find(s => s.id === route.query.sprintId)
+      selectedSprintId.value = requested
+        ? requested.id
+        : (activeSprints.value.length > 0 ? activeSprints.value[0].id : null)
+
+      // Query'deki sprintId'yi bir kere tükettikten sonra temizle; aksi halde
+      // bu görünüme tekrar dönüldüğünde (ör. ViewSwitcher ile) eski seçim
+      // URL'de asılı kalıp yeniden dayatılabilir
+      if (route.query.sprintId) {
+        const { sprintId, ...rest } = route.query
+        router.replace({ query: rest })
+      }
     }
 
     allTasks.value = taskList

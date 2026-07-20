@@ -354,6 +354,17 @@ watch(activeView, (v) => {
   if (v === 'activity') loadActivity(true)
 })
 
+// Route aynı component instance'ı farklı takımlar/görünümler için yeniden
+// kullanıyor (path: /workList/:teamId, remount olmuyor). Backlog gibi alt
+// bileşenler router.push ile query.view'i değiştirdiğinde (ör. bir sprint'e
+// tıklayıp board görünümüne geçmek) bu watcher olmadan activeView hiç
+// güncellenmiyor, URL değişse de ekranda hiçbir şey olmuyordu.
+watch(() => route.query.view, (v) => {
+  if (v && validViews.includes(v) && v !== activeView.value) {
+    activeView.value = v
+  }
+})
+
 onMounted(() => {
   loadBoards()
   loadProjects()
