@@ -3,8 +3,46 @@
     <SideBar :teamId="teamId" />
     <div class="flex-1 min-w-0 p-4 sm:p-6 bg-gray-50 overflow-auto">
 
-      <!-- Aktif Oturum Varsa -->
-      <div v-if="activeSession">
+      <!-- Oyun Merkezi (henüz oyun seçilmedi ve aktif takım oturumu yok) -->
+      <div v-if="!currentGame && !activeSession">
+        <div class="mb-8">
+          <h1 class="text-3xl font-bold text-gray-900">🎮 GameBox</h1>
+          <p class="text-gray-500 mt-1">Takımınla oyna, eğlen, öğren</p>
+        </div>
+
+        <div class="grid sm:grid-cols-2 gap-6 max-w-3xl">
+          <div @click="currentGame = 'quiz'"
+               class="bg-white rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 cursor-pointer transform hover:-translate-y-1 border border-gray-200 p-6">
+            <div class="w-14 h-14 bg-yellow-100 rounded-xl flex items-center justify-center mb-4">
+              <span class="text-3xl">🧠</span>
+            </div>
+            <h3 class="text-xl font-semibold text-gray-900 mb-2">Quiz</h3>
+            <p class="text-gray-600 text-sm">Kahoot benzeri takım yarışması — kendi sorularını hazırla, takımınla yarış</p>
+          </div>
+
+          <div @click="currentGame = 'hangman'"
+               class="bg-white rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 cursor-pointer transform hover:-translate-y-1 border border-gray-200 p-6">
+            <div class="w-14 h-14 bg-indigo-100 rounded-xl flex items-center justify-center mb-4">
+              <span class="text-3xl">🪢</span>
+            </div>
+            <h3 class="text-xl font-semibold text-gray-900 mb-2">Adam Asmaca</h3>
+            <p class="text-gray-600 text-sm">Türkçe ve İngilizce kelime havuzuyla klasik adam asmaca oyunu</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Adam Asmaca -->
+      <div v-else-if="currentGame === 'hangman'">
+        <button
+            @click="currentGame = null"
+            class="mb-4 px-4 py-2 bg-gray-100 text-gray-700 rounded-xl hover:bg-gray-200 transition-colors font-medium text-sm">
+          ← GameBox
+        </button>
+        <HangmanGame :teamId="teamId" />
+      </div>
+
+      <!-- Quiz: Aktif Oturum Varsa -->
+      <div v-else-if="activeSession">
         <!-- LOBBY -->
         <QuizLobby
             v-if="activeSession.status === 'LOBBY'"
@@ -37,10 +75,15 @@
         />
       </div>
 
-      <!-- Aktif Oturum Yoksa → Şablon Listesi -->
+      <!-- Quiz: Aktif Oturum Yoksa → Şablon Listesi -->
       <div v-else>
         <div class="flex items-center justify-between mb-6">
           <div>
+            <button
+                @click="currentGame = null"
+                class="mb-2 px-3 py-1.5 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors font-medium text-xs">
+              ← GameBox
+            </button>
             <h1 class="text-3xl font-bold text-gray-900">Quiz</h1>
             <p class="text-gray-500 mt-1">Kahoot benzeri takım yarışması</p>
           </div>
@@ -105,6 +148,7 @@ import QuizLobby from '../components/quiz/QuizLobby.vue'
 import QuizPlay from '../components/quiz/QuizPlay.vue'
 import QuizLeaderboard from '../components/quiz/QuizLeaderboard.vue'
 import QuizReport from '../components/quiz/QuizReport.vue'
+import HangmanGame from '../components/gamebox/HangmanGame.vue'
 import {
   getTemplates, getTemplate, deleteTemplate,
   startSession, getActiveSession, nextQuestion,
@@ -114,7 +158,7 @@ import { connect, subscribe, unsubscribe } from '../api/websocket.js'
 import { createToast } from 'mosha-vue-toastify'
 
 export default {
-  name: 'Quiz',
+  name: 'GameBox',
   components: {
     SideBar,
     QuizTemplateList,
@@ -123,11 +167,13 @@ export default {
     QuizPlay,
     QuizLeaderboard,
     QuizReport,
+    HangmanGame,
   },
   props: {
     teamId: String
   },
   data: () => ({
+    currentGame: null, // null | 'quiz' | 'hangman'
     templates: [],
     loading: true,
     showCreateForm: false,

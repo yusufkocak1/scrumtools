@@ -135,17 +135,19 @@
           </div>
         </div>
 
-        <!-- Quiz Card -->
+        <!-- GameBox Card -->
         <div @click="gotoQuiz"
              class="bg-white rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 cursor-pointer transform hover:-translate-y-2 border border-gray-200">
           <div class="p-8">
             <div class="w-16 h-16 bg-yellow-100 rounded-lg flex items-center justify-center mb-6">
               <svg class="w-8 h-8 text-yellow-600" fill="currentColor" viewBox="0 0 20 20">
-                <path d="M10 2L13.09 8.26L20 9.27L15 14.14L16.18 21.02L10 17.77L3.82 21.02L5 14.14L0 9.27L6.91 8.26L10 2Z"/>
+                <rect x="3" y="3" width="14" height="14" rx="3" ry="3" fill="none" stroke="currentColor" stroke-width="1.6"/>
+                <circle cx="7" cy="7" r="1.2"/><circle cx="13" cy="7" r="1.2"/><circle cx="10" cy="10" r="1.2"/>
+                <circle cx="7" cy="13" r="1.2"/><circle cx="13" cy="13" r="1.2"/>
               </svg>
             </div>
-            <h3 class="text-2xl font-semibold text-gray-900 mb-3">Quiz</h3>
-            <p class="text-gray-600 mb-4">Run Kahoot-style team quizzes and knowledge competitions</p>
+            <h3 class="text-2xl font-semibold text-gray-900 mb-3">GameBox</h3>
+            <p class="text-gray-600 mb-4">Kahoot-style team quizzes and Hangman with Turkish & English word pools</p>
             <div class="flex items-center text-yellow-600 font-medium">
               <span>Start</span>
               <svg class="w-4 h-4 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">

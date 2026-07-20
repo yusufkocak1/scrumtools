@@ -11,7 +11,7 @@ import Settings from "./pages/Settings.vue";
 import WorkList from "./pages/WorkList.vue";
 import CodeShare from "./pages/CodeShare.vue";
 import TaskDetail from "./pages/TaskDetail.vue";
-import Quiz from "./pages/Quiz.vue";
+import GameBox from "./pages/GameBox.vue";
 // Faz 1 - Yeni sayfalar
 import OrganizationDashboard from "./pages/OrganizationDashboard.vue";
 import ProjectDashboard from "./pages/ProjectDashboard.vue";
@@ -119,8 +119,8 @@ const routes = [{
     meta: {requiresAuth: true}
 }, {
     path: '/quiz/:teamId',
-    name: 'Quiz',
-    component: Quiz,
+    name: 'GameBox',
+    component: GameBox,
     props: true,
     meta: {requiresAuth: true}
 }, {

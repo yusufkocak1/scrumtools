@@ -83,13 +83,13 @@ export default {
           paths: '<path fill-rule="evenodd" d="M12.316 3.051a1 1 0 01.633 1.265l-4 12a1 1 0 11-1.898-.632l4-12a1 1 0 011.265-.633zM5.707 6.293a1 1 0 010 1.414L3.414 10l2.293 2.293a1 1 0 11-1.414 1.414l-3-3a1 1 0 010-1.414l3-3a1 1 0 011.414 0zm8.586 0a1 1 0 011.414 0l3 3a1 1 0 010 1.414l-3 3a1 1 0 11-1.414-1.414L16.586 10l-2.293-2.293a1 1 0 010-1.414z" clip-rule="evenodd"></path>'
         },
         {
-          label: 'Quiz',
-          action: this.gotoQuiz,
+          label: 'GameBox',
+          action: this.gotoGameBox,
           hoverClass: 'hover:bg-yellow-50 focus:bg-yellow-50 active:bg-yellow-100',
           iconBgClass: 'bg-yellow-100 group-hover:bg-yellow-200',
           iconTextClass: 'text-yellow-600',
           viewBox: '0 0 20 20',
-          paths: '<path d="M10 2L13.09 8.26L20 9.27L15 14.14L16.18 21.02L10 17.77L3.82 21.02L5 14.14L0 9.27L6.91 8.26L10 2Z"/>'
+          paths: '<rect x="3" y="3" width="14" height="14" rx="3" ry="3" fill="none" stroke="currentColor" stroke-width="1.6"/><circle cx="7" cy="7" r="1.2"/><circle cx="13" cy="7" r="1.2"/><circle cx="10" cy="10" r="1.2"/><circle cx="7" cy="13" r="1.2"/><circle cx="13" cy="13" r="1.2"/>'
         }
       ]
     }
@@ -113,7 +113,7 @@ export default {
     gotoShare() {
       this.$router.push(`/codeShare/${this.teamId}`)
     },
-    gotoQuiz() {
+    gotoGameBox() {
       this.$router.push(`/quiz/${this.teamId}`)
     },
     gotoRetrospective() {

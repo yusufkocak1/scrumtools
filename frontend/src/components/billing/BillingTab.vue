@@ -150,7 +150,7 @@ const FEATURE_LABELS = {
   RETRO: 'Retrospektif',
   WORK_BOARD: 'İş Panosu',
   CODE_SHARE: 'Kod Paylaşımı',
-  QUIZ: 'Quiz',
+  QUIZ: 'GameBox',
   DOCS: 'Dokümanlar',
   DASHBOARD_REPORTS: 'Raporlar',
   ATTACHMENTS: 'Dosya Ekleri',
