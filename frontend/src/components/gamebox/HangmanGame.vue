@@ -78,43 +78,6 @@
             </div>
           </div>
         </div>
-
-        <!-- Takıma özel kelime ekleme -->
-        <div class="mt-8 pt-6 border-t border-gray-200">
-          <button @click="showCustomPanel = !showCustomPanel"
-                  class="text-sm font-medium text-indigo-600 hover:text-indigo-700 flex items-center gap-1">
-            📝 Kendi Kelimelerini Ekle
-            <span>{{ showCustomPanel ? '▲' : '▼' }}</span>
-          </button>
-
-          <div v-if="showCustomPanel" class="mt-4 space-y-3">
-            <p class="text-xs text-gray-500">
-              {{ language === 'tr' ? 'Türkçe' : 'İngilizce' }} kelime havuzuna eklenecek — her satıra bir kelime,
-              ya da virgülle ayırarak yapıştırabilirsin. Sadece harf, boşluksuz.
-            </p>
-            <textarea
-                v-model="customInput"
-                rows="3"
-                class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-400 focus:border-indigo-400"
-                :placeholder="language === 'tr' ? 'örnek: retrospektif, teslimat, moral' : 'e.g. teamwork, delivery, morale'">
-            </textarea>
-            <button
-                @click="addCustomWords"
-                :disabled="addingWords || !customInput.trim()"
-                class="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-sm font-medium">
-              {{ addingWords ? 'Ekleniyor...' : '+ Kelimeleri Ekle' }}
-            </button>
-
-            <div v-if="customWords.length" class="flex flex-wrap gap-2 pt-2">
-              <span v-for="w in customWords" :key="w.id"
-                    class="inline-flex items-center gap-1.5 px-3 py-1 bg-indigo-50 text-indigo-700 rounded-full text-xs font-medium">
-                {{ w.word }}
-                <button @click="deleteCustomWord(w.id)" class="text-indigo-400 hover:text-red-500" title="Kaldır">×</button>
-              </span>
-            </div>
-            <p v-else class="text-xs text-gray-400">Bu dil için henüz eklenmiş kelime yok.</p>
-          </div>
-        </div>
       </div>
 
       <!-- Kazandı / Kaybetti overlay -->
@@ -137,8 +100,7 @@
 
 <script>
 import { randomHangmanWord } from '../../data/hangmanWords.js'
-import { getHangmanWords, addHangmanWords, deleteHangmanWord } from '../../api/HangmanApi.js'
-import { createToast } from 'mosha-vue-toastify'
+import { getHangmanWords } from '../../api/HangmanApi.js'
 
 const TR_ALPHABET = ['A', 'B', 'C', 'Ç', 'D', 'E', 'F', 'G', 'Ğ', 'H', 'I', 'İ', 'J', 'K', 'L', 'M',
   'N', 'O', 'Ö', 'P', 'R', 'S', 'Ş', 'T', 'U', 'Ü', 'V', 'Y', 'Z']
@@ -148,9 +110,6 @@ const MAX_WRONG = 6
 
 export default {
   name: 'HangmanGame',
-  props: {
-    teamId: String
-  },
   data: () => ({
     language: 'tr',
     targetWord: '',
@@ -163,10 +122,7 @@ export default {
       { value: 'tr', label: 'Türkçe', flag: '🇹🇷' },
       { value: 'en', label: 'English', flag: '🇬🇧' }
     ],
-    customWords: [],
-    customInput: '',
-    addingWords: false,
-    showCustomPanel: false
+    extraWords: []
   }),
   computed: {
     locale() {
@@ -205,9 +161,7 @@ export default {
   },
   watch: {
     async language() {
-      this.showCustomPanel = false
-      this.customInput = ''
-      await this.loadCustomWords()
+      await this.loadWords()
       this.newWord()
     },
     isGameOver(over) {
@@ -240,8 +194,7 @@ export default {
       }
     },
     newWord() {
-      const extra = this.customWords.map(w => w.word)
-      this.targetWord = randomHangmanWord(this.language, this.targetWord, extra)
+      this.targetWord = randomHangmanWord(this.language, this.targetWord, this.extraWords)
       this.guessedLetters = []
       this.wrongCount = 0
     },
@@ -253,52 +206,17 @@ export default {
       }
     },
 
-    async loadCustomWords() {
-      if (!this.teamId) return
+    async loadWords() {
       try {
-        this.customWords = await getHangmanWords(this.teamId, this.language)
+        const words = await getHangmanWords(this.language)
+        this.extraWords = words.map(w => w.word)
       } catch (e) {
-        console.error('Özel kelimeler yüklenemedi:', e)
-      }
-    },
-
-    async addCustomWords() {
-      if (!this.teamId) return
-      const parsed = this.customInput
-          .split(/[\n,]+/)
-          .map(w => w.trim())
-          .filter(w => w.length > 0)
-      if (!parsed.length) return
-
-      this.addingWords = true
-      try {
-        const result = await addHangmanWords(this.teamId, this.language, parsed)
-        this.customWords = result.words
-        this.customInput = ''
-        if (result.addedCount > 0) {
-          createToast(`${result.addedCount} kelime eklendi`, { type: 'success', position: 'top-center' })
-        }
-        if (result.invalidWords?.length) {
-          createToast(`Geçersiz kelimeler atlandı: ${result.invalidWords.join(', ')}`, { type: 'warning', position: 'top-center' })
-        }
-      } catch (e) {
-        // Hata interceptor tarafından otomatik gösterilir
-      } finally {
-        this.addingWords = false
-      }
-    },
-
-    async deleteCustomWord(wordId) {
-      try {
-        await deleteHangmanWord(this.teamId, wordId)
-        this.customWords = this.customWords.filter(w => w.id !== wordId)
-      } catch (e) {
-        // Hata interceptor tarafından otomatik gösterilir
+        console.error('Kelime havuzu yüklenemedi:', e)
       }
     }
   },
   async mounted() {
-    await this.loadCustomWords()
+    await this.loadWords()
     this.newWord()
     window.addEventListener('keydown', this.handleKeydown)
   },

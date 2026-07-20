@@ -136,6 +136,13 @@
           <ErrorGroupManager />
         </div>
       </div>
+
+      <!-- Adam Asmaca Kelime Havuzu -->
+      <div v-if="activeTab === 'hangman'">
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow p-6">
+          <HangmanWordManager />
+        </div>
+      </div>
     </div>
   </div>
 </template>
@@ -150,6 +157,7 @@ import CustomerManager from '../components/admin/CustomerManager.vue'
 import PlanManager from '../components/admin/PlanManager.vue'
 import SupportTicketManager from '../components/admin/SupportTicketManager.vue'
 import ErrorGroupManager from '../components/admin/ErrorGroupManager.vue'
+import HangmanWordManager from '../components/admin/HangmanWordManager.vue'
 
 const activeTab = ref('users')
 const tabs = [
@@ -160,6 +168,7 @@ const tabs = [
   { id: 'permissions', label: 'İzin Matrisi' },
   { id: 'support', label: 'Destek Talepleri' },
   { id: 'errors', label: 'Hata Kayıtları' },
+  { id: 'hangman', label: 'Adam Asmaca' },
 ]
 
 const users = ref([])

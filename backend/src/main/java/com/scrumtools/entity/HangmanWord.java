@@ -8,8 +8,9 @@ import java.time.LocalDateTime;
 import java.util.UUID;
 
 /**
- * Takımın Adam Asmaca oyunu için eklediği özel kelime.
- * Dahili (built-in) kelime havuzuna ek olarak rastgele seçime dahil edilir.
+ * Adam Asmaca oyunu için sisteme eklenmiş kelime.
+ * Sadece SUPER_ADMIN tarafından yönetilir; dahili (built-in) kelime havuzuna ek olarak
+ * tüm takımlar için rastgele seçime dahil edilir (takım bazlı değil, global).
  */
 @Entity
 @Table(name = "hangman_words")
@@ -23,10 +24,6 @@ public class HangmanWord {
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
-
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "team_id", nullable = false)
-    private Team team;
 
     /** "tr" | "en" */
     @Column(nullable = false, length = 2)

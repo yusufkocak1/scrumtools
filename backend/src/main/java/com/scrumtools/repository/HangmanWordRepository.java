@@ -7,7 +7,7 @@ import java.util.List;
 import java.util.UUID;
 
 public interface HangmanWordRepository extends JpaRepository<HangmanWord, UUID> {
-    List<HangmanWord> findByTeamIdAndLanguageOrderByCreatedAtDesc(UUID teamId, String language);
+    List<HangmanWord> findByLanguageOrderByCreatedAtDesc(String language);
 
-    boolean existsByTeamIdAndLanguageAndWordIgnoreCase(UUID teamId, String language, String word);
+    boolean existsByLanguageAndWordIgnoreCase(String language, String word);
 }

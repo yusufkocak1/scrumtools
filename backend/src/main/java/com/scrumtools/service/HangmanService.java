@@ -4,9 +4,7 @@ import com.scrumtools.dto.HangmanWordBulkRequest;
 import com.scrumtools.dto.HangmanWordBulkResponse;
 import com.scrumtools.dto.HangmanWordResponse;
 import com.scrumtools.entity.HangmanWord;
-import com.scrumtools.entity.Team;
 import com.scrumtools.repository.HangmanWordRepository;
-import com.scrumtools.repository.TeamRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
@@ -19,9 +17,9 @@ import java.util.UUID;
 import java.util.regex.Pattern;
 
 /**
- * Takımların Adam Asmaca oyunu için kendi kelimelerini eklemesini sağlar.
- * Eklenen kelimeler dahili (built-in) TR/EN kelime havuzuna ek olarak
- * frontend tarafında rastgele seçime dahil edilir.
+ * Adam Asmaca kelime havuzunu yönetir. Kelimeler global'dir (takım bazlı değil);
+ * eklenmesi/silinmesi SUPER_ADMIN'e özeldir (bkz. AdminHangmanController),
+ * okunması ise oyunu oynayan herkese açıktır.
  */
 @Service
 @RequiredArgsConstructor
@@ -33,19 +31,16 @@ public class HangmanService {
     private static final Locale TR_LOCALE = Locale.forLanguageTag("tr");
 
     private final HangmanWordRepository wordRepository;
-    private final TeamRepository teamRepository;
 
-    public List<HangmanWordResponse> getWords(UUID teamId, String language) {
+    public List<HangmanWordResponse> getWords(String language) {
         String lang = normalizeLanguage(language);
-        return wordRepository.findByTeamIdAndLanguageOrderByCreatedAtDesc(teamId, lang)
+        return wordRepository.findByLanguageOrderByCreatedAtDesc(lang)
                 .stream().map(HangmanWordResponse::from).toList();
     }
 
     @Transactional
-    public HangmanWordBulkResponse addWords(UUID teamId, HangmanWordBulkRequest request) {
+    public HangmanWordBulkResponse addWords(HangmanWordBulkRequest request) {
         String lang = normalizeLanguage(request.language());
-        Team team = teamRepository.findById(teamId)
-                .orElseThrow(() -> new RuntimeException("Takım bulunamadı"));
         String email = currentEmail();
 
         Locale locale = "tr".equals(lang) ? TR_LOCALE : Locale.ENGLISH;
@@ -64,13 +59,12 @@ public class HangmanService {
                 invalid.add(raw.trim());
                 continue;
             }
-            if (wordRepository.existsByTeamIdAndLanguageAndWordIgnoreCase(teamId, lang, normalized)) {
+            if (wordRepository.existsByLanguageAndWordIgnoreCase(lang, normalized)) {
                 duplicate++;
                 continue;
             }
 
             wordRepository.save(HangmanWord.builder()
-                    .team(team)
                     .language(lang)
                     .word(normalized)
                     .createdByEmail(email)
@@ -78,16 +72,13 @@ public class HangmanService {
             added++;
         }
 
-        return new HangmanWordBulkResponse(getWords(teamId, lang), added, duplicate, invalid);
+        return new HangmanWordBulkResponse(getWords(lang), added, duplicate, invalid);
     }
 
     @Transactional
-    public void deleteWord(UUID teamId, UUID wordId) {
+    public void deleteWord(UUID wordId) {
         HangmanWord word = wordRepository.findById(wordId)
                 .orElseThrow(() -> new RuntimeException("Kelime bulunamadı"));
-        if (!word.getTeam().getId().equals(teamId)) {
-            throw new RuntimeException("Bu kelime bu takıma ait değil");
-        }
         wordRepository.delete(word);
     }
 

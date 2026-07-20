@@ -38,7 +38,7 @@
             class="mb-4 px-4 py-2 bg-gray-100 text-gray-700 rounded-xl hover:bg-gray-200 transition-colors font-medium text-sm">
           ← GameBox
         </button>
-        <HangmanGame :teamId="teamId" />
+        <HangmanGame />
       </div>
 
       <!-- Quiz: Aktif Oturum Varsa -->
