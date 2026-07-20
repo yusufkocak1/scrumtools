@@ -31,6 +31,8 @@ export function useProjectContext(teamIdRef) {
   const loading = ref(false)
   /** null = Tüm projeler */
   const projectId = ref(null)
+  /** Takımın organizasyonu — proje yönetimi ekranı org projelerini buradan listeler. */
+  const organizationId = ref(null)
 
   const teamId = computed(() =>
     typeof teamIdRef === 'function' ? teamIdRef() : teamIdRef?.value ?? teamIdRef
@@ -111,6 +113,7 @@ export function useProjectContext(teamIdRef) {
     try {
       const team = await getTeamById(teamId.value)
       projects.value = team?.projects ?? []
+      organizationId.value = team?.organizationId ?? null
       projectId.value = resolveInitialSelection()
       persist(projectId.value)
       // İlk yüklemede URL'i sessizce hizala ki paylaşılan link doğru context'i taşısın
@@ -133,6 +136,7 @@ export function useProjectContext(teamIdRef) {
   return {
     projects,
     projectId,
+    organizationId,
     activeProject,
     isAllProjects,
     hasProjects,

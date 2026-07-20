@@ -13,13 +13,14 @@
           <!-- Aktif proje context'i: görev/backlog/sürüm görünümlerinin tamamını daraltır.
                Sprintler takım bazlı kaldığı için bu seçim sprintleri gizlemez, içindeki
                görevleri filtreler. -->
-          <div v-if="hasProjects" class="flex items-center gap-1.5 shrink-0">
+          <div class="flex items-center gap-1.5 shrink-0">
             <span
               v-if="activeProject"
               class="w-2 h-2 rounded-full shrink-0"
               :style="{ backgroundColor: activeProject.color || '#3B82F6' }"
             ></span>
             <select
+              v-if="hasProjects"
               :value="projectId ?? ALL_PROJECTS"
               @change="selectProject($event.target.value === ALL_PROJECTS ? null : $event.target.value)"
               class="min-w-0 text-xs font-medium rounded-md border border-gray-300 px-2 py-1.5 bg-white focus:ring-2 focus:ring-blue-500 focus:outline-none"
@@ -30,6 +31,16 @@
               </option>
               <option v-if="projects.length > 1" :value="ALL_PROJECTS">Tüm projeler</option>
             </select>
+
+            <!-- Takıma proje ekleme/çıkarma: projesiz takımın da buraya ulaşabilmesi
+                 gerekiyor, bu yüzden hasProjects'e bağlı değil. -->
+            <button
+              class="shrink-0 text-xs text-gray-500 hover:text-blue-600 border border-gray-300 hover:border-blue-400 rounded-md px-2 py-1.5 whitespace-nowrap transition"
+              @click="showTeamProjects = true"
+              title="Takım projelerini yönet"
+            >
+              {{ hasProjects ? '+ Proje' : '+ Proje Bağla' }}
+            </button>
           </div>
 
           <!-- Görünüm seçici: mobilde tam genişlik, sığmazsa yatay kaydırma -->
@@ -199,6 +210,16 @@
       </div>
     </div>
 
+    <!-- Takım Projeleri Modal -->
+    <TeamProjectsModal
+      v-if="showTeamProjects"
+      :team-id="teamId"
+      :organization-id="organizationId"
+      :team-projects="projects"
+      @close="showTeamProjects = false"
+      @changed="handleTeamProjectsChanged"
+    />
+
     <!-- Board Yönetim Modal -->
     <BoardSettings
       v-if="showBoardSettings"
@@ -224,6 +245,7 @@ import Backlog        from '../components/work/Backlog.vue'
 import ReleasesView   from '../components/work/ReleasesView.vue'
 import ActivityFeed   from '../components/ActivityFeed.vue'
 import BoardSettings  from '../components/work/BoardSettings.vue'
+import TeamProjectsModal from '../components/work/TeamProjectsModal.vue'
 
 import { getBoards, createBoard as apiCreateBoard } from '../api/BoardApi.js'
 import { getTeamActivity } from '../api/NotificationApi.js'
@@ -241,12 +263,24 @@ const router = useRouter()
 const {
   projects,
   projectId,
+  organizationId,
   activeProject,
   hasProjects,
   selectProject,
   loadProjects,
   ALL_PROJECTS,
 } = useProjectContext(() => props.teamId)
+
+const showTeamProjects = ref(false)
+
+/**
+ * Takıma proje eklendi/çıkarıldı. Proje listesi tazelenir; board'lar da yeniden
+ * çekilir çünkü görünür board kümesi aktif projeye göre filtreleniyor.
+ */
+async function handleTeamProjectsChanged() {
+  await loadProjects()
+  await loadBoards()
+}
 
 // ─── Görünüm ──────────────────────────────────────────────────────────────────
 const validViews = ['board', 'list', 'backlog', 'releases', 'activity']
