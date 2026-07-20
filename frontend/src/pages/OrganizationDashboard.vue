@@ -17,7 +17,7 @@
             <p class="text-gray-500 text-sm mt-0.5">{{ currentOrg?.slug || 'Organizasyon seçin' }}</p>
           </div>
         </div>
-        <OrgSwitcher v-model="currentOrg" @create-org="showCreateOrgModal = true" />
+        <OrgSwitcher @create-org="showCreateOrgModal = true" />
       </div>
 
       <!-- Tab navigator -->
@@ -181,11 +181,11 @@
 
           <!-- Ayarlar -->
           <div v-if="activeTab === 'settings' && currentOrg">
-            <OrgSettings :org="currentOrg" @updated="currentOrg = $event" />
+            <OrgSettings :org="currentOrg" @updated="upsertOrganization($event)" />
           </div>
 
           <!-- Org seçilmemişse -->
-          <div v-if="!currentOrg" class="text-center py-16">
+          <div v-if="!currentOrg && !orgsLoading" class="text-center py-16">
             <div class="w-20 h-20 bg-indigo-100 rounded-full flex items-center justify-center mx-auto mb-4">
               <svg class="w-10 h-10 text-indigo-400" fill="currentColor" viewBox="0 0 20 20">
                 <path fill-rule="evenodd" d="M4 4a2 2 0 012-2h8a2 2 0 012 2v12a1 1 0 110 2h-3a1 1 0 01-1-1v-2a1 1 0 00-1-1H9a1 1 0 00-1 1v2a1 1 0 01-1 1H4a1 1 0 110-2V4zm3 1h2v2H7V5zm2 4H7v2h2V9zm2-4h2v2h-2V5zm2 4h-2v2h2V9z" clip-rule="evenodd"/>
@@ -394,11 +394,21 @@ import OrganizationApi from '../api/OrganizationApi.js'
 import ProjectApi from '../api/ProjectApi.js'
 import { getTeamsByOrg, createTeam as apiCreateTeam, addMemberToTeam } from '../api/TeamApi.js'
 import { useAuth } from '../composables/useAuth.js'
+import { useOrganizationContext } from '../composables/useOrganizationContext.js'
 
 const router = useRouter()
 const auth = useAuth()
 
-const currentOrg = ref(null)
+// Aktif organizasyon paylaşılan context'te; switcher ve ayarlar ekranı aynı
+// seçimi yazar, seçim localStorage'da kalıcıdır.
+const {
+  activeOrg: currentOrg,
+  loading: orgsLoading,
+  loadOrganizations,
+  selectOrg,
+  upsertOrganization,
+} = useOrganizationContext()
+
 const activeTab = ref('projects')
 const tabs = [
   { id: 'projects',    label: 'Projeler',  icon: '<svg fill="currentColor" viewBox="0 0 20 20"><path d="M3 4a1 1 0 011-1h12a1 1 0 011 1v2a1 1 0 01-1 1H4a1 1 0 01-1-1V4zM3 10a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H4a1 1 0 01-1-1v-6zM14 9a1 1 0 00-1 1v6a1 1 0 001 1h2a1 1 0 001-1v-6a1 1 0 00-1-1h-2z"/></svg>' },
@@ -459,15 +469,18 @@ function isTeamAdmin(team) {
 }
 
 // ─── Watchers ─────────────────────────────────────────────────────────────────
-watch(currentOrg, async (org) => {
-  if (org) {
-    await Promise.all([
-      loadProjects(org.id),
-      loadTeams(org.id),
-      loadOrgMembers(org.id),
-    ])
-  }
-})
+// Id'yi izliyoruz, nesneyi değil: ayarlardan yapılan bir ad/logo güncellemesi
+// listedeki nesneyi tazeliyor ama aynı organizasyonda kalıyoruz — veriyi yeniden
+// çekmeye gerek yok. immediate: seçim context'te önceden hazır olabilir
+// (kullanıcı sayfaya geri döndüğünde), o durumda watcher hiç tetiklenmezdi.
+watch(() => currentOrg.value?.id, async (orgId) => {
+  if (!orgId) return
+  await Promise.all([
+    loadProjects(orgId),
+    loadTeams(orgId),
+    loadOrgMembers(orgId),
+  ])
+}, { immediate: true })
 
 watch(activeTab, async (tab) => {
   if (!currentOrg.value) return
@@ -478,7 +491,10 @@ watch(activeTab, async (tab) => {
 function openBillingTab() {
   activeTab.value = 'billing'
 }
-onMounted(() => window.addEventListener('scrumtools:open-billing-tab', openBillingTab))
+onMounted(() => {
+  loadOrganizations()
+  window.addEventListener('scrumtools:open-billing-tab', openBillingTab)
+})
 onBeforeUnmount(() => window.removeEventListener('scrumtools:open-billing-tab', openBillingTab))
 
 // ─── Data loaders ─────────────────────────────────────────────────────────────
@@ -519,7 +535,9 @@ async function createOrg() {
   creatingOrg.value = true
   try {
     const res = await OrganizationApi.create(newOrg.value)
-    currentOrg.value = res.data
+    // Listeye ekleyip aktif yap — yeni organizasyon switcher'da anında görünür
+    upsertOrganization(res.data)
+    selectOrg(res.data)
     showCreateOrgModal.value = false
     newOrg.value = { name: '', slug: '', description: '' }
   } catch (e) {

@@ -75,40 +75,24 @@
 
 <script setup>
 import { ref, onMounted, onUnmounted } from 'vue'
-import OrganizationApi from '../../api/OrganizationApi.js'
+import { useOrganizationContext } from '../../composables/useOrganizationContext.js'
 
-const props = defineProps({
-  modelValue: {
-    type: Object,
-    default: null
-  }
-})
+defineEmits(['create-org'])
 
-const emit = defineEmits(['update:modelValue', 'create-org'])
+// Aktif organizasyon paylaşılan context'ten okunur; buradaki seçim ayarlar
+// ekranıyla ve başlıkla aynı state üzerinden yürür.
+const {
+  organizations,
+  activeOrg: currentOrg,
+  loading,
+  loadOrganizations,
+  selectOrg: setActiveOrg,
+} = useOrganizationContext()
 
 const isOpen = ref(false)
-const organizations = ref([])
-const loading = ref(false)
-const currentOrg = ref(props.modelValue)
-
-async function loadOrganizations() {
-  loading.value = true
-  try {
-    const res = await OrganizationApi.getMyOrganizations()
-    organizations.value = res.data
-    if (!currentOrg.value && organizations.value.length > 0) {
-      selectOrg(organizations.value[0])
-    }
-  } catch (e) {
-    console.error('Organizasyonlar yüklenemedi:', e)
-  } finally {
-    loading.value = false
-  }
-}
 
 function selectOrg(org) {
-  currentOrg.value = org
-  emit('update:modelValue', org)
+  setActiveOrg(org)
   isOpen.value = false
 }
 

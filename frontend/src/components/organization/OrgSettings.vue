@@ -8,6 +8,42 @@
       >{{ planName }}</span>
     </div>
 
+    <!-- Aktif organizasyon seçimi — birden fazla organizasyona üye olan kullanıcı
+         switcher'a gitmeden buradan da geçiş yapabilir -->
+    <div v-if="canSwitch" class="rounded-lg border border-gray-200 p-4 space-y-3">
+      <div>
+        <p class="text-sm font-medium text-gray-700">Aktif Organizasyon</p>
+        <p class="text-xs text-gray-500 mt-0.5">
+          Aşağıdaki ayarlar seçili organizasyona uygulanır. Seçim tarayıcınızda saklanır.
+        </p>
+      </div>
+
+      <div class="space-y-1.5">
+        <button
+          v-for="o in organizations"
+          :key="o.id"
+          type="button"
+          @click="selectOrg(o)"
+          class="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg border text-left transition-colors"
+          :class="o.id === activeOrgId
+            ? 'border-indigo-300 bg-indigo-50'
+            : 'border-gray-200 hover:bg-gray-50'"
+        >
+          <div class="w-8 h-8 rounded-lg bg-indigo-600 flex items-center justify-center text-white text-sm font-bold flex-shrink-0">
+            {{ o.name?.charAt(0)?.toUpperCase() || '?' }}
+          </div>
+          <div class="flex-1 min-w-0">
+            <p class="text-sm font-medium text-gray-900 truncate">{{ o.name }}</p>
+            <p class="text-xs text-gray-400 truncate">{{ o.slug }}</p>
+          </div>
+          <span
+            v-if="o.id === activeOrgId"
+            class="text-xs font-medium text-indigo-600 flex-shrink-0"
+          >Aktif</span>
+        </button>
+      </div>
+    </div>
+
     <!-- Paket durumu + kullanım göstergeleri -->
     <div v-if="entitlements" class="rounded-lg border border-gray-200 p-4 space-y-3">
       <div class="flex items-center justify-between">
@@ -93,15 +129,22 @@
 </template>
 
 <script setup>
-import { ref, watch, computed } from 'vue'
+import { ref, watch, computed, onMounted } from 'vue'
 import OrganizationApi from '../../api/OrganizationApi.js'
 import { useEntitlements } from '../../composables/useEntitlements.js'
+import { useOrganizationContext } from '../../composables/useOrganizationContext.js'
 
 const props = defineProps({
   org: { type: Object, required: true }
 })
 
 const emit = defineEmits(['updated'])
+
+const { organizations, activeOrgId, canSwitch, loadOrganizations, selectOrg } =
+  useOrganizationContext()
+
+// Zaten yüklüyse istek atılmaz — composable tekrarlı çağrıları tekilleştirir
+onMounted(() => loadOrganizations())
 
 const orgId = computed(() => props.org?.id)
 const {

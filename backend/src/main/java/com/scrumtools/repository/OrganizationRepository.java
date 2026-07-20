@@ -17,7 +17,9 @@ public interface OrganizationRepository extends JpaRepository<Organization, UUID
 
     List<Organization> findByOwnerId(UUID ownerId);
 
-    @Query("SELECT o FROM Organization o JOIN OrganizationMember om ON om.organization = o WHERE om.user.email = :email")
+    // ORDER BY olmadan sıra DB'nin insafına kalıyor ve istemcideki "ilk organizasyon"
+    // varsayılanı sayfa yüklemeleri arasında değişebiliyordu.
+    @Query("SELECT o FROM Organization o JOIN OrganizationMember om ON om.organization = o WHERE om.user.email = :email ORDER BY o.name ASC")
     List<Organization> findAllByMemberEmail(@Param("email") String email);
 }
 
