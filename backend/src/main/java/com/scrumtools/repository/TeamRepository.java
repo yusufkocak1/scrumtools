@@ -27,7 +27,17 @@ public interface TeamRepository extends JpaRepository<Team, UUID> {
 
     List<Team> findByOrganizationId(UUID organizationId);
 
+    /** Birincil projesi verilen proje olan takımlar. */
     List<Team> findByProjectId(UUID projectId);
+
+    /**
+     * Projede çalışan tüm takımlar — birincil bağ (teams.project_id) ya da çoklu bağ
+     * (team_projects) üzerinden. Bir takım birden fazla projede çalışabildiği için
+     * proje kapsamlı aramalarda (ör. commit → task eşleştirme) bu sorgu kullanılmalı.
+     */
+    @Query("SELECT DISTINCT t FROM Team t LEFT JOIN t.projects p " +
+           "WHERE t.project.id = :projectId OR p.id = :projectId")
+    List<Team> findAllWorkingOnProject(@Param("projectId") UUID projectId);
 
     List<Team> findByOrganizationIsNull();
 

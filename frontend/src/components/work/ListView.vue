@@ -135,7 +135,9 @@ import { getTasks, filterTasks } from '../../api/WorkApi.js'
 import { buildTaskTree } from '../../utils/taskHierarchy.js'
 
 const props = defineProps({
-  teamId: { type: String, required: true }
+  teamId: { type: String, required: true },
+  /** Aktif proje context'i — null ise takımın tüm projelerindeki görevler listelenir. */
+  projectId: { type: String, default: null }
 })
 
 const router = useRouter()
@@ -169,7 +171,8 @@ async function loadTasks() {
   try {
     if (activeFilters.value.length > 0) {
       const result = await filterTasks(props.teamId, {
-        filters: activeFilters.value,
+        filters:   activeFilters.value,
+        projectId: props.projectId || undefined,
         sortBy:  sortBy.value,
         sortDir: sortDir.value,
         page:    page.value,
@@ -179,7 +182,7 @@ async function loadTasks() {
       totalElements.value = result.totalElements
       totalPages.value    = result.totalPages
     } else {
-      const data = await getTasks(props.teamId, false)
+      const data = await getTasks(props.teamId, false, props.projectId)
       allTasks.value      = data
       totalElements.value = data.length
       totalPages.value    = 1
@@ -192,7 +195,7 @@ async function loadTasks() {
 }
 
 onMounted(loadTasks)
-watch(() => props.teamId, () => { page.value = 0; loadTasks() })
+watch(() => [props.teamId, props.projectId], () => { page.value = 0; loadTasks() })
 watch(activeFilters, () => { page.value = 0; loadTasks() }, { deep: true })
 
 // ─── Hiyerarşi: aç/kapa (varsayılan açık — kapatılanlar takip edilir) ─────────

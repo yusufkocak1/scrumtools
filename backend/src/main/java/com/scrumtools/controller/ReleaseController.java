@@ -89,10 +89,16 @@ public class ReleaseController {
 
     // ─── Takım bazlı kolaylık endpoint'leri ───────────────────────────────────
 
-    /** Takımın bağlı olduğu projenin release'leri (task formu dropdown'ı için). */
+    /**
+     * Takımın çalıştığı bir projenin release'leri (task formu dropdown'ı için).
+     * projectId verilmezse takımın birincil projesine düşülür.
+     */
     @GetMapping("/teams/{teamId}/releases")
-    public ResponseEntity<List<ReleaseResponse>> getTeamReleases(@PathVariable UUID teamId) {
-        return ResponseEntity.ok(releaseService.getReleasesByTeam(teamId));
+    public ResponseEntity<List<ReleaseResponse>> getTeamReleases(
+            @PathVariable UUID teamId,
+            @RequestParam(required = false) UUID projectId
+    ) {
+        return ResponseEntity.ok(releaseService.getReleasesByTeam(teamId, projectId));
     }
 
     /** Task'ın dağıtım tarihçesi. */

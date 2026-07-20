@@ -68,9 +68,11 @@ public class ScmTaskDevService {
                 && entitlementService.getEntitlements(task.getTeam().getOrganization().getId())
                         .features().contains(PlanFeature.GIT_INTEGRATION);
 
-        Project project = task.getTeam().getProject();
+        // Repo eşleşmesi görevin projesine bağlı — takım çok projede çalışabildiği için
+        // takımın birincil projesi değil, görevin kendi projesi kullanılır.
+        Project project = task.getProject();
         if (project == null) {
-            // Takım projeye bağlı değil — DevPanel boş durum gösterir (§13)
+            // Görev hiçbir projeye bağlı değil — DevPanel boş durum gösterir (§13)
             return new TaskScmResponse(featureEnabled, false, null,
                     false, false, false, List.of(), List.of(), List.of());
         }
@@ -113,9 +115,9 @@ public class ScmTaskDevService {
     public ScmBranchResponse createBranch(UUID teamId, UUID taskId, String email,
                                           ScmBranchCreateRequest request) {
         Task task = getTaskInTeam(teamId, taskId, email);
-        Project project = task.getTeam().getProject();
+        Project project = task.getProject();
         if (project == null) {
-            throw new IllegalStateException("Takım bir projeye bağlı değil.");
+            throw new IllegalStateException("Görev bir projeye bağlı değil.");
         }
         if (task.getTeam().getOrganization() == null) {
             throw new IllegalStateException("Takım bir organizasyona bağlı değil.");

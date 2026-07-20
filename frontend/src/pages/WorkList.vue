@@ -10,6 +10,28 @@
         </h1>
 
         <div class="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 w-full sm:w-auto sm:ml-auto min-w-0">
+          <!-- Aktif proje context'i: görev/backlog/sürüm görünümlerinin tamamını daraltır.
+               Sprintler takım bazlı kaldığı için bu seçim sprintleri gizlemez, içindeki
+               görevleri filtreler. -->
+          <div v-if="hasProjects" class="flex items-center gap-1.5 shrink-0">
+            <span
+              v-if="activeProject"
+              class="w-2 h-2 rounded-full shrink-0"
+              :style="{ backgroundColor: activeProject.color || '#3B82F6' }"
+            ></span>
+            <select
+              :value="projectId ?? ALL_PROJECTS"
+              @change="selectProject($event.target.value === ALL_PROJECTS ? null : $event.target.value)"
+              class="min-w-0 text-xs font-medium rounded-md border border-gray-300 px-2 py-1.5 bg-white focus:ring-2 focus:ring-blue-500 focus:outline-none"
+              title="Aktif proje"
+            >
+              <option v-for="p in projects" :key="p.id" :value="p.id">
+                {{ p.name }} ({{ p.key }})
+              </option>
+              <option v-if="projects.length > 1" :value="ALL_PROJECTS">Tüm projeler</option>
+            </select>
+          </div>
+
           <!-- Görünüm seçici: mobilde tam genişlik, sığmazsa yatay kaydırma -->
           <div class="w-full sm:w-auto overflow-x-auto no-scrollbar">
             <ViewSwitcher v-model="activeView" />
@@ -17,13 +39,13 @@
 
           <!-- Board kontrolleri (sadece Board modunda) -->
           <div v-if="activeView === 'board'" class="flex items-center gap-2 sm:gap-3 min-w-0">
-            <!-- Board seçici -->
+            <!-- Board seçici — yalnızca aktif projenin (ve takım geneli) board'ları -->
             <select
-              v-if="boards.length > 1"
+              v-if="visibleBoards.length > 1"
               v-model="selectedBoardId"
               class="flex-1 sm:flex-none min-w-0 text-xs rounded-md border border-gray-300 px-2 py-1.5 bg-white focus:ring-2 focus:ring-blue-500 focus:outline-none"
             >
-              <option v-for="b in boards" :key="b.id" :value="b.id">
+              <option v-for="b in visibleBoards" :key="b.id" :value="b.id">
                 {{ b.name }} ({{ b.boardType === 'SCRUM' ? 'Scrum' : 'Kanban' }})
               </option>
             </select>
@@ -69,6 +91,8 @@
             v-if="selectedBoard?.boardType === 'SCRUM'"
             :key="boardViewKey"
             :team-id="teamId"
+            :project-id="projectId"
+            :projects="projects"
             :columns="activeBoardColumns"
             :group-by="boardGroupBy"
           />
@@ -76,6 +100,7 @@
             v-else
             :key="boardViewKey"
             :team-id="teamId"
+            :project-id="projectId"
             :columns="activeBoardColumns"
             :group-by="boardGroupBy"
           />
@@ -84,19 +109,26 @@
         <!-- Liste Görünümü -->
         <ListView
           v-else-if="activeView === 'list'"
+          :key="boardViewKey"
           :team-id="teamId"
+          :project-id="projectId"
         />
 
         <!-- Backlog -->
         <Backlog
           v-else-if="activeView === 'backlog'"
+          :key="boardViewKey"
           :team-id="teamId"
+          :project-id="projectId"
+          :projects="projects"
         />
 
         <!-- Sürümler -->
         <ReleasesView
           v-else-if="activeView === 'releases'"
+          :key="boardViewKey"
           :team-id="teamId"
+          :project-id="projectId"
         />
 
         <!-- Aktivite Akışı -->
@@ -195,8 +227,7 @@ import BoardSettings  from '../components/work/BoardSettings.vue'
 
 import { getBoards, createBoard as apiCreateBoard } from '../api/BoardApi.js'
 import { getTeamActivity } from '../api/NotificationApi.js'
-import { getTeamById } from '../api/TeamApi.js'
-import ProjectApi from '../api/ProjectApi.js'
+import { useProjectContext } from '../composables/useProjectContext.js'
 
 const props = defineProps({
   teamId: String
@@ -204,6 +235,18 @@ const props = defineProps({
 
 const route  = useRoute()
 const router = useRouter()
+
+// ─── Aktif proje context'i ────────────────────────────────────────────────────
+// Takım birden fazla projede çalışabilir; bu seçim tüm alt görünümlerin kapsamı.
+const {
+  projects,
+  projectId,
+  activeProject,
+  hasProjects,
+  selectProject,
+  loadProjects,
+  ALL_PROJECTS,
+} = useProjectContext(() => props.teamId)
 
 // ─── Görünüm ──────────────────────────────────────────────────────────────────
 const validViews = ['board', 'list', 'backlog', 'releases', 'activity']
@@ -230,11 +273,17 @@ const newBoardType     = ref('KANBAN')
 const newBoardProjectId = ref(null)
 const boardGroupBy     = ref('status')
 
-// ─── Proje listesi ────────────────────────────────────────────────────────────
-const projects = ref([])
+/**
+ * Aktif projenin board'ları + projeye bağlanmamış (takım geneli) board'lar.
+ * "Tüm projeler" seçiliyken hiçbir board gizlenmez.
+ */
+const visibleBoards = computed(() => {
+  if (!projectId.value) return boards.value
+  return boards.value.filter(b => !b.projectId || b.projectId === projectId.value)
+})
 
 const selectedBoard = computed(() =>
-  boards.value.find(b => b.id === selectedBoardId.value) || boards.value[0] || null
+  visibleBoards.value.find(b => b.id === selectedBoardId.value) || visibleBoards.value[0] || null
 )
 
 const activeBoardColumns = computed(() => {
@@ -258,31 +307,35 @@ const activeBoardColumns = computed(() => {
   return board.columnConfig.columns
 })
 
-const boardViewKey = computed(() => selectedBoardId.value || 'default')
+// Proje de anahtara dahil: proje değişince alt görünümler remount olup veriyi
+// yeni context ile baştan çeker (aksi halde eski projenin görevleri ekranda kalıyordu).
+const boardViewKey = computed(() =>
+  `${selectedBoardId.value || 'default'}:${projectId.value || 'all'}`
+)
 
 async function loadBoards() {
   if (!props.teamId) return
   try {
     boards.value = await getBoards(props.teamId)
-    if (boards.value.length > 0 && !selectedBoardId.value) {
-      const def = boards.value.find(b => b.isDefault) || boards.value[0]
-      selectedBoardId.value = def.id
-    }
+    ensureBoardInProject()
   } catch (e) {
     // Board henüz yok olabilir — sessizce devam et
   }
 }
 
-async function loadProjects() {
-  if (!props.teamId) return
-  try {
-    const team = await getTeamById(props.teamId)
-    if (team?.organizationId) {
-      const res = await ProjectApi.getByOrg(team.organizationId)
-      projects.value = res.data || res || []
-    }
-  } catch (e) {
-    console.warn('Proje listesi yüklenemedi:', e)
+/**
+ * Seçili board aktif projeye ait değilse (proje değiştirildi ya da ilk yükleme)
+ * o projenin varsayılan board'una geçilir. Aksi halde kolonlar bir projeye,
+ * görevler başka bir projeye ait olurdu.
+ */
+function ensureBoardInProject() {
+  const list = visibleBoards.value
+  if (list.length === 0) {
+    selectedBoardId.value = null
+    return
+  }
+  if (!list.some(b => b.id === selectedBoardId.value)) {
+    selectedBoardId.value = (list.find(b => b.isDefault) || list[0]).id
   }
 }
 
@@ -365,12 +418,22 @@ watch(() => route.query.view, (v) => {
   }
 })
 
-onMounted(() => {
-  loadBoards()
-  loadProjects()
+// Proje değişince board seçimi de o projeye taşınır ve yeni board oluşturma
+// formu aktif projeyi ön seçili getirir.
+watch(projectId, (v) => {
+  ensureBoardInProject()
+  newBoardProjectId.value = v
 })
+
+onMounted(async () => {
+  await loadProjects()
+  newBoardProjectId.value = projectId.value
+  await loadBoards()
+})
+// teamId route seviyesinde değişebilir; composable proje listesini kendi
+// watcher'ıyla tazeliyor, burada yalnızca board'ları yeniliyoruz.
 watch(() => props.teamId, () => {
+  selectedBoardId.value = null
   loadBoards()
-  loadProjects()
 })
 </script>

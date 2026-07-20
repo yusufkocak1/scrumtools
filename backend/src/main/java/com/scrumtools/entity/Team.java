@@ -6,7 +6,9 @@ import org.hibernate.annotations.CreationTimestamp;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 
 @Entity
@@ -44,10 +46,27 @@ public class Team {
     @JoinColumn(name = "organization_id", nullable = false)
     private Organization organization;
 
-    // Proje bağlantısı (opsiyonel)
+    /**
+     * Birincil (varsayılan) proje — görev oluşturulurken proje seçilmezse buraya düşer.
+     * {@link #projects} kümesinin içinde de yer alır.
+     */
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "project_id")
     private Project project;
+
+    /**
+     * Takımın üzerinde çalıştığı projeler — bir takım aynı anda birden fazla projede
+     * çalışabilir. Sprint takım seviyesinde kalır (takımın zaman kutusu), görevler ise
+     * bu projelerden birine ait olur.
+     */
+    @ManyToMany(fetch = FetchType.LAZY)
+    @JoinTable(
+            name = "team_projects",
+            joinColumns = @JoinColumn(name = "team_id"),
+            inverseJoinColumns = @JoinColumn(name = "project_id")
+    )
+    @Builder.Default
+    private Set<Project> projects = new LinkedHashSet<>();
 
     @CreationTimestamp
     @Column(updatable = false)

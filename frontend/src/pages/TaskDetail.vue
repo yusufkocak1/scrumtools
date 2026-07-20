@@ -506,6 +506,7 @@
         :is-open="showEditForm"
         :task="task"
         :teamId="teamId || ''"
+        :projects="teamProjects"
         @close="showEditForm = false"
         @updateTask="onTaskUpdate"
       />
@@ -518,6 +519,7 @@ import { updateTask, searchByCustomId, getLinks, getSubtasks } from '../api/Work
 import { addComment, uploadAttachment } from '../api/WorkApi.js';
 import { setPokerTask } from '../api/ScrumPokerApi.js';
 import { getTeamReleases, getTaskDeployments } from '../api/ReleaseApi.js';
+import { getTeamById } from '../api/TeamApi.js';
 import AddTaskForm from '../components/work/AddTaskForm.vue';
 import AttachmentList from '../components/work/AttachmentList.vue';
 import SubtaskList from '../components/work/SubtaskList.vue';
@@ -557,6 +559,7 @@ export default {
       taskLinks: [],
       subtasks: [],
       releases: [],
+      teamProjects: [],
       taskDeployments: [],
       startingPoker: false,
       // Inline description edit state
@@ -635,7 +638,10 @@ export default {
           this.task = result;
           this.teamId = result.teamId;
           this.teamData = null;
-          await Promise.all([this.refreshLinks(), this.refreshSubtasks(), this.loadReleases(), this.loadDeployments()]);
+          await Promise.all([
+            this.refreshLinks(), this.refreshSubtasks(), this.loadReleases(),
+            this.loadDeployments(), this.loadTeamProjects()
+          ]);
         } else {
           this.task = null;
         }
@@ -672,8 +678,17 @@ export default {
     async loadReleases() {
       if (!this.teamId) return;
       try {
-        this.releases = await getTeamReleases(this.teamId);
+        // Sürümler görevin projesine ait — takım birden fazla projede çalışabilir.
+        this.releases = await getTeamReleases(this.teamId, this.task?.projectId || null);
       } catch (e) { this.releases = []; }
+    },
+    /** Takımın projeleri — düzenleme formunda görevi başka projeye taşıyabilmek için. */
+    async loadTeamProjects() {
+      if (!this.teamId) return;
+      try {
+        const team = await getTeamById(this.teamId);
+        this.teamProjects = team?.projects || [];
+      } catch (e) { this.teamProjects = []; }
     },
     async loadDeployments() {
       if (!this.teamId || !this.task?.id) return;

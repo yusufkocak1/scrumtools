@@ -98,6 +98,15 @@
             <!-- Sprint istatistikleri -->
             <div class="flex items-center gap-3 text-xs">
               <span class="text-gray-600"><span class="font-bold text-gray-900">{{ sprintTasks.length }}</span> görev</span>
+              <!-- Sprint takım bazlı: aynı sprintte başka projelerin görevleri de olabilir.
+                   Takım kapasitesinin nereye gittiği görünür kalsın diye kırılım gösterilir. -->
+              <span
+                v-if="otherProjectCount > 0"
+                class="text-[11px] text-gray-500 bg-white/70 border border-gray-200 px-2 py-0.5 rounded-full cursor-help"
+                :title="`Bu sprintteki diğer projeler — ${otherProjectsLabel}`"
+              >
+                +{{ otherProjectCount }} diğer projede
+              </span>
               <span class="text-gray-400">•</span>
               <span class="text-green-700"><span class="font-bold">{{ doneCount }}</span> tamamlandı</span>
             </div>
@@ -186,6 +195,14 @@ import { getSprints, getTasks, updateTask } from '../../api/WorkApi.js'
 
 const props = defineProps({
   teamId:  { type: String, required: true },
+  /**
+   * Aktif proje context'i. Sprint takım seviyesinde kalır (takımın zaman kutusu),
+   * bu yüzden sprint listesi projeye göre daralmaz — yalnızca sprint içindeki
+   * görevler filtrelenir. null ise takımın tüm projeleri gösterilir.
+   */
+  projectId: { type: String, default: null },
+  /** Takımın projeleri — sprint kırılım rozetinde proje adını göstermek için. */
+  projects: { type: Array, default: () => [] },
   columns: {
     type: Array,
     default: () => [
@@ -258,9 +275,39 @@ onMounted(loadData)
 watch(() => props.teamId, loadData)
 
 // ─── Seçili Sprint'e ait görevler ─────────────────────────────────────────────
-const sprintTasks = computed(() => {
+/**
+ * Sprint'in tüm görevleri — proje ayrımı yapılmaz. Sprint takımın zaman kutusu
+ * olduğu için takımın toplam yükü bu listeden okunur (kırılım rozeti).
+ */
+const sprintTasksAllProjects = computed(() => {
   if (!selectedSprintId.value) return []
   return allTasks.value.filter(t => t.sprintId === selectedSprintId.value)
+})
+
+/** Board'da gösterilen görevler — aktif proje context'ine daraltılmış. */
+const sprintTasks = computed(() => {
+  if (!props.projectId) return sprintTasksAllProjects.value
+  return sprintTasksAllProjects.value.filter(t => t.projectId === props.projectId)
+})
+
+/**
+ * Sprint'te başka projelerin de görevi varsa kırılım gösterilir — takım
+ * kapasitesinin bir kısmının başka projelere gittiği görünür kalsın.
+ */
+const otherProjectCount = computed(() =>
+  sprintTasksAllProjects.value.length - sprintTasks.value.length
+)
+
+/** Sprint'teki diğer projelerin görev sayıları — kırılım rozetinin tooltip'i. */
+const otherProjectsLabel = computed(() => {
+  const counts = new Map()
+  for (const t of sprintTasksAllProjects.value) {
+    if (t.projectId === props.projectId) continue
+    const project = props.projects.find(p => p.id === t.projectId)
+    const label = project ? `${project.name} (${project.key})` : (t.projectKey || 'Projesiz')
+    counts.set(label, (counts.get(label) || 0) + 1)
+  }
+  return [...counts.entries()].map(([label, n]) => `${label}: ${n}`).join(' · ')
 })
 
 const doneCount = computed(() =>

@@ -16,10 +16,12 @@ import apiClient from './axios.js'
  * Takımın task'larını getir.
  * @param {string} teamId
  * @param {boolean} includeCancelled
+ * @param {string|null} projectId — aktif proje context'i; null ise takımın tüm
+ *        projelerindeki görevler döner ("Tüm projeler" görünümü).
  */
-export const getTasks = async (teamId, includeCancelled = false) => {
+export const getTasks = async (teamId, includeCancelled = false, projectId = null) => {
     const { data } = await apiClient.get(`/api/teams/${teamId}/tasks`, {
-        params: { includeCancelled }
+        params: { includeCancelled, ...(projectId ? { projectId } : {}) }
     })
     return data
 }

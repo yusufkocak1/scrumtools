@@ -40,7 +40,7 @@ public class TaskFilterService {
         CriteriaQuery<Long> countQuery = cb.createQuery(Long.class);
         Root<Task> countRoot = countQuery.from(Task.class);
         countQuery.select(cb.count(countRoot));
-        List<Predicate> countPreds = buildPredicates(cb, countRoot, teamId, req.getFilters());
+        List<Predicate> countPreds = buildPredicates(cb, countRoot, teamId, req.getProjectId(), req.getFilters());
         if (!countPreds.isEmpty()) {
             countQuery.where(cb.and(countPreds.toArray(new Predicate[0])));
         }
@@ -51,7 +51,7 @@ public class TaskFilterService {
         Root<Task> root = dataQuery.from(Task.class);
         dataQuery.select(root);
 
-        List<Predicate> preds = buildPredicates(cb, root, teamId, req.getFilters());
+        List<Predicate> preds = buildPredicates(cb, root, teamId, req.getProjectId(), req.getFilters());
         if (!preds.isEmpty()) {
             dataQuery.where(cb.and(preds.toArray(new Predicate[0])));
         }
@@ -92,12 +92,19 @@ public class TaskFilterService {
             CriteriaBuilder cb,
             Root<Task> root,
             UUID teamId,
+            UUID projectId,
             List<TaskFilterCriteria> filters
     ) {
         List<Predicate> preds = new ArrayList<>();
 
         // Takım filtresi her zaman zorunlu
         preds.add(cb.equal(root.get("team").get("id"), teamId));
+
+        // Aktif proje context'i — kullanıcı filtresi değil kapsam kısıtı, bu yüzden
+        // filters'tan bağımsız olarak AND'lenir. Null ise takımın tüm projeleri gelir.
+        if (projectId != null) {
+            preds.add(cb.equal(root.get("project").get("id"), projectId));
+        }
 
         if (filters == null || filters.isEmpty()) return preds;
 

@@ -39,12 +39,17 @@ public class TaskController {
 
     // ─── Task CRUD ────────────────────────────────────────────────────────────
 
+    /**
+     * Takımın görevleri. projectId verilirse aktif proje context'ine göre filtrelenir;
+     * verilmezse takımın tüm projelerindeki görevler döner.
+     */
     @GetMapping("/api/teams/{teamId}/tasks")
     public ResponseEntity<List<TaskResponse>> getTasks(
             @PathVariable UUID teamId,
+            @RequestParam(required = false) UUID projectId,
             @RequestParam(defaultValue = "false") boolean includeCancelled
     ) {
-        return ResponseEntity.ok(taskService.getTasksByTeam(teamId, includeCancelled));
+        return ResponseEntity.ok(taskService.getTasksByTeam(teamId, projectId, includeCancelled));
     }
 
     @GetMapping("/api/teams/{teamId}/tasks/{taskId}")

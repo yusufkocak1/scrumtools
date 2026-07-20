@@ -46,7 +46,11 @@ public class Task {
 
     /**
      * Görevin ait olduğu proje — customId bu projenin key'i ile üretilir (PROJEKEY-N).
-     * Null olabilir: takımı projeye bağlanmamış eski görevler team bazlı isimlendirmede kalır.
+     * Bir takım birden fazla projede çalışabildiği için proje görev oluşturulurken
+     * seçilir; seçilmezse takımın birincil projesine düşer ve sonradan değiştirilebilir.
+     * Proje değişse bile customId korunur (git branch eşleştirmeleri kırılmasın diye).
+     * Null olabilir: hiçbir projeye bağlanmamış takımların eski görevleri team bazlı
+     * isimlendirmede kalır.
      */
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "project_id")

@@ -72,7 +72,9 @@ public class TeamController {
     }
 
     /**
-     * PUT /api/teams/{id}/project — Takımı bir projeye bağla (projectId=null → bağlantıyı kaldır).
+     * PUT /api/teams/{id}/project — Takımın birincil (varsayılan) projesini ayarla
+     * (projectId=null → birincil proje bağlantısını kaldır). Proje aynı zamanda takımın
+     * çalıştığı projeler kümesine eklenir.
      * Yetki: takım admini veya org admin/owner.
      */
     @PutMapping("/{id}/project")
@@ -82,6 +84,32 @@ public class TeamController {
             @RequestBody java.util.Map<String, UUID> body
     ) {
         return ResponseEntity.ok(teamService.linkProject(id, body.get("projectId"), authentication.getName()));
+    }
+
+    /**
+     * POST /api/teams/{id}/projects — Takımın çalıştığı projelere yeni proje ekle.
+     * Bir takım aynı anda birden fazla projede çalışabilir; ilk eklenen proje birincil olur.
+     */
+    @PostMapping("/{id}/projects")
+    public ResponseEntity<TeamResponse> addProject(
+            @PathVariable UUID id,
+            Authentication authentication,
+            @RequestBody java.util.Map<String, UUID> body
+    ) {
+        return ResponseEntity.ok(teamService.addProject(id, body.get("projectId"), authentication.getName()));
+    }
+
+    /**
+     * DELETE /api/teams/{id}/projects/{projectId} — Takımı projeden ayır.
+     * Takımın o projede görevi varsa reddedilir (görevler önce taşınmalı).
+     */
+    @DeleteMapping("/{id}/projects/{projectId}")
+    public ResponseEntity<TeamResponse> removeProject(
+            @PathVariable UUID id,
+            @PathVariable UUID projectId,
+            Authentication authentication
+    ) {
+        return ResponseEntity.ok(teamService.removeProject(id, projectId, authentication.getName()));
     }
 
     /**

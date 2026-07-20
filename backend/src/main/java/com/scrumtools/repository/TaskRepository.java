@@ -20,6 +20,14 @@ public interface TaskRepository extends JpaRepository<Task, UUID> {
 
     List<Task> findByTeamId(UUID teamId);
 
+    // ─── Proje bazlı listeleme (aktif proje context'i) ────────────────────────
+
+    List<Task> findByTeamIdAndProjectId(UUID teamId, UUID projectId);
+
+    List<Task> findByTeamIdAndProjectIdAndStatusNot(UUID teamId, UUID projectId, String status);
+
+    long countByTeamIdAndProjectId(UUID teamId, UUID projectId);
+
     Optional<Task> findByTeamIdAndCustomId(UUID teamId, String customId);
 
     List<Task> findByTeamIdAndSprintId(UUID teamId, UUID sprintId);

@@ -35,10 +35,22 @@ public class TaskService {
 
     // ─── Tasks ────────────────────────────────────────────────────────────────
 
-    public List<TaskResponse> getTasksByTeam(UUID teamId, boolean includeCancelled) {
-        List<Task> tasks = includeCancelled
-                ? taskRepository.findByTeamId(teamId)
-                : taskRepository.findByTeamIdAndStatusNot(teamId, "Cancelled");
+    /**
+     * Takımın görevleri. projectId verilirse yalnızca o projenin görevleri döner —
+     * takım birden fazla projede çalışabildiği için aktif proje context'i bu filtreyi
+     * kullanır; null geçilirse takımın tüm projelerindeki görevler döner ("Tüm projeler").
+     */
+    public List<TaskResponse> getTasksByTeam(UUID teamId, UUID projectId, boolean includeCancelled) {
+        List<Task> tasks;
+        if (projectId != null) {
+            tasks = includeCancelled
+                    ? taskRepository.findByTeamIdAndProjectId(teamId, projectId)
+                    : taskRepository.findByTeamIdAndProjectIdAndStatusNot(teamId, projectId, "Cancelled");
+        } else {
+            tasks = includeCancelled
+                    ? taskRepository.findByTeamId(teamId)
+                    : taskRepository.findByTeamIdAndStatusNot(teamId, "Cancelled");
+        }
         return tasks.stream().map(TaskResponse::from).collect(Collectors.toList());
     }
 
@@ -94,6 +106,25 @@ public class TaskService {
                 .stream().map(TaskSearchResponse::from).toList();
     }
 
+    /**
+     * Görevin projesini belirler. Takım birden fazla projede çalışabildiği için proje
+     * istekle birlikte gelir; gelmezse takımın birincil projesine, o da yoksa takımın
+     * ilk projesine düşer. Hiç projesi olmayan takımlar için null döner — bu görevler
+     * eski TEAMCODE-N isimlendirmesinde kalır.
+     */
+    private Project resolveTaskProject(Team team, String requestedProjectId) {
+        if (requestedProjectId != null && !requestedProjectId.isBlank()) {
+            UUID projectId = UUID.fromString(requestedProjectId.trim());
+            return team.getProjects().stream()
+                    .filter(p -> p.getId().equals(projectId))
+                    .findFirst()
+                    .orElseThrow(() -> new IllegalArgumentException(
+                            "Seçilen proje bu takımın çalıştığı projeler arasında değil."));
+        }
+        if (team.getProject() != null) return team.getProject();
+        return team.getProjects().stream().findFirst().orElse(null);
+    }
+
     @Transactional
     public TaskResponse createTask(UUID teamId, TaskRequest req) {
         Team team = teamRepository.findById(teamId)
@@ -102,14 +133,15 @@ public class TaskService {
         String userEmail = SecurityContextHolder.getContext().getAuthentication().getName();
 
         // customId proje bazlı üretilir: PROJEKEY-N (sayaç projede, aynı projedeki tüm
-        // takımlar ortak numara alır). Takım projeye bağlı değilse eski TEAMCODE-N
+        // takımlar ortak numara alır). Takım hiçbir projeye bağlı değilse eski TEAMCODE-N
         // davranışına düşülür. Sayaç güncellemesi race condition yaratmasın diye ilgili
         // satır (proje ya da takım) kilitli okunur; sayaç boşsa mevcut customId'lerin
         // en büyük sonekinden başlatılır.
+        Project target = resolveTaskProject(team, req.getProjectId());
         Project project = null;
         String customId;
-        if (team.getProject() != null) {
-            project = projectRepository.findByIdForUpdate(team.getProject().getId())
+        if (target != null) {
+            project = projectRepository.findByIdForUpdate(target.getId())
                     .orElseThrow(() -> new RuntimeException("Project not found"));
             Long sequence = project.getTaskSequence();
             if (sequence == null) {
@@ -139,7 +171,7 @@ public class TaskService {
         if (req.getReleaseId() != null && !req.getReleaseId().isBlank()) {
             release = releaseRepository.findById(UUID.fromString(req.getReleaseId()))
                     .orElseThrow(() -> new RuntimeException("Release not found"));
-            releaseService.validateTaskLink(release, team, userEmail);
+            releaseService.validateTaskLink(release, project, userEmail);
         }
 
         Task parentTask = null;
@@ -261,6 +293,28 @@ public class TaskService {
             }
         }
 
+        // Proje değişikliği — release bağından önce işlenir ki release doğrulaması
+        // görevin yeni projesine göre yapılsın. customId bilinçli olarak korunur:
+        // git branch eşleştirmeleri ve dış linkler eski anahtara bağlı.
+        if (req.getProjectId() != null && !req.getProjectId().isBlank()) {
+            UUID newProjectId = UUID.fromString(req.getProjectId().trim());
+            Project current = task.getProject();
+            if (current == null || !current.getId().equals(newProjectId)) {
+                Project newProject = resolveTaskProject(task.getTeam(), req.getProjectId());
+                auditService.recordChange(task, "project",
+                        current != null ? current.getKey() : null, newProject.getKey(), userEmail);
+                task.setProject(newProject);
+
+                // Sürüm proje seviyesinde — yeni projede geçersiz kalan bağ temizlenir.
+                Release staleRelease = task.getRelease();
+                if (staleRelease != null && !staleRelease.getProject().getId().equals(newProject.getId())) {
+                    releaseService.validateTaskUnlink(staleRelease, userEmail);
+                    auditService.recordChange(task, "release", staleRelease.getName(), null, userEmail);
+                    task.setRelease(null);
+                }
+            }
+        }
+
         if (req.getReleaseId() != null) {
             Release oldRelease = task.getRelease();
             if (req.getReleaseId().isBlank()) {
@@ -274,7 +328,7 @@ public class TaskService {
                         .orElseThrow(() -> new RuntimeException("Release not found"));
                 if (oldRelease == null || !oldRelease.getId().equals(newRelease.getId())) {
                     if (oldRelease != null) releaseService.validateTaskUnlink(oldRelease, userEmail);
-                    releaseService.validateTaskLink(newRelease, task.getTeam(), userEmail);
+                    releaseService.validateTaskLink(newRelease, task.getProject(), userEmail);
                     auditService.recordChange(task, "release",
                             oldRelease != null ? oldRelease.getName() : null, newRelease.getName(), userEmail);
                     task.setRelease(newRelease);

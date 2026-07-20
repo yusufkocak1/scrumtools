@@ -62,6 +62,8 @@ import { updateTask }  from '../../api/WorkApi.js'
 
 const props = defineProps({
   teamId:  { type: String, required: true },
+  /** Aktif proje context'i — null ise takımın tüm projelerindeki görevler gösterilir. */
+  projectId: { type: String, default: null },
   columns: {
     type: Array,
     default: () => [
@@ -87,14 +89,15 @@ async function loadTasks() {
   try {
     if (activeFilters.value.length > 0) {
       const result = await filterTasks(props.teamId, {
-        filters: activeFilters.value,
+        filters:   activeFilters.value,
+        projectId: props.projectId || undefined,
         sortBy:  'position',
         sortDir: 'asc',
         size:    200
       })
       allTasks.value = result.content
     } else {
-      allTasks.value = await getTasks(props.teamId, false)
+      allTasks.value = await getTasks(props.teamId, false, props.projectId)
     }
   } catch (e) {
     console.error('Board yükleme hatası:', e)
@@ -104,7 +107,7 @@ async function loadTasks() {
 }
 
 onMounted(loadTasks)
-watch(() => props.teamId, loadTasks)
+watch(() => [props.teamId, props.projectId], loadTasks)
 watch(activeFilters, loadTasks, { deep: true })
 
 // ─── Sütun–görev eşlemesi ─────────────────────────────────────────────────────

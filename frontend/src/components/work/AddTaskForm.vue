@@ -294,6 +294,24 @@
                 />
               </div>
 
+              <!-- Proje — görev proje bazlı; aktif proje ön seçili gelir ama
+                   takım birden fazla projede çalışabildiği için değiştirilebilir. -->
+              <div v-if="selectableProjects.length > 0">
+                <label class="block text-sm font-medium text-gray-700 mb-2">Proje</label>
+                <select
+                  v-model="formData.projectId"
+                  class="w-full px-4 py-3 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
+                >
+                  <option v-for="p in selectableProjects" :key="p.id" :value="p.id">
+                    {{ p.name }} ({{ p.key }})
+                  </option>
+                </select>
+                <p v-if="task" class="text-xs text-gray-400 mt-1">
+                  Projeyi değiştirmek görev numarasını ({{ task.customId }}) değiştirmez;
+                  başka projeye ait sürüm bağı varsa kaldırılır.
+                </p>
+              </div>
+
               <!-- Release -->
               <div v-if="releases.length > 0">
                 <label class="block text-sm font-medium text-gray-700 mb-2">Sürüm (Release)</label>
@@ -367,6 +385,16 @@ export default {
     teamId: {
       type: String,
       required: true
+    },
+    /** Aktif proje context'i — yeni görevde ön seçili gelir. */
+    projectId: {
+      type: String,
+      default: null
+    },
+    /** Takımın çalıştığı projeler — görev başka bir projeye de açılabilir. */
+    projects: {
+      type: Array,
+      default: () => []
     }
   },
   emits: ['close', 'addTask', 'updateTask', 'deleteTask'],
@@ -384,6 +412,7 @@ export default {
         analyst: "",
         tester: "",
         labels: [],
+        projectId: "",
         releaseId: ""
       },
       newLabel: "",
@@ -462,6 +491,18 @@ export default {
       return this.releases.filter(r =>
         (r.status !== 'RELEASED' && r.status !== 'CANCELLED') || r.id === this.formData.releaseId
       );
+    },
+    /**
+     * Görev düzenlenirken görevin mevcut projesi takımdan kaldırılmış olabilir —
+     * seçim listede kalsın ki kaydetme sırasında sessizce başka projeye kaymasın.
+     */
+    selectableProjects() {
+      const list = [...this.projects];
+      const current = this.formData.projectId;
+      if (current && !list.some(p => p.id === current)) {
+        list.push({ id: current, name: this.task?.projectKey || 'Mevcut proje', key: '—' });
+      }
+      return list;
     }
   },
   watch: {
@@ -469,7 +510,11 @@ export default {
       immediate: true,
       handler(newTask) {
         if (newTask) {
-          this.formData = {...newTask, releaseId: newTask.releaseId || ""};
+          this.formData = {
+            ...newTask,
+            releaseId: newTask.releaseId || "",
+            projectId: newTask.projectId || this.projectId || ""
+          };
         } else {
           this.resetForm();
         }
@@ -478,11 +523,29 @@ export default {
     isOpen: {
       immediate: true,
       handler(isOpen) {
-        if (isOpen && this.teamId) {
-          this.loadTeamMembers();
-          this.loadReleases();
+        if (!isOpen || !this.teamId) return;
+        // Yeni görev modunda form açılırken aktif projeye hizalanır — kullanıcı
+        // formu kapatıp global proje seçimini değiştirmiş olabilir.
+        if (!this.task && !this.formData.projectId) {
+          this.formData.projectId = this.projectId || this.projects[0]?.id || "";
         }
+        this.loadTeamMembers();
+        this.loadReleases();
       }
+    },
+    /**
+     * Sürüm proje seviyesinde: proje değişince o projenin sürümleri yüklenir ve
+     * artık geçerli olmayan seçim temizlenir (backend de aynı kuralı uyguluyor).
+     */
+    'formData.projectId'(value, previous) {
+      if (previous === undefined) return;
+      // Başka bir görev açılırken de bu watcher tetiklenir; o durumda görevin kendi
+      // sürüm bağı korunmalı. Yalnızca kullanıcı projeyi görevin projesinden
+      // farklı bir şeye çevirdiğinde seçim geçersizleşir.
+      if (value !== previous && value !== this.task?.projectId) {
+        this.formData.releaseId = "";
+      }
+      if (this.isOpen) this.loadReleases();
     }
   },
   methods: {
@@ -502,8 +565,10 @@ export default {
 
     async loadReleases() {
       try {
-        // Takım projeye bağlı değilse boş liste döner — alan gizli kalır
-        this.releases = await getTeamReleases(this.teamId);
+        // Sürümler görevin projesine ait olmalı; proje seçilmemişse backend
+        // takımın birincil projesine düşer. Takım projeye bağlı değilse boş
+        // liste döner — alan gizli kalır.
+        this.releases = await getTeamReleases(this.teamId, this.formData.projectId || null);
       } catch (error) {
         this.releases = [];
       }
@@ -602,6 +667,8 @@ export default {
         estimatedHours: null,
         parentTaskId: null,
         environment: "",
+        // Yeni görev aktif proje context'ine açılır; kullanıcı formda değiştirebilir.
+        projectId: this.projectId || this.projects[0]?.id || "",
         releaseId: "",
       };
       this.newLabel = "";

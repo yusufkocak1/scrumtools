@@ -21,6 +21,12 @@ public class TaskRequest {
     private Integer storyPoints;
     private List<String> labels;
     private String sprintId;
+    /**
+     * Görevin ait olduğu proje. Oluştururken boş bırakılırsa takımın birincil projesine
+     * düşer; güncellemede gönderilirse görev başka bir projeye taşınır (customId korunur,
+     * proje dışı kalan release bağı temizlenir).
+     */
+    private String projectId;
     /** Related release — boş string gönderilirse bağ kaldırılır (sprintId gibi). */
     private String releaseId;
     private String parentTaskId;

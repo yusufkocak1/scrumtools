@@ -227,32 +227,24 @@ public class TeamService {
 
     // ─── Link Team To Project (release yönetimi için) ─────────────────────────
 
+    /**
+     * Takımın birincil (varsayılan) projesini ayarlar. Proje aynı zamanda takımın
+     * çalıştığı projeler kümesine eklenir — bir takım birden fazla projede çalışabilir,
+     * birincil proje yalnızca görev oluşturulurken hangi projenin ön seçili geleceğini
+     * belirler.
+     */
     @Transactional
     public TeamResponse linkProject(UUID teamId, UUID projectId, String requesterEmail) {
-        Team team = teamRepository.findById(teamId)
-                .orElseThrow(() -> new IllegalArgumentException("Takım bulunamadı: " + teamId));
-
-        UUID orgId = team.getOrganization().getId();
-
-        // Yetki: org admin/owner VEYA takım admini
-        boolean isOrgAdmin = organizationMemberRepository.existsByOrganizationIdAndUserEmailAndOrgRoleIn(
-                orgId, requesterEmail, List.of(OrgRole.ORG_OWNER, OrgRole.ORG_ADMIN));
-        boolean isTeamAdmin = team.getAdminEmail().equalsIgnoreCase(requesterEmail);
-        if (!isOrgAdmin && !isTeamAdmin) {
-            throw new SecurityException("Takımı projeye bağlamak için takım veya organizasyon yöneticisi olmanız gerekir.");
-        }
+        Team team = requireProjectAdmin(teamId, requesterEmail);
 
         if (projectId == null) {
             team.setProject(null);
         } else {
-            Project project = projectRepository.findById(projectId)
-                    .orElseThrow(() -> new IllegalArgumentException("Proje bulunamadı: " + projectId));
-            if (project.getOrganization() == null || !project.getOrganization().getId().equals(orgId)) {
-                throw new IllegalArgumentException("Proje, takımın organizasyonuna ait değil.");
-            }
+            Project project = resolveOrgProject(team, projectId);
             team.setProject(project);
+            team.getProjects().add(project);
 
-            // Takımın projesiz görevleri projeye bağlanır (customId'leri korunur;
+            // Takımın projesiz görevleri birincil projeye bağlanır (customId'leri korunur;
             // proje bağı olan görevler dokunulmaz — task artık projeye aittir).
             int migrated = taskRepository.assignProjectToTeamTasks(teamId, project);
             if (migrated > 0) {
@@ -261,9 +253,77 @@ public class TeamService {
         }
 
         team = teamRepository.save(team);
-        log.info("Takım proje bağlantısı güncellendi: {} → {} (istek: {})",
+        log.info("Takım birincil proje bağlantısı güncellendi: {} → {} (istek: {})",
                 team.getTeamName(), projectId, requesterEmail);
         return TeamResponse.from(team);
+    }
+
+    /** Takımın çalıştığı projelere yeni bir proje ekler. İlk proje birincil olur. */
+    @Transactional
+    public TeamResponse addProject(UUID teamId, UUID projectId, String requesterEmail) {
+        Team team = requireProjectAdmin(teamId, requesterEmail);
+        Project project = resolveOrgProject(team, projectId);
+
+        team.getProjects().add(project);
+        if (team.getProject() == null) {
+            team.setProject(project);
+            // Takımın ilk projesi: projesiz görevler buraya düşer.
+            taskRepository.assignProjectToTeamTasks(teamId, project);
+        }
+
+        team = teamRepository.save(team);
+        log.info("Takıma proje eklendi: {} ← {} (istek: {})", team.getTeamName(), project.getKey(), requesterEmail);
+        return TeamResponse.from(team);
+    }
+
+    /**
+     * Takımı bir projeden ayırır. Projeye ait görevleri olan takım ayrılamaz —
+     * görevler önce başka bir projeye taşınmalı, aksi halde erişilemez hale gelirler.
+     */
+    @Transactional
+    public TeamResponse removeProject(UUID teamId, UUID projectId, String requesterEmail) {
+        Team team = requireProjectAdmin(teamId, requesterEmail);
+
+        long taskCount = taskRepository.countByTeamIdAndProjectId(teamId, projectId);
+        if (taskCount > 0) {
+            throw new IllegalArgumentException(
+                    "Bu projede takımın " + taskCount + " görevi var. Proje bağlantısını kaldırmadan önce "
+                            + "görevleri başka bir projeye taşıyın.");
+        }
+
+        team.getProjects().removeIf(p -> p.getId().equals(projectId));
+        if (team.getProject() != null && team.getProject().getId().equals(projectId)) {
+            // Birincil proje kaldırıldı — kalanlardan biri birincil olur.
+            team.setProject(team.getProjects().stream().findFirst().orElse(null));
+        }
+
+        team = teamRepository.save(team);
+        log.info("Takım projeden ayrıldı: {} ⊘ {} (istek: {})", team.getTeamName(), projectId, requesterEmail);
+        return TeamResponse.from(team);
+    }
+
+    /** Yetki: org admin/owner VEYA takım admini */
+    private Team requireProjectAdmin(UUID teamId, String requesterEmail) {
+        Team team = teamRepository.findById(teamId)
+                .orElseThrow(() -> new IllegalArgumentException("Takım bulunamadı: " + teamId));
+
+        boolean isOrgAdmin = organizationMemberRepository.existsByOrganizationIdAndUserEmailAndOrgRoleIn(
+                team.getOrganization().getId(), requesterEmail, List.of(OrgRole.ORG_OWNER, OrgRole.ORG_ADMIN));
+        boolean isTeamAdmin = team.getAdminEmail().equalsIgnoreCase(requesterEmail);
+        if (!isOrgAdmin && !isTeamAdmin) {
+            throw new SecurityException("Takımın projelerini yönetmek için takım veya organizasyon yöneticisi olmanız gerekir.");
+        }
+        return team;
+    }
+
+    private Project resolveOrgProject(Team team, UUID projectId) {
+        Project project = projectRepository.findById(projectId)
+                .orElseThrow(() -> new IllegalArgumentException("Proje bulunamadı: " + projectId));
+        if (project.getOrganization() == null
+                || !project.getOrganization().getId().equals(team.getOrganization().getId())) {
+            throw new IllegalArgumentException("Proje, takımın organizasyonuna ait değil.");
+        }
+        return project;
     }
 
     // ─── Update Display Name Across All Teams ─────────────────────────────────

@@ -1,7 +1,7 @@
 <template>
   <div class="h-full overflow-y-auto">
     <!-- Takım projeye bağlı değil -->
-    <div v-if="!loading && !projectId" class="max-w-lg mx-auto mt-16">
+    <div v-if="!loading && !activeProjectId" class="max-w-lg mx-auto mt-16">
       <div class="bg-white rounded-xl border border-gray-200 p-8 text-center">
         <div class="w-16 h-16 mx-auto mb-4 bg-gray-100 rounded-2xl flex items-center justify-center">
           <svg class="w-8 h-8 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -229,8 +229,8 @@
 
     <!-- Oluştur / Düzenle Modal -->
     <ReleaseFormModal
-      v-if="showForm && projectId"
-      :project-id="projectId"
+      v-if="showForm && activeProjectId"
+      :project-id="activeProjectId"
       :release="editingRelease"
       :team-members="teamMembers"
       @close="showForm = false"
@@ -240,7 +240,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted, watch } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import StatusBadge from '@/components/workflow/StatusBadge.vue'
 import TaskPickerInput from './TaskPickerInput.vue'
@@ -257,14 +257,28 @@ import {
 } from '../../api/ReleaseApi.js'
 
 const props = defineProps({
-  teamId: { type: String, required: true }
+  teamId: { type: String, required: true },
+  /**
+   * Aktif proje context'i. Sürümler proje seviyesinde olduğu için bu görünüm
+   * doğrudan seçili projeyi gösterir; "Tüm projeler" seçiliyken (null) takımın
+   * birincil projesine düşülür — sürüm listesi projeler arası birleştirilemez.
+   */
+  projectId: { type: String, default: null }
 })
 
 const router = useRouter()
 
 const loading = ref(true)
-const projectId = ref(null)
-const projectName = ref(null)
+const teamPrimaryProjectId = ref(null)
+const teamProjects = ref([])
+
+/** Gösterilecek proje: aktif context, yoksa takımın birincil projesi. */
+const activeProjectId = computed(() => props.projectId || teamPrimaryProjectId.value)
+
+const projectName = computed(() => {
+  const match = teamProjects.value.find(p => p.id === activeProjectId.value)
+  return match ? `${match.name} (${match.key})` : null
+})
 const teamMembers = ref([])
 const releases = ref([])
 const expandedId = ref(null)
@@ -345,15 +359,15 @@ async function load() {
   loading.value = true
   try {
     const team = await getTeamById(props.teamId)
-    projectId.value = team?.projectId || null
-    projectName.value = team?.projectName || null
+    teamPrimaryProjectId.value = team?.projectId || null
+    teamProjects.value = team?.projects || []
     teamMembers.value = Object.entries(team?.members || {}).map(([email, m]) => ({
       email,
       ...m,
       displayName: m.displayName || email
     }))
-    if (projectId.value) {
-      releases.value = await getProjectReleases(projectId.value)
+    if (activeProjectId.value) {
+      releases.value = await getProjectReleases(activeProjectId.value)
     } else {
       releases.value = []
       await loadOrgProjects(team?.organizationId)
@@ -408,9 +422,9 @@ async function toggleExpand(release) {
 async function loadReleaseDetail(release) {
   tasksLoading.value = true
   try {
-    releaseTasks.value[release.id] = await getReleaseTasks(projectId.value, release.id)
+    releaseTasks.value[release.id] = await getReleaseTasks(activeProjectId.value, release.id)
     if (release.status === 'RELEASED') {
-      deployments.value[release.id] = await getReleaseDeployments(projectId.value, release.id)
+      deployments.value[release.id] = await getReleaseDeployments(activeProjectId.value, release.id)
     }
   } catch (e) {
     console.error('Sürüm detayı yüklenemedi:', e)
@@ -422,7 +436,7 @@ async function loadReleaseDetail(release) {
 async function refreshRelease(release) {
   // Listeyi tazele (task sayıları güncellensin) + açık detayı yenile
   try {
-    releases.value = await getProjectReleases(projectId.value)
+    releases.value = await getProjectReleases(activeProjectId.value)
     const fresh = releases.value.find(r => r.id === release.id)
     if (fresh && expandedId.value === fresh.id) await loadReleaseDetail(fresh)
   } catch (e) {
@@ -461,7 +475,7 @@ async function transition(release, t) {
     // Done olmayan işleri kullanıcıya göster ve onay al
     let tasks = releaseTasks.value[release.id]
     if (!tasks) {
-      try { tasks = await getReleaseTasks(projectId.value, release.id) } catch { tasks = [] }
+      try { tasks = await getReleaseTasks(activeProjectId.value, release.id) } catch { tasks = [] }
     }
     const notDone = (tasks || []).filter(x => x.status !== 'Done' && x.status !== 'Cancelled')
     let msg = `"${release.name}" sürümü yayınlanacak ve dağıtım tarihçesi kaydedilecek. Bu işlem geri alınamaz.`
@@ -475,7 +489,7 @@ async function transition(release, t) {
   }
 
   try {
-    const updated = await updateReleaseStatus(projectId.value, release.id, t.target)
+    const updated = await updateReleaseStatus(activeProjectId.value, release.id, t.target)
     const idx = releases.value.findIndex(r => r.id === release.id)
     if (idx >= 0) releases.value[idx] = updated
     if (expandedId.value === release.id) await loadReleaseDetail(updated)
@@ -487,7 +501,7 @@ async function transition(release, t) {
 async function removeRelease(release) {
   if (!confirm(`"${release.name}" sürümü silinecek. Bağlı işlerin sürüm bağı kaldırılır. Emin misiniz?`)) return
   try {
-    await deleteRelease(projectId.value, release.id)
+    await deleteRelease(activeProjectId.value, release.id)
     releases.value = releases.value.filter(r => r.id !== release.id)
     if (expandedId.value === release.id) expandedId.value = null
   } catch (e) {
@@ -528,5 +542,6 @@ function formatDateTime(d) {
 }
 
 onMounted(load)
-watch(() => props.teamId, load)
+// Proje değişince o projenin sürümleri yüklenir (sürümler proje seviyesinde).
+watch(() => [props.teamId, props.projectId], load)
 </script>

@@ -49,6 +49,8 @@
         :is-open="showCreateTask || !!editingTask"
         :task="editingTask"
         :teamId="teamId"
+        :project-id="projectId"
+        :projects="projects"
         @close="closeTaskForm"
         @addTask="handleTaskAdded"
         @updateTask="handleUpdateTask"
@@ -413,7 +415,15 @@ export default {
     AddTaskForm
   },
   props: {
-    teamId: String
+    teamId: String,
+    /**
+     * Aktif proje context'i — backlog proje bazlı ayrılır. Sprintler takım
+     * seviyesinde kaldığı için sprint listesi daralmaz, içindeki görevler filtrelenir.
+     * null ise takımın tüm projeleri gösterilir.
+     */
+    projectId: { type: String, default: null },
+    /** Takımın projeleri — sprint satırlarındaki proje kırılım rozeti için. */
+    projects: { type: Array, default: () => [] }
   },
   data() {
     return {
@@ -685,8 +695,10 @@ export default {
       // iskelet yükleyiciyi tekrar göstermeyiz, sadece veriyi sessizce tazeleriz.
       if (!silent) this.isLoading = true;
       try {
+        // Görevler proje bazlı çekilir; sprintler takım bazlı olduğu için
+        // filtresiz kalır (aynı sprint birden fazla projeye hizmet edebilir).
         const [tasks, sprints] = await Promise.all([
-          getTasks(this.teamId).catch(() => []),
+          getTasks(this.teamId, false, this.projectId).catch(() => []),
           getSprints(this.teamId).catch(() => [])
         ]);
         this.tasks = tasks;
@@ -712,6 +724,10 @@ export default {
     // props:true — remount olmuyor). Bu watcher olmadan takım değiştirildiğinde
     // önceki takımın backlog verisi ekranda asılı kalıyordu.
     teamId() {
+      this.fetchData();
+    },
+    // Proje değişince backlog o projenin görevlerine daralır.
+    projectId() {
       this.fetchData();
     }
   }

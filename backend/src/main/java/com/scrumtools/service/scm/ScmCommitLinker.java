@@ -52,7 +52,9 @@ public class ScmCommitLinker {
         Set<String> keys = extractTaskKeys(text);
         if (keys.isEmpty()) return List.of();
 
-        List<UUID> teamIds = teamRepository.findByProjectId(repo.getProject().getId()).stream()
+        // Projede çalışan tüm takımlar — takım birden fazla projede olabileceği için
+        // yalnızca birincil bağa bakmak commit'lerin task'a bağlanmamasına yol açardı.
+        List<UUID> teamIds = teamRepository.findAllWorkingOnProject(repo.getProject().getId()).stream()
                 .map(Team::getId)
                 .toList();
         if (teamIds.isEmpty()) return List.of();

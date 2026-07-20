@@ -62,12 +62,29 @@ public class ReleaseService {
                 .toList();
     }
 
-    /** Takımın bağlı olduğu projenin release'leri; takım projeye bağlı değilse boş liste. */
-    public List<ReleaseResponse> getReleasesByTeam(UUID teamId) {
+    /**
+     * Task formu dropdown'ı için release listesi. Takım birden fazla projede
+     * çalışabildiğinden projectId ile hangi projenin sürümleri istendiği belirtilir;
+     * verilmezse takımın birincil projesine düşülür. Takım hiçbir projeye bağlı
+     * değilse boş liste döner.
+     */
+    @Transactional(readOnly = true)
+    public List<ReleaseResponse> getReleasesByTeam(UUID teamId, UUID projectId) {
         Team team = teamRepository.findById(teamId)
                 .orElseThrow(() -> new RuntimeException("Team not found"));
-        if (team.getProject() == null) return List.of();
-        return getReleasesByProject(team.getProject().getId());
+
+        if (projectId != null) {
+            boolean belongsToTeam = team.getProjects().stream().anyMatch(p -> p.getId().equals(projectId));
+            if (!belongsToTeam) {
+                throw new IllegalArgumentException("Proje bu takımın çalıştığı projeler arasında değil.");
+            }
+            return getReleasesByProject(projectId);
+        }
+
+        if (team.getProject() != null) return getReleasesByProject(team.getProject().getId());
+        return team.getProjects().stream().findFirst()
+                .map(p -> getReleasesByProject(p.getId()))
+                .orElseGet(List::of);
     }
 
     public ReleaseResponse getRelease(UUID projectId, UUID releaseId) {
@@ -238,10 +255,11 @@ public class ReleaseService {
      *   (paket kapandıktan sonra hotfix ancak manager onayıyla girer).
      * - RELEASED/CANCELLED: kimse bağlayamaz.
      */
-    public void validateTaskLink(Release release, Team team, String userEmail) {
-        Project taskProject = team.getProject();
+    public void validateTaskLink(Release release, Project taskProject, String userEmail) {
+        // Sürüm proje seviyesinde; görev artık kendi projesini taşıdığı için kıyas
+        // takımın değil görevin projesi üzerinden yapılır (takım çok projede çalışabilir).
         if (taskProject == null || !taskProject.getId().equals(release.getProject().getId())) {
-            throw new IllegalArgumentException("Sürüm, görevin takımının bağlı olduğu projeye ait değil.");
+            throw new IllegalArgumentException("Sürüm, görevin ait olduğu projeye ait değil.");
         }
 
         ReleaseStatus status = release.getStatus();

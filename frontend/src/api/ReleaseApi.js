@@ -50,8 +50,10 @@ export const getReleaseDeployments = async (projectId, releaseId) => {
  * Takımın bağlı olduğu projenin release'leri.
  * Takım bir projeye bağlı değilse boş liste döner.
  */
-export const getTeamReleases = async (teamId) => {
-    const { data } = await apiClient.get(`/api/teams/${teamId}/releases`)
+export const getTeamReleases = async (teamId, projectId = null) => {
+    const { data } = await apiClient.get(`/api/teams/${teamId}/releases`, {
+        params: projectId ? { projectId } : {}
+    })
     return data
 }
 

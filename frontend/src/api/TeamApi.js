@@ -87,6 +87,18 @@ export const linkTeamToProject = async (teamId, projectId) => {
     return data
 }
 
+/** Takımın çalıştığı projelere yeni proje ekle (bir takım çok projede çalışabilir). */
+export const addTeamProject = async (teamId, projectId) => {
+    const { data } = await apiClient.post(`/api/teams/${teamId}/projects`, { projectId })
+    return data
+}
+
+/** Takımı projeden ayır — o projede görevi varsa backend reddeder. */
+export const removeTeamProject = async (teamId, projectId) => {
+    const { data } = await apiClient.delete(`/api/teams/${teamId}/projects/${projectId}`)
+    return data
+}
+
 // ─── Update Display Name Across All Teams ─────────────────────────────────────
 
 export const updateDisplayNameAcrossTeams = async (displayName) => {
