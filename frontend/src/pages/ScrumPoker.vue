@@ -1,18 +1,26 @@
 <template>
   <div class="flex flex-row w-full pb-20 lg:pb-0">
-    <SideBar :team-id="teamId"></SideBar>
+    <SideBar></SideBar>
     <div class="flex-1 min-w-0 p-4">
       <div class="flex flex-col items-center min-h-screen">
         <div class="w-full max-w-7xl mx-auto">
           <div class="flex flex-col items-center space-y-8">
 
-            <!-- Sayfa başlığı + takım seçici -->
+            <!-- Sayfa başlığı — takım merkezi context'ten gelir (Ayarlar > Çalışma Alanı) -->
             <div class="w-full flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
               <div>
                 <h1 class="text-2xl font-bold text-gray-900">Scrum Poker</h1>
                 <p v-if="team.teamName" class="text-sm text-gray-500">{{ team.teamName }}</p>
               </div>
-              <TeamList :teamList="teams" :selectedTeamId="teamId" align="left" @select="handleTeamSelect"></TeamList>
+              <router-link
+                to="/settings"
+                class="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border border-gray-200 bg-white text-sm text-gray-700 hover:border-indigo-300 hover:text-indigo-700 transition self-start sm:self-auto"
+                title="Aktif takımı Ayarlar'dan değiştir"
+              >
+                <span class="w-2 h-2 rounded-full bg-green-500"></span>
+                {{ team.teamName || 'Takım' }}
+                <span class="text-xs text-gray-400">Değiştir</span>
+              </router-link>
             </div>
 
             <!-- Linked Task Banner (Work modülü entegrasyonu) -->
@@ -170,14 +178,14 @@ import { useRouter } from 'vue-router'
 import PokerTable from "../components/poker/pokerTable.vue";
 import PokerCard from "../components/poker/pokerCard.vue";
 import SideBar from "../components/SideBar.vue";
-import TeamList from "../components/team/TeamList.vue";
-import { getTeamById, getMyTeams } from "../api/TeamApi.js";
+import { getTeamById } from "../api/TeamApi.js";
 import * as ScrumPokerApi from "../api/ScrumPokerApi.js";
 import { connect, subscribe, unsubscribe } from "../api/websocket.js";
+import { useTeamContext } from "../composables/useTeamContext.js";
 
 export default {
   name: "ScrumPoker",
-  components: {PokerCard, PokerTable, SideBar, TeamList},
+  components: {PokerCard, PokerTable, SideBar},
   props: {
     teamId: String
   },
@@ -196,8 +204,9 @@ export default {
     const customPoints = ref('')
     const applying = ref(false)
 
-    // Takım seçici — takım listesi sayfada gösterilir, seçim route'u değiştirir
-    const teams = ref([])
+    // URL'deki takım merkezi context'e adopte edilir: paylaşılan poker linki
+    // açıldığında sonraki gezinmeler (Board, Retro...) aynı takımda devam eder.
+    const { adoptTeam } = useTeamContext()
 
     const topicsFor = (teamId) => [
       `/topic/poker/${teamId}/votes`,
@@ -360,31 +369,18 @@ export default {
       resetScoreSelection()
     }
 
-    // Sayfadaki takım seçici: seçim route'u değiştirir, watch yeni oturumu kurar
-    const handleTeamSelect = (teamId) => {
-      if (teamId === props.teamId) return
-      localStorage.setItem("selectedTeam", teamId)
-      window.dispatchEvent(new CustomEvent('teamChanged', {
-        detail: {
-          teamId: teamId,
-          teamName: teams.value.find(t => t.id === teamId)?.teamName || ''
-        }
-      }))
-      router.push(`/scrumPoker/${teamId}`)
-    }
-
     // Route param değişince (takım değişimi) eski oturumu kapat, yenisini kur
     watch(() => props.teamId, (newTeamId, oldTeamId) => {
       if (oldTeamId) leaveTeam(oldTeamId)
       resetRoundState()
-      if (newTeamId) joinTeam(newTeamId)
+      if (newTeamId) {
+        adoptTeam(newTeamId)
+        joinTeam(newTeamId)
+      }
     })
 
     onMounted(() => {
-      getMyTeams()
-        .then(list => { teams.value = list || [] })
-        .catch(e => console.error('Takımlar yüklenemedi:', e))
-
+      adoptTeam(props.teamId)
       joinTeam(props.teamId)
     })
 
@@ -402,9 +398,6 @@ export default {
       fibonacciNumbers,
       selectPokerCard,
       newRound: handleNewRound,
-      // Takım seçici
-      teams,
-      handleTeamSelect,
       // Work modülü entegrasyonu
       activeTask,
       average,

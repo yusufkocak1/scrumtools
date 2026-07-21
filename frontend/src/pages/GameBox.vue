@@ -1,6 +1,6 @@
 <template>
   <div class="flex w-full min-h-screen pb-20 lg:pb-0">
-    <SideBar :teamId="teamId" />
+    <SideBar />
     <div class="flex-1 min-w-0 p-4 sm:p-6 bg-gray-50 overflow-auto">
 
       <!-- Oyun Merkezi (henüz oyun seçilmedi ve aktif takım oturumu yok) -->
@@ -224,6 +224,7 @@ import {
 } from '../api/HangmanApi.js'
 import { connect, subscribe, unsubscribe } from '../api/websocket.js'
 import { createToast } from 'mosha-vue-toastify'
+import { useTeamContext } from '../composables/useTeamContext.js'
 
 export default {
   name: 'GameBox',
@@ -243,6 +244,11 @@ export default {
   },
   props: {
     teamId: String
+  },
+  setup(props) {
+    // Paylaşılan linkteki takım merkezi context'e adopte edilir — sonraki
+    // gezinmeler (Board, Retro...) aynı takımda devam eder.
+    useTeamContext().adoptTeam(props.teamId)
   },
   data: () => ({
     currentGame: null, // null | 'quiz' | 'hangman'

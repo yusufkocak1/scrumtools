@@ -1,5 +1,6 @@
 import { ref, computed } from 'vue'
 import { clearOrganizationContext } from './useOrganizationContext.js'
+import { clearTeamContext } from './useTeamContext.js'
 
 /**
  * useAuth — Uygulamanın TEK auth kaynağı (single source of truth)
@@ -96,10 +97,10 @@ export function useAuth() {
     localStorage.removeItem('user')
     localStorage.removeItem('name')
     localStorage.removeItem('userProfile')
-    localStorage.removeItem('selectedTeam')
-    // Aktif organizasyon seçimi kullanıcıya özel — aynı tarayıcıda oturum açan
-    // sonraki kullanıcıya sızmamalı
+    // Aktif organizasyon/takım seçimi kullanıcıya özel — aynı tarayıcıda oturum
+    // açan sonraki kullanıcıya sızmamalı ('selectedTeam' anahtarını context siler)
     clearOrganizationContext()
+    clearTeamContext()
   }
 
   /**

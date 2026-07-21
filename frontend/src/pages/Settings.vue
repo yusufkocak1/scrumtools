@@ -1,12 +1,80 @@
 <template>
   <div class="flex flex-row w-full min-h-screen bg-gray-50 pb-20 lg:pb-0">
-    <SideBar :team-id="selectedTeam" />
+    <SideBar />
     <div class="flex-1 min-w-0 p-4 sm:p-6">
       <div class="max-w-4xl mx-auto">
         <!-- Header -->
         <div class="mb-8">
           <h1 class="text-3xl font-bold text-gray-900">Settings</h1>
           <p class="text-gray-600 mt-2">Manage your profile information and security settings</p>
+        </div>
+
+        <!-- Çalışma Alanı: aktif organizasyon + takım TEK yerden seçilir.
+             Board, Retrospective, Scrum Poker, GameBox, CodeShare ve Dashboard
+             bu seçimi merkezi context'ten okur. -->
+        <div class="mb-8 bg-white rounded-xl shadow-sm border border-indigo-200 overflow-hidden">
+          <div class="px-6 py-4 border-b border-gray-200 bg-indigo-50/60 flex items-center justify-between">
+            <div>
+              <h2 class="text-xl font-semibold text-gray-800">Çalışma Alanı</h2>
+              <p class="text-sm text-gray-500 mt-0.5">Tüm modüllerde kullanılacak aktif organizasyon ve takım</p>
+            </div>
+            <svg class="w-6 h-6 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8"
+                d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5m0 0v-4a1 1 0 011-1h2a1 1 0 011 1v4m-4 0h4"/>
+            </svg>
+          </div>
+
+          <div class="p-6">
+            <div v-if="!hasOrganizations && !orgLoading" class="text-sm text-gray-600">
+              Henüz bir organizasyonunuz yok.
+              <router-link to="/organizations" class="text-indigo-600 font-medium hover:underline">
+                Organizasyon oluşturun veya katılın →
+              </router-link>
+            </div>
+
+            <div v-else class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <!-- Organizasyon -->
+              <div class="space-y-2">
+                <label class="block text-sm font-medium text-gray-700">Organizasyon</label>
+                <select
+                  :value="activeOrgId || ''"
+                  :disabled="orgLoading"
+                  @change="handleOrgChange($event.target.value)"
+                  class="w-full px-4 py-3 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 disabled:bg-gray-50 transition-colors"
+                >
+                  <option v-for="org in organizations" :key="org.id" :value="org.id">
+                    {{ org.name }}
+                  </option>
+                </select>
+              </div>
+
+              <!-- Takım (yalnızca seçili organizasyonun takımları) -->
+              <div class="space-y-2">
+                <label class="block text-sm font-medium text-gray-700">Takım</label>
+                <select
+                  v-if="teamsInActiveOrg.length > 0"
+                  :value="activeTeamId || ''"
+                  :disabled="teamsLoading"
+                  @change="handleTeamChange($event.target.value)"
+                  class="w-full px-4 py-3 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 disabled:bg-gray-50 transition-colors"
+                >
+                  <option v-for="team in teamsInActiveOrg" :key="team.id" :value="team.id">
+                    {{ team.teamName }}
+                  </option>
+                </select>
+                <p v-else class="px-1 py-3 text-sm text-gray-500">
+                  Bu organizasyonda üyesi olduğunuz takım yok.
+                  <router-link to="/organizations" class="text-indigo-600 font-medium hover:underline">Takım oluşturun →</router-link>
+                </p>
+              </div>
+            </div>
+
+            <p v-if="activeTeam" class="mt-4 text-xs text-gray-500">
+              Aktif seçim: <span class="font-medium text-gray-700">{{ activeOrg?.name }}</span> /
+              <span class="font-medium text-gray-700">{{ activeTeam.teamName }}</span> —
+              Board, Retrospective, Scrum Poker, GameBox ve diğer tüm modüller bu takımla açılır.
+            </p>
+          </div>
         </div>
 
         <!-- Profile Section -->
@@ -116,7 +184,7 @@
         </div>
 
         <!-- Team Information -->
-        <div v-if="teamList.length > 0" class="mt-8 bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+        <div v-if="allTeams.length > 0" class="mt-8 bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
           <div class="px-6 py-4 border-b border-gray-200 bg-gray-50">
             <h2 class="text-xl font-semibold text-gray-800">Team Information</h2>
           </div>
@@ -125,7 +193,7 @@
               <p class="text-sm text-gray-600">Teams you are a member of:</p>
               <div class="grid gap-3">
                 <div
-                  v-for="team in teamList"
+                  v-for="team in allTeams"
                   :key="team.id"
                   class="flex items-center justify-between p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
                 >
@@ -135,7 +203,7 @@
                   </div>
                   <div class="flex items-center gap-3">
                     <span
-                      v-if="team.id === selectedTeam"
+                      v-if="team.id === activeTeamId"
                       class="px-3 py-1 bg-green-100 text-green-800 text-xs font-medium rounded-full"
                     >
                       Active
@@ -176,8 +244,10 @@
 <script>
 import { changePassword as apiChangePassword, updateName as apiUpdateName, me } from '../api/AuthApi.js'
 import { useAuth } from '../composables/useAuth.js'
+import { useOrganizationContext } from '../composables/useOrganizationContext.js'
+import { useTeamContext } from '../composables/useTeamContext.js'
 import { createToast } from 'mosha-vue-toastify'
-import { getMyTeams, updateDisplayNameAcrossTeams, removeMember } from '../api/TeamApi.js'
+import { updateDisplayNameAcrossTeams, removeMember } from '../api/TeamApi.js'
 import SideBar from '../components/SideBar.vue'
 
 export default {
@@ -188,7 +258,33 @@ export default {
   setup() {
     // useAuth — merkezi auth kaynağından okuyoruz
     const { user: authUser, userEmail, name: authName } = useAuth()
-    return { authUser, userEmail, authName }
+
+    // Çalışma alanı: aktif organizasyon + takım burada merkezi olarak seçilir
+    const {
+      organizations,
+      activeOrgId,
+      activeOrg,
+      hasOrganizations,
+      loading: orgLoading,
+      loadOrganizations,
+      selectOrg,
+    } = useOrganizationContext()
+
+    const {
+      teams: allTeams,
+      teamsInActiveOrg,
+      activeTeamId,
+      activeTeam,
+      loading: teamsLoading,
+      loadTeams,
+      selectTeam,
+    } = useTeamContext()
+
+    return {
+      authUser, userEmail, authName,
+      organizations, activeOrgId, activeOrg, hasOrganizations, orgLoading, loadOrganizations, selectOrg,
+      allTeams, teamsInActiveOrg, activeTeamId, activeTeam, teamsLoading, loadTeams, selectTeam,
+    }
   },
   data() {
     return {
@@ -197,8 +293,6 @@ export default {
       email: '',
       password: '',
       currentPassword: '',
-      teamList: [],
-      selectedTeam: '',
       showPassword: false,
       isUpdatingDisplayName: false,
       isUpdatingPassword: false,
@@ -227,14 +321,23 @@ export default {
         }
       }
 
-      const storedTeam = localStorage.getItem('selectedTeam')
-      if (storedTeam) {
-        this.selectedTeam = storedTeam
-      }
+      // Çalışma alanı seçicileri + üyelik listesi için context'leri yükle.
+      // Takım listesi güncel kalsın diye force çekilir: organizasyon ekranında
+      // yeni takım kurulmuş olabilir.
+      this.loadOrganizations()
+      this.loadTeams({ force: true })
+    },
 
-      getMyTeams().then(teams => {
-        this.teamList = teams || []
-      }).catch(err => console.warn('Takım listesi alınamadı:', err))
+    handleOrgChange(orgId) {
+      if (!orgId || orgId === this.activeOrgId) return
+      // Organizasyon değişince useTeamContext watcher'ı aktif takımı o
+      // organizasyonun ilk takımına taşır — burada ekstra iş gerekmez.
+      this.selectOrg(orgId)
+    },
+
+    handleTeamChange(teamId) {
+      if (!teamId) return
+      this.selectTeam(teamId)
     },
 
     async handleDisplayNameChange() {
@@ -316,17 +419,9 @@ export default {
           position: 'top-center'
         })
 
-        // If leaving the currently selected team, switch to another team or clear selection
-        if (this.selectedTeam === team.id) {
-          const remainingTeams = this.teamList.filter(t => t.id !== team.id)
-          if (remainingTeams.length > 0) {
-            this.selectedTeam = remainingTeams[0].id
-            localStorage.setItem('selectedTeam', this.selectedTeam)
-          } else {
-            this.selectedTeam = ''
-            localStorage.removeItem('selectedTeam')
-          }
-        }
+        // Merkezi context tazelenir; ayrılınan takım aktif takımsa context
+        // kendi çözümlemesiyle kalan takımlardan birine geçer.
+        await this.loadTeams({ force: true })
 
       } catch (error) {
         createToast('Error leaving team', {

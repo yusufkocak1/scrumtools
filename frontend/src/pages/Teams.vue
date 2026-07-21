@@ -1,6 +1,6 @@
 <template>
   <div class="flex flex-row w-full pb-20 lg:pb-0">
-    <SideBar :team-id="currentTeam"></SideBar>
+    <SideBar></SideBar>
 
     <div class="transition-all duration-300 flex-1 min-w-0">
       <div class="px-4 sm:px-6 lg:px-8 py-6">
@@ -334,19 +334,23 @@
 
 <script>
 import { getTeamById, removeMember, updateMemberRole, updateTeam } from "../api/TeamApi.js";
-import TeamList from "../components/team/TeamList.vue";
 import SideBar from "../components/SideBar.vue";
 import {createToast} from "mosha-vue-toastify";
+import { useTeamContext } from "../composables/useTeamContext.js";
 
 export default {
   name: "Teams",
-  components: {TeamList, SideBar},
+  components: {SideBar},
+  setup() {
+    // Görüntülenen takım = merkezi context'teki aktif takım (Ayarlar'dan seçilir)
+    const { activeTeamId, loadTeams } = useTeamContext()
+    loadTeams()
+    return { activeTeamId }
+  },
   data() {
     return {
-      teams: [],
       selectedTeamId: "",
       selectedTeam: {},
-      currentTeam: "",
       loading: false,
       showConfirmModal: false,
       memberToRemove: null,
@@ -362,20 +366,23 @@ export default {
       teamEditLoading: false
     }
   },
-  created() {
-
-  },
-  mounted() {
-    // localStorage'dan selectedTeam'i al
-    const storedTeam = localStorage.getItem("selectedTeam");
-    if (storedTeam) {
-      this.currentTeam = storedTeam;
+  watch: {
+    // Aktif takım context'ten değişince (Ayarlar'dan seçim) sayfa yeni takımı yükler
+    activeTeamId: {
+      immediate: true,
+      handler(teamId) {
+        if (!teamId) {
+          this.selectedTeam = {};
+          this.selectedTeamId = "";
+          return;
+        }
+        this.loading = true;
+        getTeamById(teamId).then(team => {
+          this.selectTeam(team);
+          this.loading = false;
+        }).catch(() => { this.loading = false; });
+      }
     }
-    this.loading = true;
-    getTeamById(this.currentTeam).then(team => {
-      this.selectTeam(team);
-      this.loading = false;
-    }).catch(() => { this.loading = false; });
   },
   methods: {
     selectTeam(selectedTeam) {

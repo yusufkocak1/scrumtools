@@ -1,6 +1,6 @@
 <template>
   <div class="flex flex-col lg:flex-row min-h-screen w-full bg-gray-50/80 pb-20 lg:pb-0">
-    <SideBar :team-id="teamId"></SideBar>
+    <SideBar></SideBar>
     <div class="flex flex-col flex-1 w-full min-w-0">
 
       <!-- ── Header ── -->

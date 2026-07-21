@@ -395,6 +395,7 @@ import ProjectApi from '../api/ProjectApi.js'
 import { getTeamsByOrg, createTeam as apiCreateTeam, addMemberToTeam } from '../api/TeamApi.js'
 import { useAuth } from '../composables/useAuth.js'
 import { useOrganizationContext } from '../composables/useOrganizationContext.js'
+import { useTeamContext } from '../composables/useTeamContext.js'
 
 const router = useRouter()
 const auth = useAuth()
@@ -570,6 +571,9 @@ async function createTeam() {
     teams.value.push(team)
     showCreateTeamModal.value = false
     newTeam.value = { teamName: '', teamCode: '' }
+    // Merkezi takım context'i tazele: yeni takım Ayarlar > Çalışma Alanı
+    // seçicisinde ve modüllerde hemen görünsün
+    useTeamContext().loadTeams({ force: true })
   } catch (e) {
     console.error('Takım oluşturulamadı:', e)
   } finally {

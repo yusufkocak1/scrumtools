@@ -1,6 +1,6 @@
 <template>
   <div class="flex flex-row w-full min-h-screen bg-gray-50 pb-20 lg:pb-0">
-    <SideBar :team-id="selectedTeamId" />
+    <SideBar />
 
     <div class="flex-1 min-w-0 flex flex-col overflow-hidden">
       <!-- Üst Bar -->
@@ -8,11 +8,16 @@
         <h1 class="text-lg font-semibold text-gray-900">Dashboard</h1>
 
         <div class="flex items-center gap-3 ml-auto">
-          <!-- Takım seçici -->
-          <select v-model="selectedTeamId" @change="onTeamChange"
-                  class="text-sm border border-gray-300 rounded-lg px-3 py-1.5 bg-white focus:outline-none focus:ring-2 focus:ring-purple-400">
-            <option v-for="t in teams" :key="t.id" :value="t.id">{{ t.teamName }}</option>
-          </select>
+          <!-- Aktif takım — merkezi context'ten (Ayarlar > Çalışma Alanı) -->
+          <router-link
+            to="/settings"
+            class="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border border-gray-200 bg-white text-sm text-gray-700 hover:border-purple-300 hover:text-purple-700 transition"
+            title="Aktif takımı Ayarlar'dan değiştir"
+          >
+            <span class="w-2 h-2 rounded-full bg-green-500"></span>
+            {{ activeTeam?.teamName || 'Takım seç' }}
+            <span class="text-xs text-gray-400">Değiştir</span>
+          </router-link>
 
           <!-- Widget ekle -->
           <button @click="showAddWidget = true"
@@ -104,7 +109,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, watch, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import SideBar from '../components/SideBar.vue'
 import SummaryWidget from '../components/dashboard/SummaryWidget.vue'
@@ -113,13 +118,14 @@ import VelocityWidget from '../components/dashboard/VelocityWidget.vue'
 import WorkloadWidget from '../components/dashboard/WorkloadWidget.vue'
 import CreatedVsResolvedWidget from '../components/dashboard/CreatedVsResolvedWidget.vue'
 import OverdueWidget from '../components/dashboard/OverdueWidget.vue'
-import { getMyTeams } from '../api/TeamApi.js'
 import { getDashboardLayout, saveDashboardLayout } from '../api/DashboardApi.js'
+import { useTeamContext } from '../composables/useTeamContext.js'
 
 const router = useRouter()
 
-const teams = ref([])
-const selectedTeamId = ref(localStorage.getItem('selectedTeam') || null)
+// Takım seçimi merkezi context'ten okunur (Ayarlar > Çalışma Alanı)
+const { activeTeamId: selectedTeamId, activeTeam, loadTeams } = useTeamContext()
+
 const activeWidgets = ref([])
 const showAddWidget = ref(false)
 const saving = ref(false)
@@ -148,10 +154,7 @@ function widgetComponent(type) {
 
 onMounted(async () => {
   try {
-    teams.value = await getMyTeams()
-    if (!selectedTeamId.value && teams.value.length > 0) {
-      selectedTeamId.value = teams.value[0].id
-    }
+    await loadTeams()
     // Kayıtlı layout'u yükle
     const savedLayout = await getDashboardLayout()
     if (savedLayout?.length) {
@@ -175,14 +178,18 @@ function setDefaultWidgets() {
   ]
 }
 
-function onTeamChange() {
-  localStorage.setItem('selectedTeam', selectedTeamId.value)
-  // Mevcut widgetların teamId'sini güncelle
+// Aktif takım (Ayarlar'dan) değişince mevcut widget'lar yeni takıma taşınır
+watch(selectedTeamId, (teamId) => {
+  if (!teamId) return
+  if (activeWidgets.value.length === 0) {
+    setDefaultWidgets()
+    return
+  }
   activeWidgets.value = activeWidgets.value.map(w => ({
     ...w,
-    teamId: selectedTeamId.value
+    teamId
   }))
-}
+})
 
 function addWidget(type) {
   const id = `${type}-${Date.now()}`

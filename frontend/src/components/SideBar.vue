@@ -19,11 +19,20 @@
 </template>
 
 <script>
+import { useTeamContext } from '../composables/useTeamContext.js'
+
 export default {
   name: "SideBar",
   props: {
-    teamId: String,
+    // Docs navigasyonu için — aktif proje route'a göre sayfadan gelir
     projectId: String
+  },
+  setup() {
+    // Takım seçimi merkezi context'ten okunur; sayfaların teamId prop'u geçmesi
+    // gerekmez. Seçim Ayarlar'dan (ya da URL'deki takımın adoption'ı ile) değişir.
+    const { activeTeamId, loadTeams } = useTeamContext()
+    loadTeams()
+    return { activeTeamId }
   },
   computed: {
     navItems() {
@@ -95,6 +104,15 @@ export default {
     }
   },
   methods: {
+    // Takım gerektiren modüller: aktif takım yoksa seçim yapılabilsin diye
+    // Ayarlar'daki Çalışma Alanı bölümüne yönlendirilir.
+    pushWithTeam(path) {
+      if (!this.activeTeamId) {
+        this.$router.push('/settings')
+        return
+      }
+      this.$router.push(`${path}/${this.activeTeamId}`)
+    },
     gotoDashboard() {
       this.$router.push('/dashboard')
     },
@@ -102,19 +120,19 @@ export default {
       this.$router.push(`/Settings`)
     },
     gotoScrumPoker() {
-      this.$router.push(`/scrumPoker/${this.teamId}`)
+      this.pushWithTeam('/scrumPoker')
     },
     gotoTeams() {
       this.$router.push(`/teams`)
     },
     gotoWorkList() {
-      this.$router.push(`/workList/${this.teamId}`)
+      this.pushWithTeam('/workList')
     },
     gotoShare() {
-      this.$router.push(`/codeShare/${this.teamId}`)
+      this.pushWithTeam('/codeShare')
     },
     gotoGameBox() {
-      this.$router.push(`/quiz/${this.teamId}`)
+      this.pushWithTeam('/quiz')
     },
     gotoRetrospective() {
       this.$router.push(`/retrospective`)

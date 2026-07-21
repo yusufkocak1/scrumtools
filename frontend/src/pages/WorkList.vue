@@ -1,6 +1,6 @@
 <template>
   <div class="flex flex-row w-full min-h-screen bg-gray-50 pb-20 lg:pb-0">
-    <SideBar :team-id="teamId"/>
+    <SideBar/>
 
     <div class="flex-1 min-w-0 flex flex-col overflow-hidden">
       <!-- Üst Bar -->
@@ -250,6 +250,7 @@ import TeamProjectsModal from '../components/work/TeamProjectsModal.vue'
 import { getBoards, createBoard as apiCreateBoard } from '../api/BoardApi.js'
 import { getTeamActivity } from '../api/NotificationApi.js'
 import { useProjectContext } from '../composables/useProjectContext.js'
+import { useTeamContext } from '../composables/useTeamContext.js'
 
 const props = defineProps({
   teamId: String
@@ -257,6 +258,11 @@ const props = defineProps({
 
 const route  = useRoute()
 const router = useRouter()
+
+// URL'deki takım merkezi context'e adopte edilir: board her zaman URL'deki
+// takımı gösterir, context de ona hizalanır (organizasyon dahil) — böylece
+// sonraki gezinmeler ve diğer modüller aynı takımda devam eder.
+const { adoptTeam } = useTeamContext()
 
 // ─── Aktif proje context'i ────────────────────────────────────────────────────
 // Takım birden fazla projede çalışabilir; bu seçim tüm alt görünümlerin kapsamı.
@@ -460,13 +466,15 @@ watch(projectId, (v) => {
 })
 
 onMounted(async () => {
+  adoptTeam(props.teamId)
   await loadProjects()
   newBoardProjectId.value = projectId.value
   await loadBoards()
 })
 // teamId route seviyesinde değişebilir; composable proje listesini kendi
 // watcher'ıyla tazeliyor, burada yalnızca board'ları yeniliyoruz.
-watch(() => props.teamId, () => {
+watch(() => props.teamId, (teamId) => {
+  adoptTeam(teamId)
   selectedBoardId.value = null
   loadBoards()
 })

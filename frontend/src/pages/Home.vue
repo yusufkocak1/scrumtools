@@ -174,10 +174,10 @@
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"></path>
           </svg>
         </div>
-        <h3 class="text-xl font-semibold text-gray-900 mb-2">Select a Team</h3>
-        <p class="text-gray-600 mb-6">You need to select a team first to use Scrum tools</p>
+        <h3 class="text-xl font-semibold text-gray-900 mb-2">Takım Seçin</h3>
+        <p class="text-gray-600 mb-6">Scrum araçlarını kullanmak için Ayarlar &gt; Çalışma Alanı'ndan aktif takımınızı seçin</p>
         <button @click="gotoTeams" class="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-colors">
-          My Teams
+          Takım Seç
         </button>
       </div>
       <div>
@@ -193,6 +193,7 @@
 import AdBanner from '../components/AdBanner.vue'
 import SummaryWidget from '../components/dashboard/SummaryWidget.vue'
 import {getTeamById} from "../api/TeamApi.js";
+import { useTeamContext } from '../composables/useTeamContext.js'
 
 export default {
   name: "Home",
@@ -200,11 +201,19 @@ export default {
     AdBanner,
     SummaryWidget
   },
+  setup() {
+    // Aktif takım merkezi context'ten okunur (Ayarlar > Çalışma Alanı'ndan seçilir)
+    const { activeTeamId, loadTeams } = useTeamContext()
+    loadTeams()
+    return { activeTeamId }
+  },
   data: () => ({
-    selectedTeam: "",
     teamName:"",
     showAddBanner: false,
   }),
+  computed: {
+    selectedTeam() { return this.activeTeamId || "" }
+  },
   methods: {
     gotoDashboard() {
       this.$router.push('/dashboard')
@@ -233,33 +242,24 @@ export default {
       }
     },
     gotoTeams() {
-      this.$router.push(`/teams`)
-    },
-    handleTeamChanged(event) {
-      console.log("Team changed event received:", event.detail);
-      this.selectedTeam = event.detail.teamId;
-      this.setTeamName()
+      // Takım seçimi artık merkezi: Ayarlar > Çalışma Alanı
+      this.$router.push(`/settings`)
     },
     setTeamName() {
+      if (!this.selectedTeam) return
       getTeamById(this.selectedTeam).then(team => {
         this.teamName = team.teamName;
         this.showAddBanner = team.showAddBanner;
       }).catch(e => console.warn('Team bilgisi alınamadı:', e))
     }
   },
-  mounted() {
-    // localStorage'dan selectedTeam'i al
-    const storedTeam = localStorage.getItem("selectedTeam");
-    if (storedTeam) {
-      this.selectedTeam = storedTeam;
-      this.setTeamName()
+  watch: {
+    // Context'teki aktif takım değişince (Ayarlar'dan ya da URL adoption ile)
+    // özet ve banner yeni takıma göre tazelenir.
+    selectedTeam: {
+      immediate: true,
+      handler() { this.setTeamName() }
     }
-    console.log("Mounted selectedTeam:", this.selectedTeam);
-    // Team değişikliklerini dinle
-    window.addEventListener('teamChanged', this.handleTeamChanged);
-  },
-  beforeUnmount() {
-    window.removeEventListener('teamChanged', this.handleTeamChanged);
   }
 }
 </script>

@@ -25,9 +25,10 @@
 <script>
 import { me, logout as apiLogout } from "./api/AuthApi.js";
 import { useAuth } from "./composables/useAuth.js";
+import { useOrganizationContext } from "./composables/useOrganizationContext.js";
+import { useTeamContext } from "./composables/useTeamContext.js";
 import Navbar from "./components/Navbar.vue";
 import UpgradeModal from "./components/billing/UpgradeModal.vue";
-import { getMyTeams } from "./api/TeamApi.js";
 import './scripts/collapse.js'
 
 export default {
@@ -38,12 +39,12 @@ export default {
   },
   setup() {
     const auth = useAuth()
-    return { auth }
+    const orgContext = useOrganizationContext()
+    const teamContext = useTeamContext()
+    return { auth, orgContext, teamContext }
   },
   data: () => ({
     loading: true,
-    teamList: [],
-    selectedTeam: "",
   }),
   computed: {
     isLogged() { return this.auth.isAuthenticated.value },
@@ -52,40 +53,19 @@ export default {
   methods: {
     handleLogout() {
       apiLogout()
-      this.teamList = []
-      this.selectedTeam = ''
       // Çıkışta login yerine tanıtım sayfasına dön
       this.$router.push('/')
     },
-    selectTeam(teamId) {
-      this.selectedTeam = teamId;
-      localStorage.setItem("selectedTeam", teamId);
-      window.dispatchEvent(new CustomEvent('teamChanged', {
-        detail: {
-          teamId: teamId,
-          teamName: this.teamList.find(t => t.id === teamId)?.teamName || ''
-        }
-      }));
-      this.$router.push('/');
-    },
-    getAllTeams() {
-      if (!this.isLogged) return;
-      getMyTeams().then(teamList => {
-        this.teamList = teamList
-        if (teamList && teamList.length > 0) {
-          if (localStorage.getItem("selectedTeam")) {
-            if (teamList.find(t => t.id === localStorage.getItem("selectedTeam"))) {
-              this.selectedTeam = localStorage.getItem("selectedTeam")
-            } else {
-              this.selectTeam(teamList[0].id)
-            }
-          } else {
-            this.selectTeam(teamList[0].id)
-          }
-        } else {
-          this.selectedTeam = ""
-        }
-      }).catch(err => console.error('Takımlar yüklenemedi:', err))
+    // Aktif organizasyon + takım seçimi merkezi context'lerde çözülür; sayfalar
+    // seçimi oradan okur, burada yalnızca yükleme tetiklenir. Organizasyonlar önce
+    // yüklenir ki takım seçimi doğrulanmış organizasyona göre hizalansın.
+    async loadWorkspaceContexts() {
+      if (!this.isLogged) return
+      try {
+        await this.orgContext.loadOrganizations()
+      } finally {
+        this.teamContext.loadTeams()
+      }
     }
   },
   async created() {
@@ -98,7 +78,7 @@ export default {
           name: user.name,
           email: user.email,
         })
-        this.getAllTeams()
+        this.loadWorkspaceContexts()
         this.auth.fetchProfile().catch(() => {})
       } catch {
         // Token geçersiz → oturumu temizle; isLogged watcher'ı landing'e yönlendirir
@@ -114,7 +94,7 @@ export default {
       if (!val) {
         this.$router.push('/')
       } else {
-        this.getAllTeams()
+        this.loadWorkspaceContexts()
       }
     }
   }

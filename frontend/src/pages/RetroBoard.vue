@@ -1,6 +1,6 @@
 <template>
   <div class="flex flex-row w-full bg-gray-50 min-h-screen pb-20 lg:pb-0">
-    <SideBar :team-id="teamId"/>
+    <SideBar/>
     <!-- Main Content -->
     <div class="flex-1 w-full min-w-0 overflow-auto">
       <div class="p-4 sm:p-6 w-full h-full">
@@ -76,6 +76,7 @@ import RetroBoardHeader from "../components/retro/RetroBoardHeader.vue";
 import RetroBoardSettings from "../components/retro/RetroBoardSettings.vue";
 import SideBar from "../components/SideBar.vue";
 import { createToast } from "mosha-vue-toastify";
+import { useTeamContext } from "../composables/useTeamContext.js";
 
 export default {
   name: "RetroBoard",
@@ -83,6 +84,10 @@ export default {
   props: {
     boardId: { type: String, required: true },
     teamId: { type: String, required: true }
+  },
+  setup(props) {
+    // Paylaşılan retro linkindeki takım merkezi context'e adopte edilir
+    useTeamContext().adoptTeam(props.teamId)
   },
   data() {
     return {
