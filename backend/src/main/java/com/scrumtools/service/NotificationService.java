@@ -201,6 +201,39 @@ public class NotificationService {
         );
     }
 
+    // ─── CI/CD Olayları İçin Yardımcı Metodlar ───────────────────────────────
+
+    /**
+     * Build terminal duruma geçtiğinde tetikleyene (ve release'de manager'a) bildirim.
+     * @param success  true → CI_BUILD_SUCCEEDED, false → CI_BUILD_FAILED
+     * @param context  "TASK" / "RELEASE" / "MANUAL" — bildirim metnini biçimler
+     * @param subject  task customId'si veya release adı (başlıkta gösterilir)
+     */
+    public void notifyCiBuild(String recipientEmail, boolean success, String context,
+                              String subject, String jobDisplayName, String statusLabel,
+                              String buildUrl, String buildId) {
+        Map<String, Object> data = new HashMap<>();
+        data.put("context", context);
+        data.put("subject", subject);
+        data.put("job", jobDisplayName);
+        data.put("status", statusLabel);
+        data.put("buildUrl", buildUrl);
+
+        String scope = subject != null && !subject.isBlank() ? subject : jobDisplayName;
+        String title = (success ? "Build başarılı: " : "Build başarısız: ") + scope;
+        String message = "\"" + jobDisplayName + "\" işi " + statusLabel + " durumunda tamamlandı.";
+
+        createAndPush(
+                recipientEmail,
+                success ? NotificationType.CI_BUILD_SUCCEEDED : NotificationType.CI_BUILD_FAILED,
+                title,
+                message,
+                "ci_build",
+                buildId,
+                data
+        );
+    }
+
     // ─── REST ─────────────────────────────────────────────────────────────────
 
     @Transactional(readOnly = true)

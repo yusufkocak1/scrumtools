@@ -34,6 +34,8 @@ public interface OrganizationMemberRepository extends JpaRepository<Organization
 
     boolean existsByOrganizationIdAndUserEmailAndOrgRoleIn(UUID organizationId, String email, List<OrgRole> roles);
 
+    List<OrganizationMember> findByOrganizationIdAndOrgRoleIn(UUID organizationId, List<OrgRole> roles);
+
     @Query("""
             SELECT om FROM OrganizationMember om
             WHERE om.organization.id = :orgId

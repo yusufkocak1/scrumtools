@@ -12,7 +12,7 @@ import java.security.SecureRandom;
 import java.util.Base64;
 
 /**
- * SCM token'larını AES-256-GCM ile şifreler/çözer.
+ * SCM ve CI/CD token'larını AES-256-GCM ile şifreler/çözer.
  *
  * Anahtar env'den gelir: SCM_CRYPTO_KEY (base64, 32 byte). Boşsa SCM
  * entegrasyonu kapalı kabul edilir (iyzico "enabled" deseniyle aynı) —
@@ -89,7 +89,7 @@ public class ScmTokenCrypto {
     private void requireEnabled() {
         if (key == null) {
             throw new IllegalStateException(
-                    "Git entegrasyonu bu sunucuda yapılandırılmamış (SCM_CRYPTO_KEY tanımlı değil).");
+                    "Entegrasyon şifreleme anahtarı bu sunucuda yapılandırılmamış (SCM_CRYPTO_KEY tanımlı değil).");
         }
     }
 }

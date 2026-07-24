@@ -22,6 +22,10 @@ public enum NotificationType {
     SUPPORT_TICKET_REPLIED,        // Destek talebine yanıt geldi
     SUPPORT_TICKET_STATUS_CHANGED, // Destek talebi durumu değişti
 
+    // CI/CD ile ilgili
+    CI_BUILD_SUCCEEDED,     // Tetiklenen build başarıyla tamamlandı
+    CI_BUILD_FAILED,        // Tetiklenen build başarısız/kararsız bitti
+
     // Genel
     MENTION,                // @mention ile bahsedildin
     SYSTEM                  // Sistem bildirimi

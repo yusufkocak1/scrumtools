@@ -71,9 +71,19 @@ app:
     # Virgulle ayrilmis origin listesi (ornek: http://localhost:3000,http://SUNUCU_IP:8096)
     allowed-origins: ${APP_CORS_ALLOWED_ORIGINS:http://localhost:3000,http://localhost:5173}
   mail:
-    # false iken mailler gönderilmez, log'a yazılır (LoggingMailService)
-    enabled: ${MAIL_ENABLED:false}
+    # log      → mailler gönderilmez, log'a yazılır (dev/test varsayılanı)
+    # postforge → PostForge API'si üzerinden gönderilir (prod)
+    # smtp     → doğrudan SMTP + Thymeleaf şablonları
+    provider: ${MAIL_PROVIDER:log}
+    # Yalnızca provider=smtp iken kullanılır
     from: ${MAIL_FROM:noreply@kocak.net.tr}
+    postforge:
+      base-url: ${POSTFORGE_BASE_URL:https://postforge.kocak.net.tr}
+      # PostForge > Uygulamalar ekranından alınan pf_live_... anahtarı
+      api-key: ${POSTFORGE_API_KEY:}
+      # Boşsa PostForge organizasyonundaki varsayılan gönderici hesabı kullanılır
+      sender-code: ${POSTFORGE_SENDER_CODE:}
+      timeout-seconds: ${POSTFORGE_TIMEOUT_SECONDS:10}
   # E-postalardaki linklerde kullanılan frontend adresi
   frontend-base-url: ${APP_FRONTEND_BASE_URL:http://localhost:3000}
   jwt:

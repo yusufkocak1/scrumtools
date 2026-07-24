@@ -60,7 +60,7 @@ Temel ilkeler:
 | Veritabanı | PostgreSQL 16 (alpine) | Ürün başına ayrı container + ayrı schema |
 | Dosya | MinIO (S3 uyumlu) | Presigned URL pattern'i (bkz. §6) |
 | Ödeme | iyzico / iyzilink | Feature flag ile kapatılabilir; manuel aktivasyon fallback |
-| E-posta | SMTP + Thymeleaf HTML şablonları | `MAIL_ENABLED=false` iken log'a yazar |
+| E-posta | PostForge API (fallback: SMTP + Thymeleaf) | `MAIL_PROVIDER=log` iken log'a yazar |
 | Altyapı | Docker Compose, nginx, nginx-proxy-manager, Jenkins CI | Tek sunucu, ortak `proxy` network |
 
 Yeni üründe farklı bir kütüphane seçmeden önce buradaki karşılığı kullanılır;
@@ -150,9 +150,20 @@ için birebir aynı pattern kullanılır.**
 
 ### E-posta
 
-`MailService` arayüzü + iki implementasyon: gerçek SMTP ve `LoggingMailService`.
-`MAIL_ENABLED=false` (dev/test varsayılanı) iken mailler gönderilmez, log'a
-yazılır. Şablonlar Thymeleaf HTML'dir; linkler `APP_FRONTEND_BASE_URL` ile üretilir.
+`MailService` arayüzü + üç implementasyon, `MAIL_PROVIDER` ile seçilir:
+
+- `postforge` → `PostForgeMailService`: konu/gövde PostForge'da tutulur, uygulama
+  yalnızca `templateCode` + `params` gönderir (`POST /api/v1/emails`, `X-Api-Key`).
+  Şablon kaynakları ve import script'i repo kökündeki `postforge/` klasöründedir.
+- `smtp` → `SmtpMailService`: doğrudan SMTP, şablonlar Thymeleaf HTML.
+- `log` (dev/test varsayılanı) → `LoggingMailService`: mail gönderilmez, log'a yazılır.
+
+Linkler her durumda `APP_FRONTEND_BASE_URL` ile üretilir. Gönderim `@Async`'tir ve
+hatalar yalnızca loglanır — mail gidemedi diye iş akışı geri alınmaz.
+
+**Yeni üründe:** merkezî e-posta altyapısı PostForge'dur; her ürün kendi
+uygulama API anahtarını alır ve şablonlarını kendi repo'sunda `postforge/`
+klasöründe versiyonlar.
 
 ### Konfigürasyon ve feature flag'ler
 
@@ -160,7 +171,7 @@ Tüm ayarlar `application.yml`'de `${ENV_VAR:guvenli_varsayilan}` formatındadı
 prod değerleri compose `.env`'den gelir. Kritik konvansiyonlar:
 
 - Entegrasyonlar **flag ile kapatılabilir** ve kapalıyken uygulama çalışmaya
-  devam eder: `MAIL_ENABLED`, `IYZICO_ENABLED` (kapalıyken manuel aktivasyon).
+  devam eder: `MAIL_PROVIDER=log`, `IYZICO_ENABLED` (kapalıyken manuel aktivasyon).
 - Sırlar (`JWT_SECRET` min 32 karakter, DB/MinIO şifreleri) repo'ya girmez;
   compose'da `:?` ile zorunlu kılınır.
 - `TZ=Europe/Istanbul` sabittir — abonelik dönem hesapları ve zamanlanmış

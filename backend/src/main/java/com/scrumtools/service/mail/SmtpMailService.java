@@ -21,14 +21,14 @@ import java.util.Locale;
 import java.util.Map;
 
 /**
- * SMTP üzerinden gerçek e-posta gönderimi (app.mail.enabled=true iken aktif).
+ * SMTP üzerinden gerçek e-posta gönderimi (app.mail.provider=smtp iken aktif).
  * Şablonlar: resources/templates/mail/*.html (Thymeleaf).
  * Tüm metodlar @Async — istek thread'ini bloklamaz; hatalar loglanır, fırlatılmaz.
  */
 @Service
 @RequiredArgsConstructor
 @Slf4j
-@ConditionalOnProperty(name = "app.mail.enabled", havingValue = "true")
+@ConditionalOnProperty(name = "app.mail.provider", havingValue = "smtp")
 public class SmtpMailService implements MailService {
 
     private static final DateTimeFormatter DATE_FMT =

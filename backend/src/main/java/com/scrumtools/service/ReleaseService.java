@@ -304,7 +304,8 @@ public class ReleaseService {
         }
     }
 
-    private boolean isManagerOrOrgAdmin(Release release, String userEmail) {
+    /** Release manager veya org admin/owner mi — CI pipeline tetikleme yetkisi de bunu kullanır. */
+    public boolean isManagerOrOrgAdmin(Release release, String userEmail) {
         if (release.getReleaseManager() != null
                 && release.getReleaseManager().getEmail().equalsIgnoreCase(userEmail)) {
             return true;

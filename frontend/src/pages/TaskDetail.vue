@@ -201,6 +201,8 @@
           <!-- Geliştirme (Git) Paneli -->
           <DevPanel v-if="teamId && task?.id" :teamId="teamId" :taskId="task.id" :taskKey="task.customId" :taskTitle="task.title" />
 
+          <CiDeploySection v-if="task?.id" :taskId="task.id" :teamId="teamId" :taskKey="task.customId" :taskTitle="task.title" />
+
           <!-- Task History -->
           <TaskHistory v-if="teamId && task?.id" :teamId="teamId" :taskId="task.id" />
 
@@ -526,6 +528,7 @@ import SubtaskList from '../components/work/SubtaskList.vue';
 import TaskLinkList from '../components/work/TaskLinkList.vue';
 import TaskHistory from '../components/work/TaskHistory.vue';
 import DevPanel from '../components/scm/DevPanel.vue';
+import CiDeploySection from '../components/ci/CiDeploySection.vue';
 import WatcherList from '../components/work/WatcherList.vue';
 import TiptapEditor from '../components/docs/TiptapEditor.vue';
 import RichContentViewer from '../components/work/RichContentViewer.vue';
@@ -541,6 +544,7 @@ export default {
     TaskLinkList,
     TaskHistory,
     DevPanel,
+    CiDeploySection,
     WatcherList,
     TiptapEditor,
     RichContentViewer,

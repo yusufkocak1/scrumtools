@@ -98,7 +98,8 @@ npm run dev                    # http://localhost:3000
 | `DB_*` | PostgreSQL bağlantı bilgileri |
 | `JWT_SECRET` | JWT imza anahtarı (en az 32 karakter) |
 | `MINIO_*` | Dosya ekleri için MinIO erişimi; `MINIO_PUBLIC_ENDPOINT` presigned URL'lerin public adresi |
-| `MAIL_ENABLED` | `false` iken e-postalar gönderilmez, log'a yazılır (dev/test için güvenli varsayılan) |
+| `MAIL_PROVIDER` | `log` (varsayılan: gönderilmez, log'a yazılır), `postforge` veya `smtp` |
+| `POSTFORGE_*` | PostForge API adresi ve anahtarı; şablonlar için [postforge/](postforge/) |
 | `IYZICO_ENABLED` | `false` iken online ödeme kapalıdır; manuel aktivasyon çalışır |
 | `VITE_*` | Frontend **build-time** değerleri; değişirse frontend imajı yeniden build edilmelidir |
 | `TZ` | Abonelik dönem hesapları ve zamanlanmış görevler için sabit kalmalıdır (`Europe/Istanbul`) |

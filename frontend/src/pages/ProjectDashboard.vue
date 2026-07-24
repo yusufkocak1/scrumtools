@@ -70,6 +70,11 @@
           <div v-if="project.organizationId" class="mt-4">
             <ScmRepoMappingPanel :project-id="project.id" :organization-id="project.organizationId" />
           </div>
+
+          <!-- CI/CD: Eşlenmiş Job'lar -->
+          <div v-if="project.organizationId" class="mt-4">
+            <CiJobMappingPanel :project-id="project.id" :organization-id="project.organizationId" />
+          </div>
         </div>
 
         <!-- Üyeler -->
@@ -111,6 +116,7 @@ import { useRoute } from 'vue-router'
 import ProjectSettings from '../components/project/ProjectSettings.vue'
 import ProjectMemberManager from '../components/project/ProjectMemberManager.vue'
 import ScmRepoMappingPanel from '../components/scm/ScmRepoMappingPanel.vue'
+import CiJobMappingPanel from '../components/ci/CiJobMappingPanel.vue'
 import RoleManager from '../components/roles/RoleManager.vue'
 import PermissionMatrix from '../components/roles/PermissionMatrix.vue'
 import ProjectApi from '../api/ProjectApi.js'

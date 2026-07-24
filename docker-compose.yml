@@ -68,8 +68,13 @@ services:
       TZ: ${TZ:-Europe/Istanbul}
       # E-postalardaki linklerin adresi (sifre kurulum, odeme linki)
       APP_FRONTEND_BASE_URL: ${APP_FRONTEND_BASE_URL:-https://scrumtools.kocak.net.tr}
-      # SMTP (MAIL_ENABLED=false iken mailler log'a yazilir)
-      MAIL_ENABLED: ${MAIL_ENABLED:-false}
+      # E-posta saglayicisi: log | postforge | smtp (log iken mailler log'a yazilir)
+      MAIL_PROVIDER: ${MAIL_PROVIDER:-log}
+      # PostForge (MAIL_PROVIDER=postforge iken)
+      POSTFORGE_BASE_URL: ${POSTFORGE_BASE_URL:-https://postforge.kocak.net.tr}
+      POSTFORGE_API_KEY: ${POSTFORGE_API_KEY:-}
+      POSTFORGE_SENDER_CODE: ${POSTFORGE_SENDER_CODE:-}
+      # SMTP (MAIL_PROVIDER=smtp iken)
       MAIL_FROM: ${MAIL_FROM:-noreply@kocak.net.tr}
       SMTP_HOST: ${SMTP_HOST:-localhost}
       SMTP_PORT: ${SMTP_PORT:-587}

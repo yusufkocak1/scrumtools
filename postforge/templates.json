@@ -1,0 +1,92 @@
+[
+  {
+    "code": "scrumtools-member-invite",
+    "name": "ScrumTools — Üye daveti",
+    "subjectTemplate": "{{orgName}} ekibine davet edildiniz",
+    "file": "templates/scrumtools-member-invite.html",
+    "paramsSchema": {
+      "name": "Ahmet Yılmaz",
+      "orgName": "Acme Yazılım",
+      "setupUrl": "https://scrumtools.kocak.net.tr/set-password?token=ornek"
+    }
+  },
+  {
+    "code": "scrumtools-password-reset",
+    "name": "ScrumTools — Şifre sıfırlama",
+    "subjectTemplate": "Şifre sıfırlama talebiniz",
+    "file": "templates/scrumtools-password-reset.html",
+    "paramsSchema": {
+      "name": "Ahmet Yılmaz",
+      "resetUrl": "https://scrumtools.kocak.net.tr/set-password?token=ornek"
+    }
+  },
+  {
+    "code": "scrumtools-trial-expiring",
+    "name": "ScrumTools — Deneme süresi bitiyor",
+    "subjectTemplate": "Deneme süreniz {{daysLeft}} gün sonra bitiyor",
+    "file": "templates/scrumtools-trial-expiring.html",
+    "paramsSchema": {
+      "name": "Ahmet Yılmaz",
+      "orgName": "Acme Yazılım",
+      "daysLeft": 3
+    }
+  },
+  {
+    "code": "scrumtools-trial-expired",
+    "name": "ScrumTools — Deneme süresi bitti",
+    "subjectTemplate": "Deneme süreniz sona erdi",
+    "file": "templates/scrumtools-trial-expired.html",
+    "paramsSchema": {
+      "name": "Ahmet Yılmaz",
+      "orgName": "Acme Yazılım"
+    }
+  },
+  {
+    "code": "scrumtools-payment-link",
+    "name": "ScrumTools — Ödeme linki",
+    "subjectTemplate": "ScrumTools {{planName}} paketi ödeme linkiniz",
+    "file": "templates/scrumtools-payment-link.html",
+    "paramsSchema": {
+      "name": "Ahmet Yılmaz",
+      "orgName": "Acme Yazılım",
+      "planName": "PRO",
+      "cycleLabel": "aylık",
+      "paymentUrl": "https://iyzi.link/ornek"
+    }
+  },
+  {
+    "code": "scrumtools-payment-received",
+    "name": "ScrumTools — Ödeme alındı",
+    "subjectTemplate": "Ödemeniz alındı — {{planName}} paketi aktif",
+    "file": "templates/scrumtools-payment-received.html",
+    "paramsSchema": {
+      "name": "Ahmet Yılmaz",
+      "orgName": "Acme Yazılım",
+      "planName": "PRO",
+      "periodEnd": "21 Ağustos 2026"
+    }
+  },
+  {
+    "code": "scrumtools-subscription-expiring",
+    "name": "ScrumTools — Abonelik bitiyor",
+    "subjectTemplate": "Aboneliğiniz {{daysLeft}} gün sonra sona eriyor",
+    "file": "templates/scrumtools-subscription-expiring.html",
+    "paramsSchema": {
+      "name": "Ahmet Yılmaz",
+      "orgName": "Acme Yazılım",
+      "daysLeft": 7,
+      "hasRenewUrl": true,
+      "renewUrl": "https://iyzi.link/ornek"
+    }
+  },
+  {
+    "code": "scrumtools-subscription-expired",
+    "name": "ScrumTools — Abonelik bitti",
+    "subjectTemplate": "Aboneliğiniz sona erdi",
+    "file": "templates/scrumtools-subscription-expired.html",
+    "paramsSchema": {
+      "name": "Ahmet Yılmaz",
+      "orgName": "Acme Yazılım"
+    }
+  }
+]

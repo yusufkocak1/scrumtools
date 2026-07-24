@@ -32,8 +32,8 @@ public class SchemaConstraintFixRunner implements ApplicationRunner {
         // eski kısıt bu değerleri tanımadığı için bildirim insert'leri patlıyordu.
         dropConstraint("notifications", "notifications_type_check");
 
-        // Git entegrasyonu eklenirken genişleyen enum'lar:
-        // Permission.SCM_CREATE_BRANCH, PlanFeature.GIT_INTEGRATION, ActivityAction.SCM_*
+        // Git ve CI/CD entegrasyonu eklenirken genişleyen enum'lar:
+        // Permission.SCM_CREATE_BRANCH, PlanFeature.GIT_INTEGRATION + CI_CD_INTEGRATION, ActivityAction.SCM_*
         // DataInitializer.backfillScmGrants bu değerleri mevcut kayıtlara yazar —
         // eski CHECK kısıtları düşürülmezse boot'ta insert patlar.
         dropConstraint("role_permissions", "role_permissions_permission_check");

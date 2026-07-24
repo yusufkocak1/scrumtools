@@ -191,6 +191,13 @@
               </div>
             </div>
 
+            <!-- CI/CD: Release Pipeline -->
+            <CiReleasePipelineSection
+              :release-id="release.id"
+              :release-name="release.name"
+              @released="load"
+            />
+
             <!-- Dağıtım tarihçesi (yayınlanmış sürümlerde) -->
             <div v-if="release.status === 'RELEASED'" class="mt-5">
               <h4 class="text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-2">
@@ -245,6 +252,7 @@ import { useRouter } from 'vue-router'
 import StatusBadge from '@/components/workflow/StatusBadge.vue'
 import TaskPickerInput from './TaskPickerInput.vue'
 import ReleaseFormModal from './ReleaseFormModal.vue'
+import CiReleasePipelineSection from '../ci/CiReleasePipelineSection.vue'
 import { getTeamById, linkTeamToProject } from '../../api/TeamApi.js'
 import { ProjectApi } from '../../api/ProjectApi.js'
 import { updateTask } from '../../api/WorkApi.js'

@@ -171,11 +171,30 @@
             </p>
           </div>
 
-          <!-- Entegrasyonlar (Git/SCM) -->
+          <!-- Entegrasyonlar (Git/SCM + CI/CD) -->
           <div v-if="activeTab === 'integrations' && currentOrg">
-            <ScmConnectionsTab v-if="isOrgAdmin" :org-id="currentOrg.id" />
+            <template v-if="isOrgAdmin">
+              <!-- Alt sekmeler -->
+              <div class="flex gap-1 mb-6 border-b border-gray-200">
+                <button
+                  v-for="sub in integrationSubTabs"
+                  :key="sub.id"
+                  @click="integrationSubTab = sub.id"
+                  :class="[
+                    'px-4 py-2.5 text-sm font-medium -mb-px border-b-2 transition-colors',
+                    integrationSubTab === sub.id
+                      ? 'border-indigo-600 text-indigo-600'
+                      : 'border-transparent text-gray-500 hover:text-gray-700'
+                  ]"
+                >
+                  {{ sub.label }}
+                </button>
+              </div>
+              <ScmConnectionsTab v-if="integrationSubTab === 'scm'" :org-id="currentOrg.id" />
+              <CiConnectionsTab v-else-if="integrationSubTab === 'ci'" :org-id="currentOrg.id" />
+            </template>
             <p v-else class="text-center py-12 text-gray-400">
-              Git entegrasyonlarını sadece organizasyon sahibi ve adminleri yönetebilir.
+              Entegrasyonları sadece organizasyon sahibi ve adminleri yönetebilir.
             </p>
           </div>
 
@@ -387,6 +406,7 @@ import OrgSettings from '../components/organization/OrgSettings.vue'
 import OrgMemberList from '../components/organization/OrgMemberList.vue'
 import BillingTab from '../components/billing/BillingTab.vue'
 import ScmConnectionsTab from '../components/scm/ScmConnectionsTab.vue'
+import CiConnectionsTab from '../components/ci/CiConnectionsTab.vue'
 import ProjectList from '../components/project/ProjectList.vue'
 import PendingInvitations from '../components/invitation/PendingInvitations.vue'
 import InviteModal from '../components/invitation/InviteModal.vue'
@@ -411,6 +431,11 @@ const {
 } = useOrganizationContext()
 
 const activeTab = ref('projects')
+const integrationSubTab = ref('scm')
+const integrationSubTabs = [
+  { id: 'scm', label: 'Git / SCM' },
+  { id: 'ci', label: 'CI/CD' },
+]
 const tabs = [
   { id: 'projects',    label: 'Projeler',  icon: '<svg fill="currentColor" viewBox="0 0 20 20"><path d="M3 4a1 1 0 011-1h12a1 1 0 011 1v2a1 1 0 01-1 1H4a1 1 0 01-1-1V4zM3 10a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H4a1 1 0 01-1-1v-6zM14 9a1 1 0 00-1 1v6a1 1 0 001 1h2a1 1 0 001-1v-6a1 1 0 00-1-1h-2z"/></svg>' },
   { id: 'teams',       label: 'Takımlar',  icon: '<svg fill="currentColor" viewBox="0 0 20 20"><path d="M13 6a3 3 0 11-6 0 3 3 0 016 0zM18 8a2 2 0 11-4 0 2 2 0 014 0zM14 15a4 4 0 00-8 0v3h8v-3z"/></svg>' },

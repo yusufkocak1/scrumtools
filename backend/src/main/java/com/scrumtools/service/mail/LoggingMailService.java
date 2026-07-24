@@ -9,13 +9,13 @@ import org.springframework.stereotype.Service;
 import java.time.LocalDateTime;
 
 /**
- * SMTP yapılandırılmamışken (app.mail.enabled=false / tanımsız) devreye giren fallback.
+ * Mail sağlayıcı yapılandırılmamışken (app.mail.provider=log / tanımsız) devreye giren fallback.
  * Gönderilecek maili log'a yazar — dev/test ortamında tüm akışlar mail sunucusu
  * olmadan çalışmaya devam eder.
  */
 @Service
 @Slf4j
-@ConditionalOnProperty(name = "app.mail.enabled", havingValue = "false", matchIfMissing = true)
+@ConditionalOnProperty(name = "app.mail.provider", havingValue = "log", matchIfMissing = true)
 public class LoggingMailService implements MailService {
 
     @Override

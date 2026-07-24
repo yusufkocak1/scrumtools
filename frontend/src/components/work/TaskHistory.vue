@@ -84,6 +84,8 @@ const fieldLabels = {
   title:    'Başlık',
   description: 'Açıklama',
   sprint:   'Sprint',
+  branch:   'Branch',
+  ciDeploy: 'Deploy',
 }
 
 const fieldIcons = {
@@ -93,6 +95,8 @@ const fieldIcons = {
   title:    '✏️',
   description: '📝',
   sprint:   '🏃',
+  branch:   '🌿',
+  ciDeploy: '🚀',
 }
 
 function fieldLabel(field) {

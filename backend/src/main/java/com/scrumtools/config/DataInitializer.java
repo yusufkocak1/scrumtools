@@ -58,11 +58,15 @@ public class DataInitializer implements ApplicationRunner {
     private void backfillScmGrants() {
         for (String code : List.of("PRO", "MAX")) {
             planRepository.findByCode(code).ifPresent(plan -> {
-                if (!plan.getFeatures().contains(PlanFeature.GIT_INTEGRATION)) {
-                    plan.getFeatures().add(PlanFeature.GIT_INTEGRATION);
-                    planRepository.save(plan);
-                    log.info("{} planına GIT_INTEGRATION özelliği eklendi.", code);
+                boolean changed = false;
+                for (PlanFeature feature : List.of(PlanFeature.GIT_INTEGRATION, PlanFeature.CI_CD_INTEGRATION)) {
+                    if (!plan.getFeatures().contains(feature)) {
+                        plan.getFeatures().add(feature);
+                        changed = true;
+                        log.info("{} planına {} özelliği eklendi.", code, feature);
+                    }
                 }
+                if (changed) planRepository.save(plan);
             });
         }
         for (String roleName : List.of("Project Admin", "Developer")) {
