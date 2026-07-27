@@ -20,9 +20,10 @@ export const OrganizationApi = {
   addMember: (orgId, email, role) =>
     api.post(`/api/organizations/${orgId}/members`, null, { params: { email, role } }),
 
-  // Üyeyi doğrudan kaydet — hesabı yoksa oluşturulur ve şifre-kurulum maili gönderilir
-  createMember: (orgId, { email, name, orgRole }) =>
-    api.post(`/api/organizations/${orgId}/members/create`, { email, name, orgRole }),
+  // Üyeyi doğrudan kaydet — hesabı yoksa oluşturulur ve şifre-kurulum maili gönderilir.
+  // teamIds opsiyoneldir: üye seçilen takımlara, takım projelere bağlıysa o projelere de eklenir.
+  createMember: (orgId, { email, name, orgRole, teamIds }) =>
+    api.post(`/api/organizations/${orgId}/members/create`, { email, name, orgRole, teamIds }),
 
   // Gönderilmiş davetler ve mail durumları (gönderildi/açıldı/tıklandı)
   getInvites: (orgId) => api.get(`/api/organizations/${orgId}/invites`),

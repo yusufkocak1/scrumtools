@@ -28,6 +28,7 @@ public class ProjectService {
     private final TeamRepository teamRepository;
     private final TeamMemberRepository teamMemberRepository;
     private final EntitlementService entitlementService;
+    private final ProjectTeamService projectTeamService;
 
     @Transactional
     public ProjectResponse createProject(UUID orgId, String userEmail, ProjectRequest request) {
@@ -155,6 +156,10 @@ public class ProjectService {
         return toMemberResponse(member);
     }
 
+    /**
+     * Takımı projeye bağlar. Bağ kalıcıdır — takımın o anki üyeleri hemen eklenir,
+     * sonradan katılanlar {@link ProjectTeamService} tarafından otomatik eklenir.
+     */
     @Transactional
     public List<ProjectMemberResponse> addTeamToProject(UUID projectId, UUID teamId, String requesterEmail, List<UUID> roleIds, MemberType memberType) {
         Project project = getProjectById(projectId);
@@ -164,28 +169,34 @@ public class ProjectService {
         Team team = teamRepository.findById(teamId)
                 .orElseThrow(() -> new IllegalArgumentException("Takım bulunamadı: " + teamId));
 
-        Set<Role> roles = resolveRoles(roleIds);
-        MemberType type = memberType != null ? memberType : MemberType.MEMBER;
+        return projectTeamService
+                .linkTeam(project, team, resolveRoles(roleIds), memberType, requester).stream()
+                .map(this::toMemberResponse)
+                .toList();
+    }
 
-        List<TeamMember> teamMembers = teamMemberRepository.findByTeamId(teamId);
-        List<ProjectMemberResponse> added = new java.util.ArrayList<>();
+    /** Projeye bağlı takımlar — üye listesinin hangi takımlardan beslendiğini gösterir. */
+    public List<ProjectTeamResponse> getProjectTeams(UUID projectId, String userEmail) {
+        checkProjectMembership(projectId, userEmail);
+        return projectTeamService.getLinksByProject(projectId).stream()
+                .map(link -> ProjectTeamResponse.from(link,
+                        teamMemberRepository.findByTeamId(link.getTeam().getId()).size()))
+                .toList();
+    }
 
-        for (TeamMember tm : teamMembers) {
-            userRepository.findByEmail(tm.getEmail()).ifPresent(targetUser -> {
-                if (!projectMemberRepository.existsByProjectIdAndUserId(projectId, targetUser.getId())) {
-                    ProjectMember pm = ProjectMember.builder()
-                            .project(project)
-                            .user(targetUser)
-                            .roles(new java.util.HashSet<>(roles))
-                            .addedBy(requester)
-                            .memberType(type)
-                            .build();
-                    added.add(toMemberResponse(projectMemberRepository.save(pm)));
-                }
-            });
-        }
+    /**
+     * Takım bağını kaldırır; bu bağla gelmiş üyeler projeden çıkarılır
+     * (elle eklenenler ve proje lideri korunur).
+     */
+    @Transactional
+    public void removeTeamFromProject(UUID projectId, UUID teamId, String requesterEmail) {
+        Project project = getProjectById(projectId);
+        checkProjectAdmin(projectId, requesterEmail);
 
-        return added;
+        Team team = teamRepository.findById(teamId)
+                .orElseThrow(() -> new IllegalArgumentException("Takım bulunamadı: " + teamId));
+
+        projectTeamService.unlinkTeam(project, team);
     }
 
     @Transactional
@@ -295,7 +306,9 @@ public class ProjectService {
                 m.getUser().getAvatarUrl(),
                 roleInfos,
                 m.getJoinedAt(),
-                m.getMemberType()
+                m.getMemberType(),
+                m.getSourceTeam() != null ? m.getSourceTeam().getId() : null,
+                m.getSourceTeam() != null ? m.getSourceTeam().getTeamName() : null
         );
     }
 }

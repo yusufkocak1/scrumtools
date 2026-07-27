@@ -1,5 +1,7 @@
 package com.scrumtools.dto;
 
+import com.scrumtools.entity.enums.OrgRole;
+
 import java.time.LocalDateTime;
 import java.util.UUID;
 
@@ -14,6 +16,12 @@ public record OrganizationResponse(
         String plan,
         Integer maxMembers,
         int memberCount,
-        LocalDateTime createdAt
+        LocalDateTime createdAt,
+        /**
+         * İsteği yapan kullanıcının bu organizasyondaki rolü. Arayüz menü ve
+         * aksiyonları buna göre gizler — kullanıcı yalnızca tıklayınca "yetkiniz
+         * yok" uyarısı almamalı.
+         */
+        OrgRole myRole
 ) {}
 

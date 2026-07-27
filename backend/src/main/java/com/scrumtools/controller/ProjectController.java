@@ -84,7 +84,7 @@ public class ProjectController {
                 .body(projectService.addMember(projectId, userDetails.getUsername(), email, roleIds, memberType));
     }
 
-    // Projeye takımı toplu ekle
+    // Projeye takımı bağla — o anki üyeler eklenir, sonradan katılanlar otomatik gelir
     @PostMapping("/api/projects/{projectId}/teams/{teamId}/members")
     public ResponseEntity<List<ProjectMemberResponse>> addTeamToProject(
             @AuthenticationPrincipal UserDetails userDetails,
@@ -94,6 +94,24 @@ public class ProjectController {
             @RequestParam(required = false) MemberType memberType) {
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(projectService.addTeamToProject(projectId, teamId, userDetails.getUsername(), roleIds, memberType));
+    }
+
+    // Projeye bağlı takımlar
+    @GetMapping("/api/projects/{projectId}/teams")
+    public ResponseEntity<List<ProjectTeamResponse>> getProjectTeams(
+            @AuthenticationPrincipal UserDetails userDetails,
+            @PathVariable UUID projectId) {
+        return ResponseEntity.ok(projectService.getProjectTeams(projectId, userDetails.getUsername()));
+    }
+
+    // Takım bağını kaldır — bu bağla gelen üyeler projeden çıkarılır
+    @DeleteMapping("/api/projects/{projectId}/teams/{teamId}")
+    public ResponseEntity<Void> removeTeamFromProject(
+            @AuthenticationPrincipal UserDetails userDetails,
+            @PathVariable UUID projectId,
+            @PathVariable UUID teamId) {
+        projectService.removeTeamFromProject(projectId, teamId, userDetails.getUsername());
+        return ResponseEntity.noContent().build();
     }
 
     // Üye rollerini güncelle

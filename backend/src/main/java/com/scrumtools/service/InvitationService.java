@@ -33,6 +33,8 @@ public class InvitationService {
     private final ProjectMemberRepository projectMemberRepository;
     private final EntitlementService entitlementService;
     private final MemberOnboardingService memberOnboardingService;
+    private final TeamRepository teamRepository;
+    private final TeamService teamService;
 
     @Transactional
     public InvitationResponse sendInvitation(String inviterEmail, InvitationRequest request) {
@@ -56,7 +58,8 @@ public class InvitationService {
                         new com.scrumtools.dto.CreateMemberRequest(
                                 targetEmail,
                                 targetEmail.split("@")[0], // geçici görünen ad — üye ilk girişte güncelleyebilir
-                                OrgRole.ORG_MEMBER));
+                                OrgRole.ORG_MEMBER,
+                                request.teamIds()));
                 // Denetim izi için kabul edilmiş bir davet kaydı bırak
                 Invitation autoAccepted = invitationRepository.save(Invitation.builder()
                         .email(targetEmail)
@@ -80,6 +83,7 @@ public class InvitationService {
                 .type(request.type())
                 .targetId(request.targetId())
                 .role(role)
+                .teamIds(new java.util.LinkedHashSet<>(request.teamIds()))
                 .token(generateToken())
                 .status(InvitationStatus.PENDING)
                 .invitedBy(inviter)
@@ -147,6 +151,9 @@ public class InvitationService {
                         .build();
                 organizationMemberRepository.save(member);
             }
+            // Davette seçilmiş takımlara ekle — takım projelere bağlıysa üye o
+            // projelere de düşer, kabul sonrası ayrıca atama gerekmez.
+            addToInvitedTeams(invitation, user);
         } else if (invitation.getType() == InvitationType.PROJECT) {
             if (!projectMemberRepository.existsByProjectIdAndUserId(invitation.getTargetId(), user.getId())) {
                 var project = projectRepository.findById(invitation.getTargetId())
@@ -161,6 +168,18 @@ public class InvitationService {
                         .build();
                 projectMemberRepository.save(member);
             }
+        }
+    }
+
+    private void addToInvitedTeams(Invitation invitation, User user) {
+        for (UUID teamId : invitation.getTeamIds()) {
+            var team = teamRepository.findById(teamId).orElse(null);
+            if (team == null || team.getOrganization() == null
+                    || !team.getOrganization().getId().equals(invitation.getTargetId())) {
+                log.warn("Davet kabulünde geçersiz takım atlandı: {} (davet={})", teamId, invitation.getId());
+                continue;
+            }
+            teamService.addMemberInternal(teamId, user);
         }
     }
 

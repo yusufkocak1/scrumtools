@@ -5,6 +5,7 @@ import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 
+import java.util.List;
 import java.util.UUID;
 
 public record InvitationRequest(
@@ -18,6 +19,13 @@ public record InvitationRequest(
         @NotNull(message = "Hedef ID boş olamaz")
         UUID targetId,
 
-        UUID roleId
-) {}
+        UUID roleId,
+
+        /** Opsiyonel: organizasyon daveti kabul edildiğinde üye bu takımlara da eklenir. */
+        List<UUID> teamIds
+) {
+    public List<UUID> teamIds() {
+        return teamIds != null ? teamIds : List.of();
+    }
+}
 

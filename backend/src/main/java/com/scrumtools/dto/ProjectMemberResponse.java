@@ -14,7 +14,10 @@ public record ProjectMemberResponse(
         String userAvatarUrl,
         List<RoleInfo> roles,
         LocalDateTime joinedAt,
-        MemberType memberType
+        MemberType memberType,
+        /** Üyeyi projeye taşıyan takım; null ise üye tek tek eklenmiştir. */
+        UUID sourceTeamId,
+        String sourceTeamName
 ) {
     public record RoleInfo(UUID id, String name, String color) {}
 }

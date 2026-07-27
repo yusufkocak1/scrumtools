@@ -23,9 +23,16 @@ export const ProjectApi = {
   addMember: (projectId, email, roleIds, memberType) =>
     api.post(`/api/projects/${projectId}/members`, null, { params: { email, roleIds, memberType } }),
 
-  // Takımı toplu ekle (memberType: 'MEMBER' | 'OBSERVER')
+  // Takımı projeye bağla — o anki üyeler eklenir, takıma sonradan katılanlar
+  // otomatik olarak projeye düşer (memberType: 'MEMBER' | 'OBSERVER')
   addTeam: (projectId, teamId, roleIds, memberType) =>
     api.post(`/api/projects/${projectId}/teams/${teamId}/members`, null, { params: { roleIds, memberType } }),
+
+  // Projeye bağlı takımlar
+  getTeams: (projectId) => api.get(`/api/projects/${projectId}/teams`),
+
+  // Takım bağını kaldır — bu bağla gelen üyeler projeden çıkarılır
+  removeTeam: (projectId, teamId) => api.delete(`/api/projects/${projectId}/teams/${teamId}`),
 
   // Üye rollerini güncelle (roleIds: UUID array)
   updateMemberRoles: (projectId, userId, roleIds) =>

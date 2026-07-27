@@ -37,6 +37,7 @@ public class TeamService {
     private final OrganizationMemberRepository organizationMemberRepository;
     private final ProjectRepository projectRepository;
     private final TaskRepository taskRepository;
+    private final ProjectTeamService projectTeamService;
 
     // ─── Get Teams By Organisation ────────────────────────────────────────────
 
@@ -146,11 +147,35 @@ public class TeamService {
             throw new IllegalArgumentException("Kullanıcı zaten bu takımda.");
         }
 
+        team = attachMember(team, targetUser);
+        log.info("Kullanıcı takıma eklendi: {} → {} (org={})", targetEmail, team.getTeamName(), orgId);
+        return TeamResponse.from(team);
+    }
+
+    /**
+     * Yetki kontrolü olmadan takıma üye ekler — davet kabulü ve üye oluşturma
+     * akışlarında kullanıcı kendi adına eklenir, org admin yetkisi aranamaz.
+     * Zaten üyeyse sessizce geçilir; çağıran taraf yalnızca sonucu ister.
+     */
+    @Transactional
+    public void addMemberInternal(UUID teamId, User user) {
+        Team team = teamRepository.findById(teamId)
+                .orElseThrow(() -> new IllegalArgumentException("Takım bulunamadı: " + teamId));
+        if (teamMemberRepository.existsByTeamIdAndEmail(teamId, user.getEmail())) return;
+        attachMember(team, user);
+        log.info("Kullanıcı takıma eklendi (davet/onboarding): {} → {}", user.getEmail(), team.getTeamName());
+    }
+
+    /**
+     * Üyeyi takıma yazar ve takımın bağlı olduğu projelere yansıtır — projeye
+     * bağlanmış bir takıma sonradan katılan kişi de projede yer almalı.
+     */
+    private Team attachMember(Team team, User user) {
         TeamMember member = TeamMember.builder()
                 .team(team)
-                .user(targetUser)
-                .email(targetEmail)
-                .displayName(targetUser.getName())
+                .user(user)
+                .email(user.getEmail())
+                .displayName(user.getName())
                 .role("member")
                 .skills(new ArrayList<>())
                 .build();
@@ -158,8 +183,8 @@ public class TeamService {
         team.getMembers().add(member);
         team = teamRepository.save(team);
 
-        log.info("Kullanıcı takıma eklendi: {} → {} (org={})", targetEmail, team.getTeamName(), orgId);
-        return TeamResponse.from(team);
+        projectTeamService.onTeamMemberAdded(team, user.getEmail());
+        return team;
     }
 
     // ─── Remove User From Team ────────────────────────────────────────────────
@@ -179,8 +204,30 @@ public class TeamService {
         team.getMembers().remove(member);
         team = teamRepository.save(team);
 
+        // Takım bağı üzerinden geldiği projelerden de düşer (başka bağlı takımda
+        // değilse) — takımdan ayrılan kişi projelerde erişimini sürdürmemeli.
+        projectTeamService.onTeamMemberRemoved(team, email);
+
         log.info("Kullanıcı takımdan çıkarıldı: {} ← {}", email, team.getTeamName());
         return TeamResponse.from(team);
+    }
+
+    /**
+     * Organizasyondan çıkarılan kullanıcıyı o organizasyonun tüm takımlarından düşürür.
+     * Takım üyeliği kalırsa kişi org üyesi olmadığı halde takım bağlı projelerde
+     * görünmeye devam eder — proje senkronu da bu yolla tetiklenir.
+     */
+    @Transactional
+    public void removeUserFromOrgTeams(UUID orgId, String email) {
+        for (TeamMember tm : teamMemberRepository.findByEmail(email)) {
+            Team team = tm.getTeam();
+            if (team.getOrganization() == null || !team.getOrganization().getId().equals(orgId)) continue;
+
+            team.getMembers().remove(tm);
+            teamRepository.save(team);
+            projectTeamService.onTeamMemberRemoved(team, email);
+            log.info("Org'dan çıkarılan kullanıcı takımdan da düşürüldü: {} ← {}", email, team.getTeamName());
+        }
     }
 
     // ─── Update Member Role & Skills ──────────────────────────────────────────
@@ -242,7 +289,9 @@ public class TeamService {
         } else {
             Project project = resolveOrgProject(team, projectId);
             team.setProject(project);
-            team.getProjects().add(project);
+            // Bağ ProjectTeamService'te kurulur: takım üyeleri projeye taşınır ve
+            // takıma sonradan katılanlar da otomatik eklenir.
+            projectTeamService.linkTeam(project, team, null, null, currentUser(requesterEmail));
 
             // Takımın projesiz görevleri birincil projeye bağlanır (customId'leri korunur;
             // proje bağı olan görevler dokunulmaz — task artık projeye aittir).
@@ -264,7 +313,7 @@ public class TeamService {
         Team team = requireProjectAdmin(teamId, requesterEmail);
         Project project = resolveOrgProject(team, projectId);
 
-        team.getProjects().add(project);
+        projectTeamService.linkTeam(project, team, null, null, currentUser(requesterEmail));
         if (team.getProject() == null) {
             team.setProject(project);
             // Takımın ilk projesi: projesiz görevler buraya düşer.
@@ -279,27 +328,22 @@ public class TeamService {
     /**
      * Takımı bir projeden ayırır. Projeye ait görevleri olan takım ayrılamaz —
      * görevler önce başka bir projeye taşınmalı, aksi halde erişilemez hale gelirler.
+     * Takım bağıyla gelmiş proje üyelikleri de kaldırılır.
      */
     @Transactional
     public TeamResponse removeProject(UUID teamId, UUID projectId, String requesterEmail) {
         Team team = requireProjectAdmin(teamId, requesterEmail);
+        Project project = resolveOrgProject(team, projectId);
 
-        long taskCount = taskRepository.countByTeamIdAndProjectId(teamId, projectId);
-        if (taskCount > 0) {
-            throw new IllegalArgumentException(
-                    "Bu projede takımın " + taskCount + " görevi var. Proje bağlantısını kaldırmadan önce "
-                            + "görevleri başka bir projeye taşıyın.");
-        }
+        projectTeamService.unlinkTeam(project, team);
 
-        team.getProjects().removeIf(p -> p.getId().equals(projectId));
-        if (team.getProject() != null && team.getProject().getId().equals(projectId)) {
-            // Birincil proje kaldırıldı — kalanlardan biri birincil olur.
-            team.setProject(team.getProjects().stream().findFirst().orElse(null));
-        }
-
-        team = teamRepository.save(team);
+        team = teamRepository.findById(teamId).orElseThrow();
         log.info("Takım projeden ayrıldı: {} ⊘ {} (istek: {})", team.getTeamName(), projectId, requesterEmail);
         return TeamResponse.from(team);
+    }
+
+    private User currentUser(String email) {
+        return userRepository.findByEmail(email).orElse(null);
     }
 
     /** Yetki: org admin/owner VEYA takım admini */

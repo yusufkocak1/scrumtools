@@ -55,6 +55,16 @@ public class ProjectMember {
     private MemberType memberType = MemberType.MEMBER;
 
     /**
+     * Üyeyi projeye taşıyan takım — {@code null} ise üye tek tek eklenmiştir.
+     * <p>
+     * Takım bağı çözüldüğünde ya da üye takımdan çıkarıldığında yalnızca takım
+     * kaynaklı üyelikler otomatik kaldırılır; elle eklenen üyeler korunur.
+     */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "source_team_id")
+    private Team sourceTeam;
+
+    /**
      * Kullanıcının tüm rollerinden toplanan izinleri döndürür.
      */
     public Set<com.scrumtools.entity.enums.Permission> getAllPermissions() {

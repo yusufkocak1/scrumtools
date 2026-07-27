@@ -27,6 +27,7 @@ public class OrganizationService {
     private final SubscriptionRepository subscriptionRepository;
     private final PlanService planService;
     private final EntitlementService entitlementService;
+    private final TeamService teamService;
 
     @Transactional
     public OrganizationResponse createOrganization(String userEmail, OrganizationRequest request) {
@@ -55,7 +56,7 @@ public class OrganizationService {
 
         startTrialIfEligible(org, user);
 
-        return toResponse(org, 1);
+        return toResponse(org, 1, OrgRole.ORG_OWNER);
     }
 
     /**
@@ -86,7 +87,7 @@ public class OrganizationService {
         return organizationRepository.findAllByMemberEmail(userEmail).stream()
                 .map(org -> {
                     int count = organizationMemberRepository.findByOrganizationId(org.getId()).size();
-                    return toResponse(org, count);
+                    return toResponse(org, count, roleOf(org.getId(), userEmail));
                 })
                 .toList();
     }
@@ -95,7 +96,7 @@ public class OrganizationService {
         Organization org = getOrgById(orgId);
         checkMembership(orgId, userEmail);
         int count = organizationMemberRepository.findByOrganizationId(orgId).size();
-        return toResponse(org, count);
+        return toResponse(org, count, roleOf(orgId, userEmail));
     }
 
     @Transactional
@@ -109,7 +110,7 @@ public class OrganizationService {
         org = organizationRepository.save(org);
 
         int count = organizationMemberRepository.findByOrganizationId(orgId).size();
-        return toResponse(org, count);
+        return toResponse(org, count, roleOf(orgId, userEmail));
     }
 
     /** Org üyesinin görebileceği efektif paket hakları (plan kartları/limit göstergeleri için). */
@@ -163,6 +164,14 @@ public class OrganizationService {
         checkAdminAccess(orgId, requesterEmail);
         OrganizationMember member = organizationMemberRepository.findByOrganizationIdAndUserId(orgId, userId)
                 .orElseThrow(() -> new IllegalArgumentException("Üye bulunamadı."));
+
+        if (member.getOrgRole() == OrgRole.ORG_OWNER) {
+            throw new IllegalArgumentException("Organizasyon sahibi organizasyondan çıkarılamaz.");
+        }
+
+        // Takım ve takım-bağlı proje üyelikleri de temizlenir — org'dan çıkan kişi
+        // hiçbir takım/proje ekranında görünmeye devam etmemeli.
+        teamService.removeUserFromOrgTeams(orgId, member.getUser().getEmail());
         organizationMemberRepository.delete(member);
     }
 
@@ -206,7 +215,7 @@ public class OrganizationService {
         }
     }
 
-    private OrganizationResponse toResponse(Organization org, int memberCount) {
+    private OrganizationResponse toResponse(Organization org, int memberCount, OrgRole myRole) {
         return new OrganizationResponse(
                 org.getId(),
                 org.getName(),
@@ -218,8 +227,16 @@ public class OrganizationService {
                 org.getPlan(),
                 org.getMaxMembers(),
                 memberCount,
-                org.getCreatedAt()
+                org.getCreatedAt(),
+                myRole
         );
+    }
+
+    /** İsteği yapan kullanıcının org rolü — arayüzün menüleri gizleyebilmesi için. */
+    private OrgRole roleOf(UUID orgId, String email) {
+        return organizationMemberRepository.findByOrganizationIdAndUserEmail(orgId, email)
+                .map(OrganizationMember::getOrgRole)
+                .orElse(null);
     }
 
     private OrgMemberResponse toMemberResponse(OrganizationMember m) {

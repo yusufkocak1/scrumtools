@@ -8,6 +8,8 @@ import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
 
 import java.time.LocalDateTime;
+import java.util.LinkedHashSet;
+import java.util.Set;
 import java.util.UUID;
 
 @Entity
@@ -36,6 +38,16 @@ public class Invitation {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "role_id")
     private Role role;
+
+    /**
+     * Davet kabul edildiğinde üyenin ekleneceği takımlar (opsiyonel).
+     * Takım projelere bağlıysa üye o projelere de otomatik düşer.
+     */
+    @ElementCollection(fetch = FetchType.EAGER)
+    @CollectionTable(name = "invitation_teams", joinColumns = @JoinColumn(name = "invitation_id"))
+    @Column(name = "team_id")
+    @Builder.Default
+    private Set<UUID> teamIds = new LinkedHashSet<>();
 
     @Column(unique = true, nullable = false)
     private String token;

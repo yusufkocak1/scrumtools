@@ -7,6 +7,7 @@ import com.scrumtools.entity.EmailMessage;
 import com.scrumtools.entity.Invitation;
 import com.scrumtools.entity.Organization;
 import com.scrumtools.entity.OrganizationMember;
+import com.scrumtools.entity.Team;
 import com.scrumtools.entity.User;
 import com.scrumtools.entity.enums.InvitationStatus;
 import com.scrumtools.entity.enums.InvitationType;
@@ -16,6 +17,7 @@ import com.scrumtools.repository.EmailMessageRepository;
 import com.scrumtools.repository.InvitationRepository;
 import com.scrumtools.repository.OrganizationMemberRepository;
 import com.scrumtools.repository.OrganizationRepository;
+import com.scrumtools.repository.TeamRepository;
 import com.scrumtools.repository.UserRepository;
 import com.scrumtools.service.mail.MailService;
 import com.scrumtools.service.mail.PostForgeMailService;
@@ -52,6 +54,8 @@ public class MemberOnboardingService {
     private final PasswordTokenService passwordTokenService;
     private final MailService mailService;
     private final EntitlementService entitlementService;
+    private final TeamRepository teamRepository;
+    private final TeamService teamService;
 
     /**
      * Organizasyonun GÖNDERDİĞİ davetler (en yeni önce). Kaynak {@code invitations}
@@ -159,6 +163,9 @@ public class MemberOnboardingService {
                 .invitedBy(requester)
                 .build());
 
+        // Seçilen takımlara ekle — takım bir projeye bağlıysa üye o projeye de düşer.
+        addToTeams(orgId, target, request.teamIds());
+
         if (isNewUser) {
             String rawToken = passwordTokenService.createToken(target, TokenPurpose.ACCOUNT_SETUP, requester);
             mailService.sendMemberInvite(target, org, passwordTokenService.setupUrl(rawToken));
@@ -166,6 +173,22 @@ public class MemberOnboardingService {
         }
 
         return toMemberResponse(member);
+    }
+
+    /**
+     * Üyeyi verilen takımlara ekler. Başka bir organizasyonun takımı sessizce
+     * atlanır — davet ekranından gelen id'ler her zaman org kapsamlı olmalı.
+     */
+    private void addToTeams(UUID orgId, User user, List<UUID> teamIds) {
+        for (UUID teamId : teamIds) {
+            Team team = teamRepository.findById(teamId).orElse(null);
+            if (team == null || team.getOrganization() == null
+                    || !team.getOrganization().getId().equals(orgId)) {
+                log.warn("Davette geçersiz takım atlandı: {} (org={})", teamId, orgId);
+                continue;
+            }
+            teamService.addMemberInternal(teamId, user);
+        }
     }
 
     private void checkAdminAccess(UUID orgId, String email) {

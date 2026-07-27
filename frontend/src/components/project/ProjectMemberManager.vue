@@ -22,6 +22,37 @@
       </div>
     </div>
 
+    <!-- Bağlı takımlar — bağ kalıcı: takıma sonradan katılanlar projeye otomatik eklenir -->
+    <div v-if="projectTeams.length" class="rounded-xl border border-gray-200 dark:border-gray-700 p-4">
+      <div class="flex items-center gap-2 mb-3">
+        <h4 class="text-sm font-semibold text-gray-800 dark:text-gray-200">Bağlı Takımlar</h4>
+        <span class="text-xs text-gray-400">takım üyeliği değiştikçe proje üyeleri otomatik güncellenir</span>
+      </div>
+      <div class="flex flex-wrap gap-2">
+        <span
+          v-for="link in projectTeams"
+          :key="link.id"
+          class="inline-flex items-center gap-2 text-xs bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-200 dark:border-indigo-800 rounded-full pl-2.5 pr-1.5 py-1"
+        >
+          <span class="font-medium text-indigo-700 dark:text-indigo-300">{{ link.teamName }}</span>
+          <span class="text-indigo-400">{{ link.memberCount }} üye</span>
+          <span
+            v-if="link.memberType === 'OBSERVER'"
+            class="text-[10px] text-amber-600 dark:text-amber-400"
+          >gözlemci</span>
+          <button
+            @click="removeTeam(link)"
+            class="text-indigo-300 hover:text-red-500 transition-colors"
+            title="Takım bağını kaldır"
+          >
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </span>
+      </div>
+    </div>
+
     <div class="overflow-x-auto rounded-xl border border-gray-200 dark:border-gray-700">
       <table class="w-full text-sm">
         <thead class="bg-gray-50 dark:bg-gray-700/50">
@@ -53,6 +84,9 @@
                 <div>
                   <p class="font-medium text-gray-900 dark:text-white">{{ member.userName }}</p>
                   <p class="text-xs text-gray-500">{{ member.userEmail }}</p>
+                  <p v-if="member.sourceTeamName" class="text-[11px] text-indigo-500 dark:text-indigo-400">
+                    {{ member.sourceTeamName }} takımından
+                  </p>
                 </div>
               </div>
             </td>
@@ -141,9 +175,10 @@
     <!-- Takımı Toplu Ekle Modal -->
     <div v-if="showAddTeamModal" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
       <div class="bg-white dark:bg-gray-800 rounded-xl p-6 w-full max-w-md shadow-2xl">
-        <h4 class="text-lg font-semibold mb-1 text-gray-900 dark:text-white">Takımı Projeye Ekle</h4>
+        <h4 class="text-lg font-semibold mb-1 text-gray-900 dark:text-white">Takımı Projeye Bağla</h4>
         <p class="text-sm text-gray-500 dark:text-gray-400 mb-4">
-          Seçilen takımın tüm üyeleri projeye eklenecektir. Zaten projede olan üyeler atlanır.
+          Takımın tüm üyeleri projeye eklenir ve bağ kalıcı olur: takıma sonradan
+          katılanlar da bu ayarlarla otomatik eklenir.
         </p>
 
         <div class="space-y-3">
@@ -230,11 +265,17 @@
                 <span class="text-gray-700 dark:text-gray-300">{{ role.name }}</span>
               </label>
             </div>
+            <p class="text-xs text-gray-400 mt-1">
+              Bu roller takım üzerinden eklenen tüm üyelere uygulanır.
+            </p>
           </div>
         </div>
 
         <div v-if="addTeamResult" class="mt-3 text-sm text-green-600 dark:text-green-400">
           {{ addTeamResult }}
+        </div>
+        <div v-if="addTeamError" class="mt-3 text-sm text-red-600 dark:text-red-400">
+          {{ addTeamError }}
         </div>
         <div class="flex gap-2 mt-4 justify-end">
           <button @click="closeTeamModal" class="btn-secondary">İptal</button>
@@ -286,6 +327,7 @@ const props = defineProps({
 })
 
 const members = ref([])
+const projectTeams = ref([])
 const availableRoles = ref([])
 const loading = ref(false)
 
@@ -307,6 +349,7 @@ const teamRoleIds = ref([])
 const teamMemberType = ref('MEMBER')
 const addingTeam = ref(false)
 const addTeamResult = ref('')
+const addTeamError = ref('')
 
 // Rol düzenleme
 const showRoleModal = ref(false)
@@ -319,12 +362,15 @@ let searchDebounce = null
 async function loadData() {
   loading.value = true
   try {
-    const [membersRes, rolesRes] = await Promise.all([
+    const [membersRes, rolesRes, teamsRes] = await Promise.all([
       ProjectApi.getMembers(props.projectId),
       RoleApi.getAll('PROJECT'),
+      // Bağlı takımlar ikincil bilgi — hata alırsa üye listesi yine de açılmalı
+      ProjectApi.getTeams(props.projectId).catch(() => ({ data: [] })),
     ])
     members.value = membersRes.data
     availableRoles.value = rolesRes.data
+    projectTeams.value = teamsRes.data
   } catch (e) {
     console.error('Veri yüklenemedi:', e)
   } finally {
@@ -402,6 +448,7 @@ async function addTeam() {
   if (!selectedTeam.value) return
   addingTeam.value = true
   addTeamResult.value = ''
+  addTeamError.value = ''
   try {
     const res = await ProjectApi.addTeam(
       props.projectId,
@@ -410,12 +457,32 @@ async function addTeam() {
       teamMemberType.value
     )
     const count = res.data?.length ?? 0
-    addTeamResult.value = `${count} üye başarıyla projeye eklendi.`
+    addTeamResult.value = count > 0
+      ? `Takım bağlandı, ${count} üye projeye eklendi.`
+      : 'Takım bağlandı. Tüm üyeleri zaten projedeydi.'
     await loadData()
   } catch (e) {
     console.error('Takım eklenemedi:', e)
+    addTeamError.value = e?.response?.data?.message || 'Takım bağlanamadı.'
   } finally {
     addingTeam.value = false
+  }
+}
+
+/**
+ * Takım bağını kaldırır. Bu bağla gelen üyeler projeden düşer; elle eklenmiş
+ * üyeler ve proje lideri korunur (backend kararı).
+ */
+async function removeTeam(link) {
+  if (!confirm(
+    `${link.teamName} takımının proje bağı kaldırılsın mı?\n\n` +
+    'Bu takım üzerinden eklenmiş üyeler projeden çıkarılır. Elle eklenen üyeler kalır.'
+  )) return
+  try {
+    await ProjectApi.removeTeam(props.projectId, link.teamId)
+    await loadData()
+  } catch (e) {
+    alert(e?.response?.data?.message || 'Takım bağı kaldırılamadı.')
   }
 }
 
@@ -427,6 +494,7 @@ function closeTeamModal() {
   teamRoleIds.value = []
   teamMemberType.value = 'MEMBER'
   addTeamResult.value = ''
+  addTeamError.value = ''
 }
 
 function openRoleModal(member) {
