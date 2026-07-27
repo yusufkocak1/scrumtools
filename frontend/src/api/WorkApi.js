@@ -126,6 +126,22 @@ export const updateSprint = async (teamId, sprintId, sprintData) => {
     return data
 }
 
+/**
+ * Sprinti kapatır ve tamamlanmamış işlerin akıbetini belirler.
+ * updateSprintStatus(..., 'done') ile aynı şey değildir: yarım kalan işler
+ * bu uçta backlog'a/başka sprinte taşınır ya da toplu tamamlanır.
+ *
+ * @param {string} teamId
+ * @param {string} sprintId
+ * @param {Object} payload — { incompleteAction: 'BACKLOG'|'MOVE'|'COMPLETE'|'KEEP',
+ *                             targetSprintId?: string }
+ * @returns {Promise<{sprint, completedCount, incompleteCount, incompleteAction, targetSprintName}>}
+ */
+export const completeSprint = async (teamId, sprintId, payload) => {
+    const { data } = await apiClient.post(`/api/teams/${teamId}/sprints/${sprintId}/complete`, payload)
+    return data
+}
+
 // ─── Attachments (MinIO) ──────────────────────────────────────────────────────
 
 /**

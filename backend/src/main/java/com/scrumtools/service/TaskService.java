@@ -498,7 +498,12 @@ public class TaskService {
 
     // ─── Helpers ──────────────────────────────────────────────────────────────
 
-    private boolean isDoneStatus(String status) {
+    /**
+     * "İş bitti" sayılan status adları. Sprint kapatma akışı da aynı tanımı
+     * kullanır (SprintService) — iki yerde ayrı liste tutulursa backlog'da
+     * tamamlanmış görünen bir iş sprint kapanışında "yarım kalmış" sayılır.
+     */
+    public static boolean isDoneStatus(String status) {
         return "Done".equalsIgnoreCase(status) || "Closed".equalsIgnoreCase(status)
                 || "Fixed".equalsIgnoreCase(status) || "Verified".equalsIgnoreCase(status);
     }

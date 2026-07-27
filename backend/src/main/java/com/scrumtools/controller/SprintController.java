@@ -1,5 +1,7 @@
 package com.scrumtools.controller;
 
+import com.scrumtools.dto.CompleteSprintRequest;
+import com.scrumtools.dto.CompleteSprintResponse;
 import com.scrumtools.dto.SprintRequest;
 import com.scrumtools.dto.SprintResponse;
 import com.scrumtools.dto.UpdateSprintStatusRequest;
@@ -47,5 +49,19 @@ public class SprintController {
             @RequestBody UpdateSprintStatusRequest req
     ) {
         return ResponseEntity.ok(sprintService.updateStatus(teamId, sprintId, req.getStatus()));
+    }
+
+    /**
+     * Sprinti kapatır. Status'u "done" yapmakla aynı şey değildir: tamamlanmamış
+     * işlerin nereye gideceği (backlog / başka sprint / toplu tamamla / yerinde kal)
+     * bu uçta belirlenir.
+     */
+    @PostMapping("/{sprintId}/complete")
+    public ResponseEntity<CompleteSprintResponse> completeSprint(
+            @PathVariable UUID teamId,
+            @PathVariable UUID sprintId,
+            @RequestBody(required = false) CompleteSprintRequest req
+    ) {
+        return ResponseEntity.ok(sprintService.completeSprint(teamId, sprintId, req));
     }
 }

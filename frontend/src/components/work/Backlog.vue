@@ -43,6 +43,41 @@
       </div>
     </div>
 
+    <!-- Görünüm çubuğu — gruplama veriyi değiştirmez, filtre gibi görünüm
+         seviyesinde kalır: şişen backlog'u geçici alt başlıklara böler. -->
+    <div class="flex items-center gap-2 px-4 sm:px-6 py-2.5 bg-white border-b border-gray-100 overflow-x-auto no-scrollbar">
+      <div class="relative shrink-0">
+        <select
+          v-model="groupBy"
+          class="appearance-none text-xs rounded-lg border border-gray-200 pl-7 pr-7 py-1.5 bg-gray-50 hover:bg-white hover:border-gray-300 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400 focus:outline-none transition-all cursor-pointer font-medium text-gray-700"
+        >
+          <option v-for="opt in groupOptions" :key="opt.value" :value="opt.value">
+            {{ opt.value === 'none' ? opt.label : 'Grupla: ' + opt.label }}
+          </option>
+        </select>
+        <svg class="absolute left-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h7"/>
+        </svg>
+        <svg class="absolute right-2 top-1/2 -translate-y-1/2 w-3 h-3 text-gray-400 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+        </svg>
+      </div>
+
+      <template v-if="isGrouped">
+        <button
+          class="inline-flex shrink-0 items-center gap-1.5 text-xs text-gray-600 hover:text-blue-700 px-3 py-1.5 rounded-lg border border-gray-200 hover:border-blue-300 hover:bg-blue-50/50 bg-white transition-all whitespace-nowrap"
+          @click="toggleAllGroups"
+        >
+          {{ hasCollapsedGroups ? 'Tümünü aç' : 'Tümünü kapat' }}
+        </button>
+        <!-- Etiket gruplamasında toplam sayı grup sayılarının toplamından küçük
+             olabilir; kullanıcı bunu bir hata sanmasın. -->
+        <span v-if="groupBy === 'label'" class="text-xs text-gray-400 whitespace-nowrap hidden sm:inline">
+          Birden fazla etiketi olan iş her etiketin altında görünür
+        </span>
+      </template>
+    </div>
+
     <div class="px-3 sm:px-6 py-6">
       <!-- Task Oluşturma/Düzenleme Formu -->
       <AddTaskForm
@@ -248,7 +283,7 @@
                 <button
                   v-else
                   class="inline-flex items-center px-2 sm:px-3 py-2 border border-transparent text-xs sm:text-sm leading-4 font-medium rounded-lg text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
-                  @click="finishSprint(section.sprint.id)"
+                  @click="finishSprint(section.sprint)"
                 >
                   <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
@@ -271,106 +306,134 @@
               @dragenter.prevent="onDragEnter(section.key)"
               @dragleave="onDragLeave(section.key)"
             >
-              <div
-                v-for="task in section.tasks"
-                :key="task.id"
-                class="group relative bg-white border border-gray-100 rounded-xl p-3 sm:p-4 pl-4 sm:pl-5 overflow-hidden hover:shadow-md hover:-translate-y-0.5 hover:border-gray-200 transition-all duration-150 cursor-pointer"
-                :draggable="!isMobile"
-                @dragstart="!isMobile && onDragStart(task)"
-                @click="openTaskDetail(task)"
-              >
-                <!-- Öncelik renk çubuğu -->
-                <div class="absolute left-0 top-0 bottom-0 w-[3px]" :class="priorityBarClass(task.priority)"></div>
-
-                <div class="flex items-start space-x-3">
-                  <span
-                    class="hidden sm:flex flex-shrink-0 w-6 h-6 rounded items-center justify-center"
-                    :class="issueTypeIconClass(task.issueType)"
+              <div v-for="grp in section.groups" :key="grp.key" class="space-y-2">
+                <!-- Grup başlığı — gruplama kapalıyken tek bir isimsiz grup kalır
+                     ve başlık hiç basılmaz, liste eskisi gibi düz görünür. -->
+                <button
+                  v-if="grp.label"
+                  class="w-full flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-gray-100/70 text-left transition-colors"
+                  @click="toggleGroup(section.key, grp.key)"
+                >
+                  <svg
+                    class="w-3.5 h-3.5 text-gray-400 transition-transform duration-200 flex-shrink-0"
+                    :class="{ '-rotate-90': isGroupCollapsed(section.key, grp.key) }"
+                    fill="none" stroke="currentColor" viewBox="0 0 24 24"
                   >
-                    <svg v-if="task.issueType === 'bug'" class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20">
-                      <path fill-rule="evenodd" d="M6.56 1.14a.75.75 0 01.177 1.045 3.989 3.989 0 00-.464.86c.185.17.382.329.59.473A3.993 3.993 0 0110 2.5c1.195 0 2.273.523 3.008 1.352.13-.07.258-.147.382-.229a3.99 3.99 0 00-.821-1.297.75.75 0 111.133-.984 5.49 5.49 0 011.046 1.724.75.75 0 01-.318.96 5.47 5.47 0 01-1.013.504A4 4 0 0114 6.5h.25a.75.75 0 010 1.5H14v.5c0 .058-.002.115-.005.172l1.83 1.83a.75.75 0 01-1.06 1.06l-1.453-1.452A4.002 4.002 0 0110 13.5a4.002 4.002 0 01-3.312-2.89L5.235 12.06a.75.75 0 01-1.06-1.06l1.83-1.83A4.025 4.025 0 016 8.5V8h-.25a.75.75 0 010-1.5H6A4 4 0 016.583 4.76a5.467 5.467 0 01-1.013-.504.75.75 0 01-.318-.96A5.488 5.488 0 016.38.572a.75.75 0 011.045-.177z" clip-rule="evenodd"/>
-                    </svg>
-                    <svg v-else-if="task.issueType === 'story'" class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20">
-                      <path d="M5 3a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2V5a2 2 0 00-2-2H5zm0 2h10v7h-2l-1 2H8l-1-2H5V5z"/>
-                    </svg>
-                    <svg v-else-if="task.issueType === 'epic'" class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20">
-                      <path fill-rule="evenodd" d="M11.3 1.046A1 1 0 0112 2v5h4a1 1 0 01.82 1.573l-7 10A1 1 0 018 18v-5H4a1 1 0 01-.82-1.573l7-10a1 1 0 011.12-.38z" clip-rule="evenodd"/>
-                    </svg>
-                    <svg v-else class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20">
-                      <path fill-rule="evenodd" d="M6 2a2 2 0 00-2 2v12a2 2 0 002 2h8a2 2 0 002-2V7.414A2 2 0 0015.414 6L12 2.586A2 2 0 0010.586 2H6zm5 6a1 1 0 10-2 0v2H7a1 1 0 100 2h2v2a1 1 0 102 0v-2h2a1 1 0 100-2h-2V8z" clip-rule="evenodd"/>
-                    </svg>
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                  </svg>
+                  <span class="text-xs font-semibold text-gray-700 truncate">{{ grp.label }}</span>
+                  <span class="text-[10px] text-gray-500 bg-gray-100 rounded-full px-2 py-0.5 flex-shrink-0">
+                    {{ grp.tasks.length }}
                   </span>
-                  <div class="flex-1 min-w-0">
-                    <div class="flex flex-wrap items-center gap-1.5">
-                      <span class="text-[10px] sm:text-xs font-mono text-gray-400 font-medium">{{ task.customId || task.id }}</span>
-                      <span
-                        class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] sm:text-xs font-medium"
-                        :class="statusBadgeClass(task.status)"
-                      >
-                        {{ task.status }}
-                      </span>
-                      <span
-                        v-if="task.priority"
-                        class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] sm:text-xs font-medium"
-                        :class="priorityBadgeClass(task.priority)"
-                      >
-                        {{ task.priority }}
-                      </span>
-                      <span
-                        v-if="task.storyPoints"
-                        class="inline-flex items-center text-[10px] sm:text-xs font-bold bg-blue-50 text-blue-700 rounded-md px-1.5 py-0.5 border border-blue-100"
-                      >
-                        {{ task.storyPoints }}<span class="text-blue-400 ml-0.5 font-medium">SP</span>
-                      </span>
-                    </div>
-                    <p class="mt-1.5 text-sm font-medium text-gray-900 line-clamp-2 group-hover:text-blue-900 transition-colors">{{ task.title }}</p>
-                    <!-- Alt görevler (parent kartın içinde iç içe) -->
-                    <div v-if="taskTree.childrenOf(task.id).length" class="mt-2 border-l-2 border-gray-100 pl-3 space-y-1">
-                      <button
-                        class="text-[10px] text-gray-400 hover:text-gray-600 font-medium"
-                        @click.stop="toggleExpand(task.id)"
-                      >
-                        {{ isExpanded(task.id) ? '▾' : '▸' }} {{ taskTree.childrenOf(task.id).length }} alt görev
-                      </button>
-                      <template v-if="isExpanded(task.id)">
-                        <div
-                          v-for="sub in taskTree.childrenOf(task.id)"
-                          :key="sub.id"
-                          class="flex items-center gap-2 text-xs text-gray-600 cursor-pointer hover:text-blue-600"
-                          @click.stop="openTaskDetail(sub)"
+                  <span
+                    v-if="grp.storyPoints"
+                    class="text-[10px] font-bold text-blue-700 bg-blue-50 border border-blue-100 rounded-md px-1.5 py-0.5 flex-shrink-0"
+                  >
+                    {{ grp.storyPoints }} SP
+                  </span>
+                </button>
+
+                <div
+                  v-for="task in (isGroupCollapsed(section.key, grp.key) ? [] : grp.tasks)"
+                  :key="task.id"
+                  class="group relative bg-white border border-gray-100 rounded-xl p-3 sm:p-4 pl-4 sm:pl-5 overflow-hidden hover:shadow-md hover:-translate-y-0.5 hover:border-gray-200 transition-all duration-150 cursor-pointer"
+                  :draggable="!isMobile"
+                  @dragstart="!isMobile && onDragStart(task)"
+                  @click="openTaskDetail(task)"
+                >
+                  <!-- Öncelik renk çubuğu -->
+                  <div class="absolute left-0 top-0 bottom-0 w-[3px]" :class="priorityBarClass(task.priority)"></div>
+
+                  <div class="flex items-start space-x-3">
+                    <span
+                      class="hidden sm:flex flex-shrink-0 w-6 h-6 rounded items-center justify-center"
+                      :class="issueTypeIconClass(task.issueType)"
+                    >
+                      <svg v-if="task.issueType === 'bug'" class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd" d="M6.56 1.14a.75.75 0 01.177 1.045 3.989 3.989 0 00-.464.86c.185.17.382.329.59.473A3.993 3.993 0 0110 2.5c1.195 0 2.273.523 3.008 1.352.13-.07.258-.147.382-.229a3.99 3.99 0 00-.821-1.297.75.75 0 111.133-.984 5.49 5.49 0 011.046 1.724.75.75 0 01-.318.96 5.47 5.47 0 01-1.013.504A4 4 0 0114 6.5h.25a.75.75 0 010 1.5H14v.5c0 .058-.002.115-.005.172l1.83 1.83a.75.75 0 01-1.06 1.06l-1.453-1.452A4.002 4.002 0 0110 13.5a4.002 4.002 0 01-3.312-2.89L5.235 12.06a.75.75 0 01-1.06-1.06l1.83-1.83A4.025 4.025 0 016 8.5V8h-.25a.75.75 0 010-1.5H6A4 4 0 016.583 4.76a5.467 5.467 0 01-1.013-.504.75.75 0 01-.318-.96A5.488 5.488 0 016.38.572a.75.75 0 011.045-.177z" clip-rule="evenodd"/>
+                      </svg>
+                      <svg v-else-if="task.issueType === 'story'" class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20">
+                        <path d="M5 3a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2V5a2 2 0 00-2-2H5zm0 2h10v7h-2l-1 2H8l-1-2H5V5z"/>
+                      </svg>
+                      <svg v-else-if="task.issueType === 'epic'" class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd" d="M11.3 1.046A1 1 0 0112 2v5h4a1 1 0 01.82 1.573l-7 10A1 1 0 018 18v-5H4a1 1 0 01-.82-1.573l7-10a1 1 0 011.12-.38z" clip-rule="evenodd"/>
+                      </svg>
+                      <svg v-else class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd" d="M6 2a2 2 0 00-2 2v12a2 2 0 002 2h8a2 2 0 002-2V7.414A2 2 0 0015.414 6L12 2.586A2 2 0 0010.586 2H6zm5 6a1 1 0 10-2 0v2H7a1 1 0 100 2h2v2a1 1 0 102 0v-2h2a1 1 0 100-2h-2V8z" clip-rule="evenodd"/>
+                      </svg>
+                    </span>
+                    <div class="flex-1 min-w-0">
+                      <div class="flex flex-wrap items-center gap-1.5">
+                        <span class="text-[10px] sm:text-xs font-mono text-gray-400 font-medium">{{ task.customId || task.id }}</span>
+                        <span
+                          class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] sm:text-xs font-medium"
+                          :class="statusBadgeClass(task.status)"
                         >
-                          <span class="font-mono text-gray-400">{{ sub.customId }}</span>
-                          <span class="truncate flex-1">{{ sub.title }}</span>
-                          <span class="px-1.5 py-0.5 rounded-full shrink-0" :class="statusBadgeClass(sub.status)">{{ sub.status }}</span>
-                        </div>
-                      </template>
-                    </div>
-                    <div v-if="task.assignee" class="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-[10px] sm:text-xs text-gray-500">
-                      <span class="flex items-center space-x-1.5">
-                        <span class="w-5 h-5 rounded-full bg-gradient-to-br from-blue-400 to-indigo-600 flex items-center justify-center text-white text-[9px] font-bold flex-shrink-0">
-                          {{ initials(task.assignee) }}
+                          {{ task.status }}
                         </span>
-                        <span class="truncate max-w-[140px]">{{ task.assignee }}</span>
-                      </span>
+                        <span
+                          v-if="task.priority"
+                          class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] sm:text-xs font-medium"
+                          :class="priorityBadgeClass(task.priority)"
+                        >
+                          {{ task.priority }}
+                        </span>
+                        <span
+                          v-if="task.storyPoints"
+                          class="inline-flex items-center text-[10px] sm:text-xs font-bold bg-blue-50 text-blue-700 rounded-md px-1.5 py-0.5 border border-blue-100"
+                        >
+                          {{ task.storyPoints }}<span class="text-blue-400 ml-0.5 font-medium">SP</span>
+                        </span>
+                      </div>
+                      <p class="mt-1.5 text-sm font-medium text-gray-900 line-clamp-2 group-hover:text-blue-900 transition-colors">{{ task.title }}</p>
+                      <!-- Alt görevler (parent kartın içinde iç içe) -->
+                      <div v-if="taskTree.childrenOf(task.id).length" class="mt-2 border-l-2 border-gray-100 pl-3 space-y-1">
+                        <button
+                          class="text-[10px] text-gray-400 hover:text-gray-600 font-medium"
+                          @click.stop="toggleExpand(task.id)"
+                        >
+                          {{ isExpanded(task.id) ? '▾' : '▸' }} {{ taskTree.childrenOf(task.id).length }} alt görev
+                        </button>
+                        <template v-if="isExpanded(task.id)">
+                          <div
+                            v-for="sub in taskTree.childrenOf(task.id)"
+                            :key="sub.id"
+                            class="flex items-center gap-2 text-xs text-gray-600 cursor-pointer hover:text-blue-600"
+                            @click.stop="openTaskDetail(sub)"
+                          >
+                            <span class="font-mono text-gray-400">{{ sub.customId }}</span>
+                            <span class="truncate flex-1">{{ sub.title }}</span>
+                            <span class="px-1.5 py-0.5 rounded-full shrink-0" :class="statusBadgeClass(sub.status)">{{ sub.status }}</span>
+                          </div>
+                        </template>
+                      </div>
+                      <div v-if="task.assignee" class="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-[10px] sm:text-xs text-gray-500">
+                        <span class="flex items-center space-x-1.5">
+                          <span class="w-5 h-5 rounded-full bg-gradient-to-br from-blue-400 to-indigo-600 flex items-center justify-center text-white text-[9px] font-bold flex-shrink-0">
+                            {{ initials(task.assignee) }}
+                          </span>
+                          <span class="truncate max-w-[140px]">{{ task.assignee }}</span>
+                        </span>
+                      </div>
+                      <!-- Mobilde sprint seçimi -->
+                      <div class="mt-3 sm:hidden">
+                        <label class="block text-[10px] uppercase tracking-wide text-gray-400 mb-1">{{ section.type === 'backlog' ? 'Sprint' : 'Move To' }}</label>
+                        <select
+                          class="w-full bg-white border border-gray-300 rounded-md px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-blue-500"
+                          :value="task.sprintId || ''"
+                          @change="e => handleMobileSprintChange(task, e.target.value)"
+                          @click.stop
+                        >
+                          <option value="">Backlog</option>
+                          <option v-for="s in activeSprints" :key="s.id" :value="s.id">{{ s.name }}</option>
+                        </select>
+                      </div>
                     </div>
-                    <!-- Mobilde sprint seçimi -->
-                    <div class="mt-3 sm:hidden">
-                      <label class="block text-[10px] uppercase tracking-wide text-gray-400 mb-1">{{ section.type === 'backlog' ? 'Sprint' : 'Move To' }}</label>
-                      <select
-                        class="w-full bg-white border border-gray-300 rounded-md px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-blue-500"
-                        :value="task.sprintId || ''"
-                        @change="e => handleMobileSprintChange(task, e.target.value)"
-                        @click.stop
-                      >
-                        <option value="">Backlog</option>
-                        <option v-for="s in activeSprints" :key="s.id" :value="s.id">{{ s.name }}</option>
-                      </select>
+                    <div class="opacity-0 group-hover:opacity-100 transition-opacity hidden sm:block flex-shrink-0">
+                      <svg class="w-4 h-4 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z"/>
+                      </svg>
                     </div>
-                  </div>
-                  <div class="opacity-0 group-hover:opacity-100 transition-opacity hidden sm:block flex-shrink-0">
-                    <svg class="w-4 h-4 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z"/>
-                    </svg>
                   </div>
                 </div>
               </div>
@@ -392,6 +455,18 @@
         </div>
       </template>
     </div>
+
+    <!-- Sprint kapatma — yarım kalan işlerin akıbeti burada seçilir -->
+    <CompleteSprintModal
+      v-if="completingSprint"
+      :team-id="teamId"
+      :sprint="completingSprint"
+      :tasks="allSprintTasks(completingSprint.id)"
+      :sprints="sprints"
+      :project-scoped="!!projectId"
+      @close="completingSprint = null"
+      @completed="handleSprintCompleted"
+    />
   </div>
 </template>
 
@@ -407,12 +482,29 @@ import {
   deleteTask as deleteTaskService
 } from "../../api/WorkApi.js";
 import AddTaskForm from "./AddTaskForm.vue";
+import CompleteSprintModal from "./CompleteSprintModal.vue";
 import { buildTaskTree } from "../../utils/taskHierarchy.js";
+import { GROUP_OPTIONS, groupTasks, isGroupingActive } from "../../utils/taskGrouping.js";
+import { createToast } from "mosha-vue-toastify";
+
+/** Gruplama tercihi ekran alışkanlığıdır — sunucuda değil, tarayıcıda saklanır. */
+const GROUP_BY_STORAGE_KEY = "backlog_group_by_v1";
+
+/** Okuma best-effort: private mode'da tercih oturum içinde yaşar. */
+function readStoredGroupBy() {
+  try {
+    const stored = localStorage.getItem(GROUP_BY_STORAGE_KEY);
+    return GROUP_OPTIONS.some(o => o.value === stored) ? stored : "none";
+  } catch {
+    return "none";
+  }
+}
 
 export default {
   name: "Backlog",
   components: {
-    AddTaskForm
+    AddTaskForm,
+    CompleteSprintModal
   },
   props: {
     teamId: String,
@@ -453,6 +545,12 @@ export default {
       // Aç/kapa durumu görev id'siyle takip edilir (varsayılan açık) —
       // 10s'lik polling'de sıfırlanmaması için fetchData'da dokunulmaz
       expandedIds: {},
+      // Kapatılmak üzere seçilen sprint (modal açıksa dolu)
+      completingSprint: null,
+      // Görünüm seviyesinde gruplama: 'none' | label | assignee | priority | ...
+      groupBy: readStoredGroupBy(),
+      // Kapatılmış grup başlıkları — anahtar "bölüm::grup" (bölümler arası çakışmasın)
+      collapsedGroups: {},
     };
   },
   computed: {
@@ -470,20 +568,50 @@ export default {
     // şablonu template içinde tek yerde tanımlanır, iki bölüm arasında
     // (ör. status rozeti renkleri) tutarsızlık oluşmaz.
     sections() {
+      const build = (key, type, sprint, tasks) => ({
+        key,
+        type,
+        sprint,
+        tasks,
+        // Gruplama kapalıyken tek bir isimsiz grup döner; template tek bir
+        // döngüyle çalışır, iki ayrı liste şablonu tutmaya gerek kalmaz.
+        groups: this.isGrouped
+          ? groupTasks(tasks, this.groupBy)
+          : [{ key: '__all__', label: null, tasks, storyPoints: 0 }],
+      });
+
       return [
-        { key: 'backlog', type: 'backlog', sprint: null, tasks: this.backlogTasks },
-        ...this.activeSprints.map(sprint => ({
-          key: sprint.id,
-          type: 'sprint',
-          sprint,
-          tasks: this.sprintTasks(sprint.id),
-        })),
+        build('backlog', 'backlog', null, this.backlogTasks),
+        ...this.activeSprints.map(sprint =>
+          build(sprint.id, 'sprint', sprint, this.sprintTasks(sprint.id))
+        ),
       ];
+    },
+
+    groupOptions() {
+      return GROUP_OPTIONS;
+    },
+
+    isGrouped() {
+      return isGroupingActive(this.groupBy);
+    },
+
+    hasCollapsedGroups() {
+      return Object.values(this.collapsedGroups).some(Boolean);
     },
   },
   methods: {
     sprintTasks(sprintId) {
       return this.taskTree.topLevel.filter(t => t.sprintId === sprintId);
+    },
+
+    /**
+     * Sprintin tüm görevleri — üst listede gizlenen alt görevler dahil.
+     * Sprint kapatma özeti "3 iş kaldı" derken alt görevleri saymazsa
+     * sunucunun taşıdığı görev sayısıyla tutmaz.
+     */
+    allSprintTasks(sprintId) {
+      return this.tasks.filter(t => t.sprintId === sprintId);
     },
 
     isExpanded(id) {
@@ -492,6 +620,37 @@ export default {
 
     toggleExpand(id) {
       this.expandedIds[id] = !this.isExpanded(id);
+    },
+
+    // ─── Gruplama ─────────────────────────────────────────────────────────
+    // Grup anahtarları bölüme göre ayrılır: backlog'da kapattığınız "Etiketsiz"
+    // grubu, sprint bölümündeki aynı isimli grubu da kapatmasın.
+
+    groupStateKey(sectionKey, groupKey) {
+      return `${sectionKey}::${groupKey}`;
+    },
+
+    isGroupCollapsed(sectionKey, groupKey) {
+      return !!this.collapsedGroups[this.groupStateKey(sectionKey, groupKey)];
+    },
+
+    toggleGroup(sectionKey, groupKey) {
+      const key = this.groupStateKey(sectionKey, groupKey);
+      this.collapsedGroups[key] = !this.collapsedGroups[key];
+    },
+
+    toggleAllGroups() {
+      if (this.hasCollapsedGroups) {
+        this.collapsedGroups = {};
+        return;
+      }
+      const next = {};
+      for (const section of this.sections) {
+        for (const grp of section.groups) {
+          if (grp.label) next[this.groupStateKey(section.key, grp.key)] = true;
+        }
+      }
+      this.collapsedGroups = next;
     },
 
     async saveSprint() {
@@ -575,9 +734,31 @@ export default {
       await this.fetchData({ silent: true });
     },
 
-    async finishSprint(sprintId) {
-      await updateSprintStatus(this.teamId, sprintId, "done");
+    /**
+     * Sprint doğrudan kapatılmaz: yarım kalan işler kapanan sprintin içinde
+     * kalıp backlog ekranından kaybolduğu için ne olacakları modalde sorulur.
+     */
+    finishSprint(sprint) {
+      this.completingSprint = sprint;
+    },
+
+    async handleSprintCompleted(result) {
       await this.fetchData({ silent: true });
+      createToast(this.completionSummary(result), {
+        type: 'success', position: 'top-center', timeout: 4000
+      });
+    },
+
+    completionSummary(result) {
+      const moved = result.incompleteCount;
+      if (!moved) return 'Sprint kapatıldı.';
+      const where = {
+        BACKLOG: `${moved} iş backlog'a alındı`,
+        MOVE: `${moved} iş "${result.targetSprintName}" sprintine taşındı`,
+        COMPLETE: `${moved} iş tamamlandı olarak işaretlendi`,
+        KEEP: `${moved} iş sprintte bırakıldı`,
+      }[result.incompleteAction] || `${moved} iş güncellendi`;
+      return `Sprint kapatıldı — ${where}.`;
     },
 
     showSprintDetails(sprint) {
@@ -729,6 +910,16 @@ export default {
     // Proje değişince backlog o projenin görevlerine daralır.
     projectId() {
       this.fetchData();
+    },
+    // Gruplama değişince eski kapalı grup anahtarları anlamsız kalır; yazma
+    // best-effort (kota/private mode'da tercih yalnızca oturum içinde yaşar).
+    groupBy(value) {
+      this.collapsedGroups = {};
+      try {
+        localStorage.setItem(GROUP_BY_STORAGE_KEY, value);
+      } catch {
+        // yoksayılır
+      }
     }
   }
 };
