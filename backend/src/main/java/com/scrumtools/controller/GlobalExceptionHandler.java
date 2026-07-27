@@ -6,6 +6,8 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.http.converter.HttpMessageNotWritableException;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -21,7 +23,17 @@ import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.stream.Collectors;
 
-@RestControllerAdvice
+/**
+ * Yalnızca uygulamanın kendi controller'larını kapsar.
+ * <p>
+ * basePackages ŞART: kapsamsız bırakılırsa Spring Boot'un {@code BasicErrorController}'ı
+ * da sarılır. SockJS transport istekleri ({@code /ws/.../htmlfile}, {@code xhr_streaming})
+ * yanıtı {@code application/javascript} olarak açar; bağlantı koptuğunda Tomcat hata
+ * sayfasına dispatch eder ve {@code BasicErrorController} Map gövdesini bu preset
+ * content-type ile yazamaz. O hata buradaki RuntimeException handler'ına düşünce
+ * handler da aynı sebeple yazamıyor ve "Failure in @ExceptionHandler" zinciri oluşuyordu.
+ */
+@RestControllerAdvice(basePackages = "com.scrumtools.controller")
 @Slf4j
 @RequiredArgsConstructor
 public class GlobalExceptionHandler {
@@ -88,6 +100,26 @@ public class GlobalExceptionHandler {
                 .collect(Collectors.joining(", "));
         return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                 .body(Map.of("error", errors));
+    }
+
+    // ─── Gövde Dönüştürme ─────────────────────────────────────────────────────
+
+    /** İstemcinin gönderdiği gövde okunamadı (bozuk JSON, tip uyumsuzluğu). */
+    @ExceptionHandler(HttpMessageNotReadableException.class)
+    public ResponseEntity<Map<String, String>> handleNotReadable(HttpMessageNotReadableException e) {
+        log.warn("İstek gövdesi okunamadı: {}", e.getMessage());
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(Map.of("error", "İstek gövdesi geçersiz."));
+    }
+
+    /**
+     * Yanıt serileştirilemedi — bu istemcinin değil bizim hatamız. Ayrıca yakalanmazsa
+     * RuntimeException handler'ına düşüp 400 dönüyor ve iç hata metni istemciye sızıyordu.
+     */
+    @ExceptionHandler(HttpMessageNotWritableException.class)
+    public ResponseEntity<Map<String, String>> handleNotWritable(HttpMessageNotWritableException e,
+                                                                 HttpServletRequest request) {
+        return tracked500(e, request);
     }
 
     // ─── Paket Limiti (402 → frontend upgrade akışını tetikler) ───────────────

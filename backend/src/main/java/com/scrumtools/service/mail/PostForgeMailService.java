@@ -38,8 +38,11 @@ public class PostForgeMailService implements MailService {
             DateTimeFormatter.ofPattern("d MMMM yyyy", Locale.forLanguageTag("tr"));
 
     // PostForge'daki şablon kodları (postforge/templates.json ile birebir aynı olmalı)
-    /** Durum takibi yapılan tek şablon — EmailLogService de bu koda bakar. */
-    static final String T_MEMBER_INVITE = "scrumtools-member-invite";
+    /**
+     * Durum takibi yapılan tek şablon. EmailLogService (aynı paket) ve
+     * MemberOnboardingService (farklı paket) de bu koda baktığı için public.
+     */
+    public static final String T_MEMBER_INVITE = "scrumtools-member-invite";
     private static final String T_PASSWORD_RESET = "scrumtools-password-reset";
     private static final String T_TRIAL_EXPIRING = "scrumtools-trial-expiring";
     private static final String T_TRIAL_EXPIRED = "scrumtools-trial-expired";
