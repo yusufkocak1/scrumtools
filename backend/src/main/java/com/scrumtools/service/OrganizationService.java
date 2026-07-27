@@ -11,9 +11,11 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 
 @Service
@@ -28,6 +30,20 @@ public class OrganizationService {
     private final PlanService planService;
     private final EntitlementService entitlementService;
     private final TeamService teamService;
+    private final StorageService storageService;
+
+    private static final long MAX_LOGO_SIZE = 2 * 1024 * 1024; // 2MB
+
+    /**
+     * SVG kasıtlı olarak dışarıda: dosyalar uygulamayla aynı origin üzerinden
+     * servis edildiğinden, script içeren bir SVG doğrudan açıldığında oturum
+     * verisine erişebilirdi.
+     */
+    private static final Set<String> ALLOWED_LOGO_TYPES =
+            Set.of("image/png", "image/jpeg", "image/webp", "image/gif");
+
+    /** Logo presigned URL ömrü — SPA oturumu boyunca kırılmaması için uzun tutulur (MinIO üst sınırı 7 gün). */
+    private static final int LOGO_URL_EXPIRY_MINUTES = 7 * 24 * 60;
 
     @Transactional
     public OrganizationResponse createOrganization(String userEmail, OrganizationRequest request) {
@@ -106,11 +122,83 @@ public class OrganizationService {
 
         org.setName(request.name());
         org.setDescription(request.description());
-        if (request.logoUrl() != null) org.setLogoUrl(request.logoUrl());
+        // Yüklenmiş logo varsa dış adres yazılmaz — yanıttaki presigned URL'in
+        // geri gönderilmesi logoyu bozmamalı.
+        if (request.logoUrl() != null && org.getLogoObjectKey() == null) {
+            org.setLogoUrl(request.logoUrl());
+        }
         org = organizationRepository.save(org);
 
         int count = organizationMemberRepository.findByOrganizationId(orgId).size();
         return toResponse(org, count, roleOf(orgId, userEmail));
+    }
+
+    /**
+     * Organizasyon logosunu dosya olarak yükler (MinIO). Önceki logo dosyası silinir —
+     * her org için tek bir logo tutulur, kullanılmayan nesneler bucket'ta birikmez.
+     */
+    @Transactional
+    public OrganizationResponse uploadLogo(UUID orgId, String userEmail, MultipartFile file) {
+        Organization org = getOrgById(orgId);
+        checkAdminAccess(orgId, userEmail);
+        validateLogo(file);
+
+        String previousKey = org.getLogoObjectKey();
+        String objectKey = storageService.upload(String.format("organizations/%s/logo", orgId), file);
+
+        org.setLogoObjectKey(objectKey);
+        // Dış adres artık geçersiz: kaynak tek olmalı, yoksa hangisinin gösterildiği belirsizleşir.
+        org.setLogoUrl(null);
+        org = organizationRepository.save(org);
+
+        deleteQuietly(previousKey);
+        log.info("Org '{}' logosu güncellendi: {}", org.getSlug(), objectKey);
+
+        int count = organizationMemberRepository.findByOrganizationId(orgId).size();
+        return toResponse(org, count, roleOf(orgId, userEmail));
+    }
+
+    /** Logoyu kaldırır — yüklenmiş dosya da dış adres de temizlenir, baş harf rozetine dönülür. */
+    @Transactional
+    public OrganizationResponse deleteLogo(UUID orgId, String userEmail) {
+        Organization org = getOrgById(orgId);
+        checkAdminAccess(orgId, userEmail);
+
+        String previousKey = org.getLogoObjectKey();
+        org.setLogoObjectKey(null);
+        org.setLogoUrl(null);
+        org = organizationRepository.save(org);
+
+        deleteQuietly(previousKey);
+
+        int count = organizationMemberRepository.findByOrganizationId(orgId).size();
+        return toResponse(org, count, roleOf(orgId, userEmail));
+    }
+
+    private void validateLogo(MultipartFile file) {
+        if (file == null || file.isEmpty()) {
+            throw new IllegalArgumentException("Logo dosyası boş olamaz.");
+        }
+        if (file.getSize() > MAX_LOGO_SIZE) {
+            throw new IllegalArgumentException("Logo boyutu 2MB'ı aşamaz.");
+        }
+        String contentType = file.getContentType() == null ? "" : file.getContentType().toLowerCase();
+        if (!ALLOWED_LOGO_TYPES.contains(contentType)) {
+            throw new IllegalArgumentException("Logo yalnızca PNG, JPEG, WEBP veya GIF olabilir.");
+        }
+    }
+
+    /**
+     * Eski dosyanın silinememesi kullanıcı akışını bozmamalı — yeni logo zaten
+     * kaydedildi, artık kullanılmayan nesne yalnızca depolamada yer tutar.
+     */
+    private void deleteQuietly(String objectKey) {
+        if (objectKey == null || objectKey.isBlank()) return;
+        try {
+            storageService.delete(objectKey);
+        } catch (Exception e) {
+            log.warn("Eski logo silinemedi ({}): {}", objectKey, e.getMessage());
+        }
     }
 
     /** Org üyesinin görebileceği efektif paket hakları (plan kartları/limit göstergeleri için). */
@@ -221,7 +309,7 @@ public class OrganizationService {
                 org.getName(),
                 org.getSlug(),
                 org.getDescription(),
-                org.getLogoUrl(),
+                resolveLogoUrl(org),
                 org.getOwner().getId(),
                 org.getOwner().getName(),
                 org.getPlan(),
@@ -230,6 +318,23 @@ public class OrganizationService {
                 org.getCreatedAt(),
                 myRole
         );
+    }
+
+    /**
+     * Görüntülenecek logo adresi: yüklenmiş dosya varsa presigned URL, yoksa
+     * kayıtlı dış adres. Depolama erişilemezse logo boş döner — organizasyon
+     * listesi kritik yoldur, logo yüzünden başarısız olmamalı.
+     */
+    private String resolveLogoUrl(Organization org) {
+        if (org.getLogoObjectKey() == null || org.getLogoObjectKey().isBlank()) {
+            return org.getLogoUrl();
+        }
+        try {
+            return storageService.getPresignedUrl(org.getLogoObjectKey(), LOGO_URL_EXPIRY_MINUTES);
+        } catch (Exception e) {
+            log.warn("Org '{}' logo URL'i üretilemedi: {}", org.getSlug(), e.getMessage());
+            return null;
+        }
     }
 
     /** İsteği yapan kullanıcının org rolü — arayüzün menüleri gizleyebilmesi için. */

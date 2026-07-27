@@ -6,8 +6,8 @@
     ]"
     :style="colorStyle"
   >
-    <span v-if="status.icon" class="text-xs">{{ status.icon }}</span>
-    {{ status.name }}
+    <span v-if="statusObj.icon" class="text-xs">{{ statusObj.icon }}</span>
+    {{ statusObj.name }}
   </span>
 </template>
 

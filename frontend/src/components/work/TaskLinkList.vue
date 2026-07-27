@@ -1,142 +1,150 @@
 <template>
-  <div class="bg-white rounded-xl border border-gray-200/80 shadow-sm overflow-hidden transition-shadow duration-200 hover:shadow-md">
-    <div class="h-1 w-full bg-gradient-to-r from-indigo-400 to-purple-500"></div>
-    <div class="p-5">
-    <div class="flex items-center justify-between mb-3">
-      <h3 class="text-base font-semibold text-gray-800 flex items-center gap-2">
-        <svg class="w-5 h-5 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-            d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
-        </svg>
-        İlişkili İşler
-        <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-indigo-100 text-indigo-700">{{ links.length }}</span>
-      </h3>
-      <button
-        @click="showAddForm = !showAddForm"
-        class="inline-flex items-center px-2.5 py-1.5 rounded-lg text-xs font-medium text-indigo-600 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 transition-all"
-      >
-        <svg class="w-3.5 h-3.5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
-        </svg>
-        İlişki Ekle
-      </button>
+  <!-- Kart kabuğu yok: bu liste TaskRelationsPanel'in "İlişkili İşler" sekmesinde yaşar -->
+  <div>
+    <!-- İlişki türüne göre gruplanır: "blocks" ve "relates to" satırları karışınca
+         hangi işin neyi engellediği okunmuyordu -->
+    <div v-if="links.length" class="space-y-3">
+      <div v-for="group in groupedLinks" :key="group.label">
+        <p class="text-[11px] font-semibold text-gray-400 uppercase tracking-wide mb-1">{{ group.label }}</p>
+        <ul class="-mx-2">
+          <li
+            v-for="link in group.items"
+            :key="link.id"
+            class="flex items-center gap-2.5 px-2 py-1.5 rounded-lg hover:bg-gray-50 group"
+          >
+            <button
+              type="button"
+              class="flex items-center gap-2 flex-1 min-w-0 text-left"
+              @click="$emit('open', link.customId)"
+            >
+              <span class="font-mono text-[11px] text-gray-400 flex-shrink-0">{{ link.customId }}</span>
+              <span class="text-sm text-gray-700 truncate group-hover:text-blue-600 transition-colors">{{ link.title }}</span>
+            </button>
+            <StatusBadge v-if="link.status" :status="link.status" class="flex-shrink-0" />
+            <button
+              type="button"
+              class="opacity-0 group-hover:opacity-100 text-gray-300 hover:text-red-500 transition-all"
+              title="İlişkiyi kaldır"
+              @click="removeLink(link.id)"
+            >
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+              </svg>
+            </button>
+          </li>
+        </ul>
+      </div>
     </div>
 
-    <ul class="space-y-2">
-      <li
-        v-for="link in links"
-        :key="link.id"
-        class="flex items-center gap-2 group"
-      >
-        <span class="text-xs text-gray-400 italic min-w-[110px]">
-          {{ isSource(link) ? link.linkTypeLabel : getInverseLabel(link.linkType) }}
-        </span>
-        <span
-          class="text-sm text-blue-600 hover:underline cursor-pointer flex-1"
-          @click="$emit('open', isSource(link) ? link.targetTaskId : link.sourceTaskId)"
-        >
-          <span class="font-mono text-xs text-gray-500 mr-1">
-            {{ isSource(link) ? link.targetTaskCustomId : link.sourceTaskCustomId }}
-          </span>
-          {{ isSource(link) ? link.targetTaskTitle : link.sourceTaskTitle }}
-        </span>
-        <button
-          @click="removeLink(link.id)"
-          class="opacity-0 group-hover:opacity-100 text-gray-400 hover:text-red-500 transition-all"
-          title="İlişkiyi kaldır"
-        >
-          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
-          </svg>
-        </button>
-      </li>
-    </ul>
-
-    <p v-if="links.length === 0" class="text-sm text-gray-400 text-center py-2">
-      Henüz ilişkilendirilmiş iş yok
+    <p v-else-if="!adding" class="text-sm text-gray-400 py-3">
+      Bu görev başka bir işle ilişkilendirilmemiş.
     </p>
 
-    <!-- Add form -->
-    <div v-if="showAddForm" class="mt-3 space-y-2 border-t border-gray-100 pt-3">
-      <div class="flex gap-2">
+    <!-- Ekleme formu -->
+    <div v-if="adding" class="mt-3 space-y-2" :class="{ 'border-t border-gray-100 pt-3': links.length }">
+      <div class="flex flex-col sm:flex-row gap-2">
         <select
           v-model="newLinkType"
-          class="text-sm border border-gray-300 rounded-lg px-2 py-1.5 focus:outline-none focus:border-blue-500"
+          class="text-sm border border-gray-300 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-400"
         >
-          <option value="BLOCKS">blocks</option>
-          <option value="IS_BLOCKED_BY">is blocked by</option>
-          <option value="RELATES_TO">relates to</option>
-          <option value="DUPLICATES">duplicates</option>
-          <option value="IS_DUPLICATED_BY">is duplicated by</option>
-          <option value="CLONES">clones</option>
-          <option value="IS_CLONED_FROM">is cloned from</option>
-          <option value="CAUSES">causes</option>
-          <option value="IS_CAUSED_BY">is caused by</option>
+          <option v-for="(label, type) in forwardMap" :key="type" :value="type">{{ label }}</option>
         </select>
         <TaskPickerInput
           v-model="targetTaskId"
           :team-id="teamId"
           :exclude-task-id="taskId"
-          placeholder="Hedef görevi ara..."
+          placeholder="Hedef görevi ara…"
           class="flex-1"
         />
       </div>
       <div class="flex gap-2">
         <button
-          @click="addLink"
+          type="button"
           :disabled="!targetTaskId || loading"
-          class="px-3 py-1.5 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 disabled:opacity-50"
-        >
-          Ekle
-        </button>
-        <button
-          @click="showAddForm = false"
-          class="px-3 py-1.5 text-gray-500 hover:text-gray-700 text-sm"
-        >
-          İptal
-        </button>
+          class="px-3 py-1.5 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 disabled:opacity-40 transition-colors"
+          @click="addLink"
+        >Ekle</button>
+        <button type="button" class="px-2 py-1.5 text-gray-500 hover:text-gray-700 text-sm" @click="close">İptal</button>
       </div>
-    </div>
     </div>
   </div>
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { ref, computed, watch } from 'vue'
 import TaskPickerInput from '@/components/work/TaskPickerInput.vue'
+import StatusBadge from '@/components/workflow/StatusBadge.vue'
 import { createLink, deleteLink } from '@/api/WorkApi.js'
 
 const props = defineProps({
-  teamId:  { type: String, required: true },
-  taskId:  { type: String, required: true },
-  links:   { type: Array, default: () => [] },
+  teamId: { type: String, required: true },
+  taskId: { type: String, required: true },
+  links: { type: Array, default: () => [] },
+  /** Ekleme formu panel başlığındaki butondan açılır */
+  adding: { type: Boolean, default: false },
 })
 
-const emit = defineEmits(['update', 'open'])
+const emit = defineEmits(['update', 'open', 'update:adding'])
 
-const showAddForm = ref(false)
 const newLinkType = ref('RELATES_TO')
 const targetTaskId = ref(null)
 const loading = ref(false)
+
+watch(() => props.adding, open => { if (!open) targetTaskId.value = null })
+
+/**
+ * İlişki etiketleri iki yönlü tutulur: sunucu yalnız İngilizce ("is blocked by")
+ * etiket döndürüyor, arayüz ise ilişkinin hangi ucundan bakıldığına göre Türkçe
+ * karşılığını gösterir.
+ */
+const forwardMap = {
+  BLOCKS: 'Engelliyor',
+  IS_BLOCKED_BY: 'Engelleniyor',
+  RELATES_TO: 'İlgili',
+  DUPLICATES: 'Kopyası',
+  IS_DUPLICATED_BY: 'Kopyalandığı',
+  CAUSES: 'Sebep oluyor',
+  IS_CAUSED_BY: 'Sebebi',
+  CLONES: 'Klonu',
+  IS_CLONED_FROM: 'Klonlandığı',
+}
+
+const inverseMap = {
+  BLOCKS: 'Engelleniyor',
+  IS_BLOCKED_BY: 'Engelliyor',
+  RELATES_TO: 'İlgili',
+  DUPLICATES: 'Kopyalandığı',
+  IS_DUPLICATED_BY: 'Kopyası',
+  CAUSES: 'Sebebi',
+  IS_CAUSED_BY: 'Sebep oluyor',
+  CLONES: 'Klonlandığı',
+  IS_CLONED_FROM: 'Klonu',
+}
 
 function isSource(link) {
   return link.sourceTaskId === props.taskId
 }
 
-const inverseMap = {
-  BLOCKS: 'is blocked by',
-  IS_BLOCKED_BY: 'blocks',
-  RELATES_TO: 'relates to',
-  DUPLICATES: 'is duplicated by',
-  IS_DUPLICATED_BY: 'duplicates',
-  CAUSES: 'is caused by',
-  IS_CAUSED_BY: 'causes',
-  CLONES: 'is cloned from',
-  IS_CLONED_FROM: 'clones',
-}
+/** İlişkinin bu görevden bakınca gösterdiği karşı görev + okunur etiketi. */
+const groupedLinks = computed(() => {
+  const groups = new Map()
+  for (const link of props.links) {
+    const source = isSource(link)
+    const label = (source ? forwardMap[link.linkType] : inverseMap[link.linkType]) || link.linkTypeLabel || link.linkType
+    const item = {
+      id: link.id,
+      customId: source ? link.targetTaskCustomId : link.sourceTaskCustomId,
+      title: source ? link.targetTaskTitle : link.sourceTaskTitle,
+      status: source ? link.targetTaskStatus : link.sourceTaskStatus,
+    }
+    if (!groups.has(label)) groups.set(label, [])
+    groups.get(label).push(item)
+  }
+  return [...groups.entries()].map(([label, items]) => ({ label, items }))
+})
 
-function getInverseLabel(linkType) {
-  return inverseMap[linkType] || linkType
+function close() {
+  emit('update:adding', false)
 }
 
 async function addLink() {
@@ -145,7 +153,7 @@ async function addLink() {
   try {
     await createLink(props.teamId, props.taskId, targetTaskId.value, newLinkType.value)
     targetTaskId.value = null
-    showAddForm.value = false
+    close()
     emit('update')
   } catch (e) {
     // Hata interceptor tarafından otomatik gösterilir
@@ -164,4 +172,3 @@ async function removeLink(linkId) {
   }
 }
 </script>
-

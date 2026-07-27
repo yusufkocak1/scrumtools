@@ -30,8 +30,19 @@ public class Organization {
     @Column(columnDefinition = "TEXT")
     private String description;
 
+    /**
+     * Dışarıdan verilen logo adresi (eski davranış). Dosya yüklendiğinde
+     * {@link #logoObjectKey} önceliklidir — bu alan geriye dönük uyumluluk içindir.
+     */
     @Column
     private String logoUrl;
+
+    /**
+     * Yüklenen logonun MinIO object key'i. Presigned URL süreli olduğu için
+     * kalıcı olarak saklanmaz; her yanıtta yeniden üretilir.
+     */
+    @Column
+    private String logoObjectKey;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "owner_id", nullable = false)

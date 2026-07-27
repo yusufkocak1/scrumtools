@@ -1,36 +1,32 @@
 <template>
-  <!-- Projede enabled TASK_DEPLOY eşlemesi yoksa bölüm hiç görünmez -->
-  <div
-    v-if="visible"
-    class="bg-white rounded-xl border border-gray-200/80 shadow-sm overflow-hidden"
-  >
-    <div class="h-1 w-full bg-gradient-to-r from-blue-400 to-indigo-500"></div>
-    <div class="p-5">
-      <div class="flex items-center justify-between mb-3">
-        <h3 class="text-base font-semibold text-gray-800 flex items-center gap-2">
-          <svg class="w-5 h-5 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-              d="M5 12h14M5 12a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v4a2 2 0 01-2 2M5 12a2 2 0 00-2 2v4a2 2 0 002 2h14a2 2 0 002-2v-4a2 2 0 00-2-2m-2-4h.01M17 16h.01"/>
-          </svg>
-          Deploy
-        </h3>
-        <button
-          @click="openModal"
-          :disabled="!view.canDeploy"
-          :title="deployDisabledReason"
-          class="text-xs font-medium text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed rounded-lg px-2.5 py-1 transition-colors flex items-center gap-1"
-        >
-          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
-          </svg>
-          Test ortamına deploy
-        </button>
-      </div>
+  <!-- Projede enabled TASK_DEPLOY eşlemesi yoksa panel hiç görünmez -->
+  <TaskPanel panel-key="deploy" title="Deploy" :count="view.builds.length" :available="visible">
+    <template #icon>
+      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+          d="M5 12h14M5 12a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v4a2 2 0 01-2 2M5 12a2 2 0 00-2 2v4a2 2 0 002 2h14a2 2 0 002-2v-4a2 2 0 00-2-2m-2-4h.01M17 16h.01"/>
+      </svg>
+    </template>
 
-      <CiBuildHistory :builds="view.builds" @updated="onBuildUpdated" />
-    </div>
+    <template #actions>
+      <button
+        type="button"
+        @click="openModal"
+        :disabled="!view.canDeploy"
+        :title="deployDisabledReason"
+        class="inline-flex items-center gap-1 text-[11px] font-semibold text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed rounded-md px-2 py-1 transition-colors"
+      >
+        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
+        </svg>
+        Deploy
+      </button>
+    </template>
 
-    <!-- Deploy modalı -->
+    <CiBuildHistory :builds="view.builds" @updated="onBuildUpdated" />
+
+    <!-- Deploy modalı — panel katlanmışken de açılabilmesi için body'ye taşınır -->
+    <Teleport to="body">
     <div v-if="showModal" class="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
       <div class="bg-white rounded-2xl p-6 w-full max-w-lg shadow-2xl border border-gray-200">
         <h4 class="text-lg font-semibold text-gray-900 mb-4">Test ortamına deploy</h4>
@@ -86,22 +82,23 @@
         </div>
       </div>
     </div>
-  </div>
+    </Teleport>
+  </TaskPanel>
 </template>
 
 <script setup>
 import { ref, computed, onMounted, onBeforeUnmount, watch } from 'vue'
 import { createToast } from 'mosha-vue-toastify'
+import TaskPanel from '../work/TaskPanel.vue'
 import CiBuildHistory from './CiBuildHistory.vue'
 import { getTaskDeployView, getTaskBuilds, deployTask } from '../../api/CiApi.js'
 import { getTaskScm } from '../../api/ScmApi.js'
+import { taskPanelProps, taskPanelEmits } from '../work/panels/panelProps.js'
 
-const props = defineProps({
-  taskId: { type: String, required: true },
-  teamId: { type: String, default: null },
-  taskKey: { type: String, default: '' },
-  taskTitle: { type: String, default: '' },
-})
+const props = defineProps(taskPanelProps)
+defineEmits(taskPanelEmits)
+
+const taskId = computed(() => props.task?.id)
 
 const view = ref({ featureEnabled: false, projectId: null, canDeploy: false, mappings: [], builds: [] })
 const loaded = ref(false)
@@ -143,8 +140,8 @@ const serverVarsNote = '{{projectKey}} ve {{triggeredBy}} gibi değişkenler tet
 function substitute(value) {
   return value
     .replace(/\{\{\s*branch\s*}}/g, branch.value || '{{branch}}')
-    .replace(/\{\{\s*taskKey\s*}}/g, props.taskKey || '{{taskKey}}')
-    .replace(/\{\{\s*taskTitle\s*}}/g, props.taskTitle || '{{taskTitle}}')
+    .replace(/\{\{\s*taskKey\s*}}/g, props.task?.customId || '{{taskKey}}')
+    .replace(/\{\{\s*taskTitle\s*}}/g, props.task?.title || '{{taskTitle}}')
 }
 
 function envLabel(env) {
@@ -153,7 +150,7 @@ function envLabel(env) {
 
 async function load() {
   try {
-    view.value = await getTaskDeployView(props.taskId)
+    view.value = await getTaskDeployView(taskId.value)
   } catch (e) {
     console.error('Deploy bölümü yüklenemedi:', e)
   } finally {
@@ -173,7 +170,7 @@ async function openModal() {
 async function loadBranchSuggestions() {
   if (!props.teamId) return
   try {
-    const scm = await getTaskScm(props.teamId, props.taskId)
+    const scm = await getTaskScm(props.teamId, taskId.value)
     const names = new Set()
     ;(scm.branches || []).forEach(b => b.name && names.add(b.name))
     ;(scm.repos || []).forEach(r => r.defaultBranch && names.add(r.defaultBranch))
@@ -191,7 +188,7 @@ async function trigger() {
   triggering.value = true
   error.value = ''
   try {
-    const build = await deployTask(props.taskId, {
+    const build = await deployTask(taskId.value, {
       mappingId: selectedMappingId.value,
       branch: branch.value || null,
     })
@@ -229,7 +226,7 @@ function syncPolling() {
 
 async function pollBuilds() {
   try {
-    view.value.builds = await getTaskBuilds(props.taskId)
+    view.value.builds = await getTaskBuilds(taskId.value)
   } catch (e) {
     console.error('Build tarihçesi tazelenemedi:', e)
   } finally {
@@ -237,7 +234,7 @@ async function pollBuilds() {
   }
 }
 
-watch(() => props.taskId, load)
+watch(taskId, load)
 onMounted(load)
 onBeforeUnmount(() => { if (pollTimer) clearInterval(pollTimer) })
 </script>

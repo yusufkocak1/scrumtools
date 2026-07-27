@@ -7,10 +7,12 @@ import com.scrumtools.service.OrganizationService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 import java.util.UUID;
@@ -50,6 +52,25 @@ public class OrganizationController {
             @PathVariable UUID orgId,
             @Valid @RequestBody OrganizationRequest request) {
         return ResponseEntity.ok(organizationService.updateOrganization(orgId, userDetails.getUsername(), request));
+    }
+
+    /**
+     * Organizasyon logosunu dosya olarak yükle (multipart/form-data).
+     * Yanıt güncel organizasyondur — arayüz logoyu yeniden çekmeden gösterebilir.
+     */
+    @PostMapping(value = "/{orgId}/logo", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<OrganizationResponse> uploadLogo(
+            @AuthenticationPrincipal UserDetails userDetails,
+            @PathVariable UUID orgId,
+            @RequestParam("file") MultipartFile file) {
+        return ResponseEntity.ok(organizationService.uploadLogo(orgId, userDetails.getUsername(), file));
+    }
+
+    @DeleteMapping("/{orgId}/logo")
+    public ResponseEntity<OrganizationResponse> deleteLogo(
+            @AuthenticationPrincipal UserDetails userDetails,
+            @PathVariable UUID orgId) {
+        return ResponseEntity.ok(organizationService.deleteLogo(orgId, userDetails.getUsername()));
     }
 
     @GetMapping("/{orgId}/entitlements")

@@ -13,6 +13,18 @@ export const OrganizationApi = {
   // Organizasyon güncelle
   update: (orgId, data) => api.put(`/api/organizations/${orgId}`, data),
 
+  // Logo dosyası yükle (PNG/JPEG/WEBP/GIF, max 2MB) — güncel organizasyonu döner
+  uploadLogo: (orgId, file) => {
+    const formData = new FormData()
+    formData.append('file', file)
+    return api.post(`/api/organizations/${orgId}/logo`, formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    })
+  },
+
+  // Logoyu kaldır — güncel organizasyonu döner
+  deleteLogo: (orgId) => api.delete(`/api/organizations/${orgId}/logo`),
+
   // Üyeleri listele
   getMembers: (orgId) => api.get(`/api/organizations/${orgId}/members`),
 
