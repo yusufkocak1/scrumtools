@@ -267,10 +267,14 @@ export const deleteCustomField = async (fieldId) => {
     await apiClient.delete(`/api/custom-fields/${fieldId}`)
 }
 
-// ─── Faz 4: Task Filter ───────────────────────────────────────────────────────
+// ─── Task Filter (eski uç) ────────────────────────────────────────────────────
 
 /**
- * Dinamik task filtresi (Board, ListView için)
+ * Dinamik task filtresi — eski JSON koşul formatı.
+ *
+ * @deprecated Yeni kod QueryApi.runQuery() kullanmalı. Bu uç geriye dönük uyum
+ * için duruyor; sunucuda o da aynı STQL motoruna çevriliyor.
+ *
  * @param {string} teamId
  * @param {Object} filterRequest - { filters, sortBy, sortDir, page, size }
  */

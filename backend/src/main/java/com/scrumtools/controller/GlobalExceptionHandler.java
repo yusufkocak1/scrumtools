@@ -78,6 +78,20 @@ public class GlobalExceptionHandler {
                 .body(Map.of("error", e.getMessage() != null ? e.getMessage() : "Kaynak bulunamadı."));
     }
 
+    // ─── Sorgu Dili (STQL) ────────────────────────────────────────────────────
+
+    /**
+     * Sözdizimi/alan hatası. position ve length, hatanın sorgu metnindeki yerini
+     * gösterir; editör bu aralığın altını çizer.
+     */
+    @ExceptionHandler(com.scrumtools.query.QueryParseException.class)
+    public ResponseEntity<Map<String, Object>> handleQueryParse(com.scrumtools.query.QueryParseException e) {
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of(
+                "error", e.getMessage(),
+                "position", e.getPosition(),
+                "length", e.getLength()));
+    }
+
     // ─── Geçersiz İstek / Validasyon ──────────────────────────────────────────
 
     @ExceptionHandler(IllegalArgumentException.class)

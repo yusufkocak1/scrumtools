@@ -104,4 +104,25 @@ public interface TaskRepository extends JpaRepository<Task, UUID> {
            "WHERE t.team.id = :teamId AND t.resolvedAt >= :since AND t.resolvedAt IS NOT NULL " +
            "GROUP BY CAST(t.resolvedAt AS LocalDate) ORDER BY 1")
     List<Object[]> countResolvedPerDay(@Param("teamId") UUID teamId, @Param("since") LocalDateTime since);
+
+    // ─── Sorgu dili otomatik tamamlama kaynakları ─────────────────────────────
+
+    /** Takımda fiilen kullanılmış etiketler. */
+    @Query("SELECT DISTINCT l FROM Task t JOIN t.labels l WHERE t.team.id = :teamId ORDER BY l")
+    List<String> findDistinctLabels(@Param("teamId") UUID teamId);
+
+    /**
+     * Takımda fiilen kullanılan durumlar. Workflow tanımına değil gerçek veriye bakar;
+     * eski görevlerde workflow'da olmayan durumlar kalmış olabilir.
+     */
+    @Query("SELECT DISTINCT t.status FROM Task t WHERE t.team.id = :teamId AND t.status IS NOT NULL ORDER BY t.status")
+    List<String> findDistinctStatuses(@Param("teamId") UUID teamId);
+
+    @Query("SELECT DISTINCT t.environment FROM Task t WHERE t.team.id = :teamId " +
+           "AND t.environment IS NOT NULL AND t.environment <> '' ORDER BY t.environment")
+    List<String> findDistinctEnvironments(@Param("teamId") UUID teamId);
+
+    @Query("SELECT DISTINCT t.resolution FROM Task t WHERE t.team.id = :teamId " +
+           "AND t.resolution IS NOT NULL AND t.resolution <> '' ORDER BY t.resolution")
+    List<String> findDistinctResolutions(@Param("teamId") UUID teamId);
 }

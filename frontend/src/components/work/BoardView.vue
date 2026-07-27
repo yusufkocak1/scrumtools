@@ -1,12 +1,21 @@
 <template>
   <div class="flex flex-col h-full">
-    <!-- Filtre çubuğu -->
-    <FilterBar
-      :active-filters="activeFilters"
-      @add-filter="addFilter"
-      @remove-filter="removeFilter"
-      @clear-filters="clearFilters"
-      @open-builder="showBuilder = true"
+    <!-- Sorgu çubuğu: görsel filtre + STQL -->
+    <QueryBar
+      v-model:query="query"
+      :team-id="teamId"
+      :project-id="projectId"
+      :filters="filters"
+      :builder-compatible="builderCompatible"
+      :builder-incompatible-reason="builderIncompatibleReason"
+      :active-filter-count="activeFilterCount"
+      :error="error"
+      @run="loadTasks"
+      @validate="validate"
+      @add-filter="onAddFilter"
+      @remove-filter="onRemoveFilter"
+      @clear-filters="onClearFilters"
+      @apply-filters="onApplyFilters"
     />
 
     <!-- Board içeriği -->
@@ -39,13 +48,6 @@
       </div>
     </div>
 
-    <!-- Filter builder modal -->
-    <FilterBuilder
-      :is-open="showBuilder"
-      :initial-filters="activeFilters"
-      @close="showBuilder = false"
-      @apply="applyBuilderFilters"
-    />
   </div>
 </template>
 
@@ -54,11 +56,9 @@ import { ref, computed, watch, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import BoardColumn   from './BoardColumn.vue'
 import BoardSwimlane from './BoardSwimlane.vue'
-import FilterBar     from './FilterBar.vue'
-import FilterBuilder from './FilterBuilder.vue'
-import { getTasks }  from '../../api/WorkApi.js'
-import { filterTasks } from '../../api/WorkApi.js'
-import { updateTask }  from '../../api/WorkApi.js'
+import QueryBar      from './QueryBar.vue'
+import { getTasks, updateTask } from '../../api/WorkApi.js'
+import { useTaskQuery } from '../../composables/useTaskQuery.js'
 
 const props = defineProps({
   teamId:  { type: String, required: true },
@@ -78,24 +78,27 @@ const props = defineProps({
 const router = useRouter()
 
 // ─── State ────────────────────────────────────────────────────────────────────
-const allTasks     = ref([])
-const isLoading    = ref(false)
-const showBuilder  = ref(false)
-const activeFilters = ref([])
+const allTasks  = ref([])
+const isLoading = ref(false)
+
+// Board tüm sütunları aynı anda gösterdiği için sorgu sayfası üst sınırda tutulur.
+const {
+  query, filters, builderCompatible, builderIncompatibleReason, activeFilterCount,
+  error, tasks: queryTasks, hasQuery,
+  addFilter, removeFilter, setFilters, clearAll, validate, run, restoreFromUrl,
+} = useTaskQuery({
+  teamId: computed(() => props.teamId),
+  projectId: computed(() => props.projectId),
+  pageSize: 200,
+})
 
 // ─── Görevleri Yükle ──────────────────────────────────────────────────────────
 async function loadTasks() {
   isLoading.value = true
   try {
-    if (activeFilters.value.length > 0) {
-      const result = await filterTasks(props.teamId, {
-        filters:   activeFilters.value,
-        projectId: props.projectId || undefined,
-        sortBy:  'position',
-        sortDir: 'asc',
-        size:    200
-      })
-      allTasks.value = result.content
+    if (hasQuery.value) {
+      await run()
+      allTasks.value = queryTasks.value
     } else {
       allTasks.value = await getTasks(props.teamId, false, props.projectId)
     }
@@ -106,9 +109,12 @@ async function loadTasks() {
   }
 }
 
-onMounted(loadTasks)
+onMounted(() => {
+  // Paylaşılan linkteki sorgu (?q=) varsa onunla açılır.
+  restoreFromUrl()
+  loadTasks()
+})
 watch(() => [props.teamId, props.projectId], loadTasks)
-watch(activeFilters, loadTasks, { deep: true })
 
 // ─── Sütun–görev eşlemesi ─────────────────────────────────────────────────────
 const tasksByStatus = computed(() => {
@@ -146,23 +152,25 @@ function openTask(task) {
   router.push({ name: 'TaskDetail', params: { taskId: task.customId || task.id } })
 }
 
-// ─── Filtreler ────────────────────────────────────────────────────────────────
-function addFilter(filter) {
-  const idx = activeFilters.value.findIndex(f => f.field === filter.field)
-  if (idx >= 0) activeFilters.value[idx] = { ...filter }
-  else activeFilters.value.push({ ...filter })
+// ─── Filtre olayları ──────────────────────────────────────────────────────────
+function onAddFilter(filter) {
+  addFilter(filter)
+  loadTasks()
 }
 
-function removeFilter(field) {
-  activeFilters.value = activeFilters.value.filter(f => f.field !== field)
+function onRemoveFilter(field) {
+  removeFilter(field)
+  loadTasks()
 }
 
-function clearFilters() {
-  activeFilters.value = []
+function onClearFilters() {
+  clearAll()
+  loadTasks()
 }
 
-function applyBuilderFilters(filters) {
-  activeFilters.value = filters
+function onApplyFilters(list) {
+  setFilters(list)
+  loadTasks()
 }
 </script>
 

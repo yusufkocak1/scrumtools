@@ -22,7 +22,7 @@
         >
           <!-- Alan -->
           <select v-model="cond.field" class="flex-1 text-sm rounded-md border border-gray-300 px-2 py-1.5 focus:ring-2 focus:ring-blue-500 focus:outline-none">
-            <option v-for="f in FIELDS" :key="f.value" :value="f.value">{{ f.label }}</option>
+            <option v-for="f in fieldOptions" :key="f.value" :value="f.value">{{ f.label }}</option>
           </select>
           <!-- Operatör -->
           <select v-model="cond.operator" class="w-28 text-sm rounded-md border border-gray-300 px-2 py-1.5 focus:ring-2 focus:ring-blue-500 focus:outline-none">
@@ -78,25 +78,43 @@
 </template>
 
 <script setup>
-import { ref, watch } from 'vue'
+import { ref, computed, watch } from 'vue'
 
 const props = defineProps({
   isOpen:         { type: Boolean, default: false },
-  initialFilters: { type: Array, default: () => [] }
+  initialFilters: { type: Array, default: () => [] },
+  /**
+   * Sunucudan gelen alan kataloğu: [{ name, label, type, operators }].
+   * Verilmezse aşağıdaki asgari listeye düşülür — katalog tek doğruluk kaynağıdır,
+   * yeni sorgulanabilir alanlar buraya elle eklenmeden görünür.
+   */
+  fields:         { type: Array, default: () => [] },
 })
 const emit = defineEmits(['close', 'apply'])
 
-const FIELDS = [
-  { value: 'status',    label: 'Durum' },
-  { value: 'priority',  label: 'Öncelik' },
-  { value: 'issueType', label: 'Tür' },
-  { value: 'assignee',  label: 'Atanan' },
-  { value: 'reporter',  label: 'Açan' },
-  { value: 'labels',    label: 'Etiket' },
-  { value: 'dueDate',   label: 'Son Tarih' },
-  { value: 'startDate', label: 'Başl. Tarihi' },
-  { value: 'sprintId',  label: 'Sprint ID' },
+/** Katalog gelmediğinde kullanılan asgari alan listesi. */
+const FALLBACK_FIELDS = [
+  { value: 'summary',   label: 'Başlık',        type: 'STRING' },
+  { value: 'status',    label: 'Durum',         type: 'ENUM' },
+  { value: 'priority',  label: 'Öncelik',       type: 'ENUM' },
+  { value: 'type',      label: 'Tür',           type: 'ENUM' },
+  { value: 'assignee',  label: 'Atanan',        type: 'USER' },
+  { value: 'reporter',  label: 'Açan',          type: 'USER' },
+  { value: 'labels',    label: 'Etiket',        type: 'COLLECTION' },
+  { value: 'due',       label: 'Son Tarih',     type: 'DATE' },
+  { value: 'startDate', label: 'Başl. Tarihi',  type: 'DATE' },
+  { value: 'sprint',    label: 'Sprint',        type: 'ENTITY_REF' },
 ]
+
+/** Görsel düzenleyicide temsil edilebilen alan tipleri — cf[] ve uzun metin hariç. */
+const BUILDER_TYPES = ['STRING', 'ENUM', 'USER', 'COLLECTION', 'ENTITY_REF', 'DATE', 'DATETIME', 'NUMBER', 'TEXT']
+
+const fieldOptions = computed(() => {
+  if (!props.fields?.length) return FALLBACK_FIELDS
+  return props.fields
+    .filter(f => BUILDER_TYPES.includes(f.type))
+    .map(f => ({ value: f.name, label: f.label, type: f.type }))
+})
 
 const STR_OPS  = [
   { value: 'eq',         label: 'Eşit' },
@@ -113,10 +131,27 @@ const DATE_OPS = [
   { value: 'is_null',    label: 'Boş' },
   { value: 'is_not_null',label: 'Dolu' },
 ]
-const DATE_FIELDS = ['dueDate', 'startDate']
+const NUM_OPS = [
+  { value: 'eq',         label: 'Eşit' },
+  { value: 'neq',        label: 'Eşit Değil' },
+  { value: 'gt',         label: 'Büyüktür' },
+  { value: 'lt',         label: 'Küçüktür' },
+  { value: 'is_null',    label: 'Boş' },
+  { value: 'is_not_null',label: 'Dolu' },
+]
+/** Uzun metinde eşitlik anlamsız — yalnız arama ve doluluk. */
+const TEXT_OPS = [
+  { value: 'contains',   label: 'İçeriyor' },
+  { value: 'is_null',    label: 'Boş' },
+  { value: 'is_not_null',label: 'Dolu' },
+]
 
 function opsForField(field) {
-  return DATE_FIELDS.includes(field) ? DATE_OPS : STR_OPS
+  const type = fieldOptions.value.find(f => f.value === field)?.type
+  if (type === 'DATE' || type === 'DATETIME') return DATE_OPS
+  if (type === 'NUMBER') return NUM_OPS
+  if (type === 'TEXT') return TEXT_OPS
+  return STR_OPS
 }
 
 const conditions = ref([])
@@ -132,7 +167,7 @@ watch(() => props.isOpen, (open) => {
 })
 
 function addCondition() {
-  conditions.value.push({ field: 'status', operator: 'eq', rawValue: '' })
+  conditions.value.push({ field: fieldOptions.value[0]?.value || 'status', operator: 'eq', rawValue: '' })
 }
 
 function removeCondition(idx) {

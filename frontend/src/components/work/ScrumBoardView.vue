@@ -138,13 +138,22 @@
         </div>
       </div>
 
-      <!-- Filtre çubuğu -->
-      <FilterBar
-        :active-filters="activeFilters"
-        @add-filter="addFilter"
-        @remove-filter="removeFilter"
-        @clear-filters="clearFilters"
-        @open-builder="showBuilder = true"
+      <!-- Sorgu çubuğu: görsel filtre + STQL -->
+      <QueryBar
+        v-model:query="query"
+        :team-id="teamId"
+        :project-id="projectId"
+        :filters="filters"
+        :builder-compatible="builderCompatible"
+        :builder-incompatible-reason="builderIncompatibleReason"
+        :active-filter-count="activeFilterCount"
+        :error="error"
+        @run="loadData"
+        @validate="validate"
+        @add-filter="onAddFilter"
+        @remove-filter="onRemoveFilter"
+        @clear-filters="onClearFilters"
+        @apply-filters="onApplyFilters"
       />
 
       <!-- Board sütunları -->
@@ -173,13 +182,6 @@
         </div>
       </div>
 
-      <!-- Filter builder modal -->
-      <FilterBuilder
-        :is-open="showBuilder"
-        :initial-filters="activeFilters"
-        @close="showBuilder = false"
-        @apply="applyBuilderFilters"
-      />
     </template>
   </div>
 </template>
@@ -189,9 +191,9 @@ import { ref, computed, watch, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import BoardColumn   from './BoardColumn.vue'
 import BoardSwimlane from './BoardSwimlane.vue'
-import FilterBar     from './FilterBar.vue'
-import FilterBuilder from './FilterBuilder.vue'
+import QueryBar      from './QueryBar.vue'
 import { getSprints, getTasks, updateTask } from '../../api/WorkApi.js'
+import { useTaskQuery } from '../../composables/useTaskQuery.js'
 
 const props = defineProps({
   teamId:  { type: String, required: true },
@@ -224,8 +226,18 @@ const activeSprints    = ref([])
 const selectedSprintId = ref(null)
 const allTasks         = ref([])
 const isLoading        = ref(false)
-const showBuilder      = ref(false)
-const activeFilters    = ref([])
+
+// Board tüm sprint görevlerini aynı anda gösterdiği için sorgu sayfası
+// sunucunun izin verdiği üst sınırda tutulur.
+const {
+  query, filters, builderCompatible, builderIncompatibleReason, activeFilterCount,
+  error, tasks: queryTasks, hasQuery,
+  addFilter, removeFilter, setFilters, clearAll, validate, run, restoreFromUrl,
+} = useTaskQuery({
+  teamId: computed(() => props.teamId),
+  projectId: computed(() => props.projectId),
+  pageSize: 200,
+})
 
 // ─── Seçili Sprint ────────────────────────────────────────────────────────────
 const selectedSprint = computed(() =>
@@ -238,7 +250,7 @@ async function loadData() {
   try {
     const [sprintList, taskList] = await Promise.all([
       getSprints(props.teamId).catch(() => []),
-      getTasks(props.teamId, false).catch(() => [])
+      loadTasksForBoard()
     ])
     sprints.value = sprintList
 
@@ -271,7 +283,23 @@ async function loadData() {
   }
 }
 
-onMounted(loadData)
+/**
+ * Board görevleri. Sorgu varsa sunucuda çalıştırılır — böylece filtre
+ * yalnız yüklenmiş sayfada değil, takımın tüm verisinde uygulanır.
+ * Sorgu yoksa takımın görev listesi olduğu gibi çekilir.
+ */
+async function loadTasksForBoard() {
+  if (hasQuery.value) {
+    await run()
+    return queryTasks.value
+  }
+  return getTasks(props.teamId, false).catch(() => [])
+}
+
+onMounted(() => {
+  restoreFromUrl()
+  loadData()
+})
 watch(() => props.teamId, loadData)
 
 // ─── Seçili Sprint'e ait görevler ─────────────────────────────────────────────
@@ -358,23 +386,25 @@ function openTask(task) {
   router.push({ name: 'TaskDetail', params: { taskId: task.customId || task.id } })
 }
 
-// ─── Filtreler ────────────────────────────────────────────────────────────────
-function addFilter(filter) {
-  const idx = activeFilters.value.findIndex(f => f.field === filter.field)
-  if (idx >= 0) activeFilters.value[idx] = { ...filter }
-  else activeFilters.value.push({ ...filter })
+// ─── Filtre olayları ──────────────────────────────────────────────────────────
+function onAddFilter(filter) {
+  addFilter(filter)
+  loadData()
 }
 
-function removeFilter(field) {
-  activeFilters.value = activeFilters.value.filter(f => f.field !== field)
+function onRemoveFilter(field) {
+  removeFilter(field)
+  loadData()
 }
 
-function clearFilters() {
-  activeFilters.value = []
+function onClearFilters() {
+  clearAll()
+  loadData()
 }
 
-function applyBuilderFilters(filters) {
-  activeFilters.value = filters
+function onApplyFilters(list) {
+  setFilters(list)
+  loadData()
 }
 
 // ─── Yardımcılar ──────────────────────────────────────────────────────────────

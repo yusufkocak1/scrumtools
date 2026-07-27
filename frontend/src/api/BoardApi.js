@@ -34,7 +34,11 @@ export const deleteBoard = async (teamId, boardId) => {
 // ─── Task Filter ──────────────────────────────────────────────────────────────
 
 /**
- * Dinamik task filtresi.
+ * Dinamik task filtresi — eski JSON koşul formatı.
+ *
+ * @deprecated Yeni kod QueryApi.runQuery() kullanmalı. Bu uç geriye dönük uyum
+ * için duruyor; sunucuda o da aynı STQL motoruna çevriliyor.
+ *
  * @param {string} teamId
  * @param {Object} filterRequest - { filters, sortBy, sortDir, page, size }
  * @returns {{ content, totalElements, totalPages, page, size }}
