@@ -150,8 +150,8 @@
           <div v-if="activeTab === 'invitations'">
             <div class="flex items-center justify-between mb-6">
               <div>
-                <h2 class="text-lg font-semibold text-gray-900">Bekleyen Davetler</h2>
-                <p class="text-sm text-gray-500 mt-0.5">Organizasyona gönderilen davetleri yönetin</p>
+                <h2 class="text-lg font-semibold text-gray-900">Gönderilen Davetler</h2>
+                <p class="text-sm text-gray-500 mt-0.5">Organizasyona gönderilen davetleri ve mail durumlarını izleyin</p>
               </div>
               <button @click="showInviteModal = true" class="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white text-sm rounded-lg hover:bg-indigo-700 transition-colors">
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -160,7 +160,7 @@
                 Davet Gönder
               </button>
             </div>
-            <PendingInvitations />
+            <OrgSentInvitations v-if="currentOrg" ref="sentInvitationsRef" :orgId="currentOrg.id" />
           </div>
 
           <!-- Abonelik -->
@@ -393,7 +393,7 @@
       :default-type="'ORGANIZATION'"
       :default-target-id="currentOrg?.id || ''"
       @close="showInviteModal = false"
-      @sent="showInviteModal = false"
+      @sent="onInvitationSent"
     />
   </div>
 </template>
@@ -408,7 +408,7 @@ import BillingTab from '../components/billing/BillingTab.vue'
 import ScmConnectionsTab from '../components/scm/ScmConnectionsTab.vue'
 import CiConnectionsTab from '../components/ci/CiConnectionsTab.vue'
 import ProjectList from '../components/project/ProjectList.vue'
-import PendingInvitations from '../components/invitation/PendingInvitations.vue'
+import OrgSentInvitations from '../components/invitation/OrgSentInvitations.vue'
 import InviteModal from '../components/invitation/InviteModal.vue'
 import OrganizationApi from '../api/OrganizationApi.js'
 import ProjectApi from '../api/ProjectApi.js'
@@ -470,6 +470,13 @@ const addingMember = ref(false)
 // ─── Orgs / Misc ─────────────────────────────────────────────────────────────
 const showCreateOrgModal = ref(false)
 const showInviteModal = ref(false)
+const sentInvitationsRef = ref(null)
+
+// Davet gönderildikten sonra liste tazelensin — yeni kayıt hemen görünmeli
+function onInvitationSent() {
+  showInviteModal.value = false
+  sentInvitationsRef.value?.reload()
+}
 const newOrg = ref({ name: '', slug: '', description: '' })
 const creatingOrg = ref(false)
 

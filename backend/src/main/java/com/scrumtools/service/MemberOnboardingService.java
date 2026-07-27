@@ -4,12 +4,16 @@ import com.scrumtools.dto.CreateMemberRequest;
 import com.scrumtools.dto.InviteResponse;
 import com.scrumtools.dto.OrgMemberResponse;
 import com.scrumtools.entity.EmailMessage;
+import com.scrumtools.entity.Invitation;
 import com.scrumtools.entity.Organization;
 import com.scrumtools.entity.OrganizationMember;
 import com.scrumtools.entity.User;
+import com.scrumtools.entity.enums.InvitationStatus;
+import com.scrumtools.entity.enums.InvitationType;
 import com.scrumtools.entity.enums.OrgRole;
 import com.scrumtools.entity.enums.TokenPurpose;
 import com.scrumtools.repository.EmailMessageRepository;
+import com.scrumtools.repository.InvitationRepository;
 import com.scrumtools.repository.OrganizationMemberRepository;
 import com.scrumtools.repository.OrganizationRepository;
 import com.scrumtools.repository.UserRepository;
@@ -22,8 +26,12 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 /**
  * Org sahibinin/admininin üyeyi doğrudan sisteme kaydetmesi:
@@ -39,43 +47,82 @@ public class MemberOnboardingService {
     private final OrganizationMemberRepository organizationMemberRepository;
     private final UserRepository userRepository;
     private final EmailMessageRepository emailMessageRepository;
+    private final InvitationRepository invitationRepository;
     private final PasswordEncoder passwordEncoder;
     private final PasswordTokenService passwordTokenService;
     private final MailService mailService;
     private final EntitlementService entitlementService;
 
     /**
-     * Organizasyona gönderilmiş davetler ve mail durumları (en yeni önce).
-     * Durum alanları PostForge webhook'larıyla güncellenir; webhook hiç gelmediyse
-     * kayıt QUEUED'da kalır — bu "gönderilemedi" demek değildir.
+     * Organizasyonun GÖNDERDİĞİ davetler (en yeni önce). Kaynak {@code invitations}
+     * tablosudur — hem mail giden (hesabı olmayan davetli) hem de uygulama içi
+     * davetler burada toplanır.
+     * <p>
+     * Mail durumu {@code email_messages}'tan e-posta adresiyle eşlenir; aynı adrese
+     * birden çok davet gönderilmişse en yeni mail kaydı kullanılır.
      */
     @Transactional(readOnly = true)
     public List<InviteResponse> listInvites(UUID orgId, String requesterEmail) {
         checkAdminAccess(orgId, requesterEmail);
-        return emailMessageRepository
+
+        List<Invitation> invitations = invitationRepository
+                .findByTargetIdAndTypeOrderByCreatedAtDesc(orgId, InvitationType.ORGANIZATION);
+        if (invitations.isEmpty()) return List.of();
+
+        // Liste zaten en yeni önce — çakışmada ilk (en yeni) kayıt korunur
+        Map<String, EmailMessage> mailByEmail = emailMessageRepository
                 .findByOrganizationIdAndTemplateCodeOrderByCreatedAtDesc(
                         orgId, PostForgeMailService.T_MEMBER_INVITE)
                 .stream()
-                .map(this::toInviteResponse)
+                .collect(Collectors.toMap(
+                        m -> m.getRecipient().toLowerCase(),
+                        m -> m,
+                        (newest, older) -> newest));
+
+        Set<String> emails = invitations.stream()
+                .map(i -> i.getEmail().toLowerCase())
+                .collect(Collectors.toSet());
+        Map<String, User> userByEmail = userRepository.findByEmailIn(emails).stream()
+                .collect(Collectors.toMap(u -> u.getEmail().toLowerCase(), u -> u, (a, b) -> a));
+
+        return invitations.stream()
+                .map(inv -> toInviteResponse(
+                        inv,
+                        mailByEmail.get(inv.getEmail().toLowerCase()),
+                        userByEmail.get(inv.getEmail().toLowerCase())))
                 .toList();
     }
 
-    private InviteResponse toInviteResponse(EmailMessage m) {
-        User invitee = m.getUser();
+    private InviteResponse toInviteResponse(Invitation inv, EmailMessage mail, User invitee) {
         return new InviteResponse(
-                m.getId(),
-                invitee != null ? invitee.getId() : null,
+                inv.getId(),
+                inv.getEmail(),
                 invitee != null ? invitee.getName() : null,
-                m.getRecipient(),
-                m.getStatus(),
-                m.getSentAt(),
-                m.getOpenedAt(),
-                m.getFirstClickedAt(),
-                m.getClickCount(),
-                m.getFailureReason(),
-                invitee != null && Boolean.TRUE.equals(invitee.getEmailVerified()),
-                m.getCreatedAt()
+                effectiveStatus(inv),
+                inv.getInvitedBy() != null ? inv.getInvitedBy().getName() : null,
+                inv.getCreatedAt(),
+                inv.getExpiresAt(),
+                mail != null ? mail.getStatus() : null,
+                mail != null ? mail.getSentAt() : null,
+                mail != null ? mail.getOpenedAt() : null,
+                mail != null ? mail.getFirstClickedAt() : null,
+                mail != null ? mail.getClickCount() : 0,
+                mail != null ? mail.getFailureReason() : null,
+                invitee != null && Boolean.TRUE.equals(invitee.getEmailVerified())
         );
+    }
+
+    /**
+     * Süresi geçmiş PENDING davetler DB'de PENDING kalır (durum yalnızca erişim
+     * denemesinde güncellenir) — listede doğru görünmesi için burada hesaplanır.
+     */
+    private InvitationStatus effectiveStatus(Invitation inv) {
+        if (inv.getStatus() == InvitationStatus.PENDING
+                && inv.getExpiresAt() != null
+                && inv.getExpiresAt().isBefore(LocalDateTime.now())) {
+            return InvitationStatus.EXPIRED;
+        }
+        return inv.getStatus();
     }
 
     @Transactional

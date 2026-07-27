@@ -17,6 +17,9 @@ public interface InvitationRepository extends JpaRepository<Invitation, UUID> {
 
     List<Invitation> findByTargetIdAndTypeAndStatus(UUID targetId, InvitationType type, InvitationStatus status);
 
+    /** Bir hedefe (org/proje/takım) gönderilmiş tüm davetler — en yeni önce. */
+    List<Invitation> findByTargetIdAndTypeOrderByCreatedAtDesc(UUID targetId, InvitationType type);
+
     boolean existsByEmailAndTargetIdAndTypeAndStatus(String email, UUID targetId, InvitationType type, InvitationStatus status);
 }
 
