@@ -1,16 +1,20 @@
 package com.scrumtools.service;
 
 import com.scrumtools.dto.CreateMemberRequest;
+import com.scrumtools.dto.InviteResponse;
 import com.scrumtools.dto.OrgMemberResponse;
+import com.scrumtools.entity.EmailMessage;
 import com.scrumtools.entity.Organization;
 import com.scrumtools.entity.OrganizationMember;
 import com.scrumtools.entity.User;
 import com.scrumtools.entity.enums.OrgRole;
 import com.scrumtools.entity.enums.TokenPurpose;
+import com.scrumtools.repository.EmailMessageRepository;
 import com.scrumtools.repository.OrganizationMemberRepository;
 import com.scrumtools.repository.OrganizationRepository;
 import com.scrumtools.repository.UserRepository;
 import com.scrumtools.service.mail.MailService;
+import com.scrumtools.service.mail.PostForgeMailService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
@@ -34,10 +38,45 @@ public class MemberOnboardingService {
     private final OrganizationRepository organizationRepository;
     private final OrganizationMemberRepository organizationMemberRepository;
     private final UserRepository userRepository;
+    private final EmailMessageRepository emailMessageRepository;
     private final PasswordEncoder passwordEncoder;
     private final PasswordTokenService passwordTokenService;
     private final MailService mailService;
     private final EntitlementService entitlementService;
+
+    /**
+     * Organizasyona gönderilmiş davetler ve mail durumları (en yeni önce).
+     * Durum alanları PostForge webhook'larıyla güncellenir; webhook hiç gelmediyse
+     * kayıt QUEUED'da kalır — bu "gönderilemedi" demek değildir.
+     */
+    @Transactional(readOnly = true)
+    public List<InviteResponse> listInvites(UUID orgId, String requesterEmail) {
+        checkAdminAccess(orgId, requesterEmail);
+        return emailMessageRepository
+                .findByOrganizationIdAndTemplateCodeOrderByCreatedAtDesc(
+                        orgId, PostForgeMailService.T_MEMBER_INVITE)
+                .stream()
+                .map(this::toInviteResponse)
+                .toList();
+    }
+
+    private InviteResponse toInviteResponse(EmailMessage m) {
+        User invitee = m.getUser();
+        return new InviteResponse(
+                m.getId(),
+                invitee != null ? invitee.getId() : null,
+                invitee != null ? invitee.getName() : null,
+                m.getRecipient(),
+                m.getStatus(),
+                m.getSentAt(),
+                m.getOpenedAt(),
+                m.getFirstClickedAt(),
+                m.getClickCount(),
+                m.getFailureReason(),
+                invitee != null && Boolean.TRUE.equals(invitee.getEmailVerified()),
+                m.getCreatedAt()
+        );
+    }
 
     @Transactional
     public OrgMemberResponse createMember(UUID orgId, String requesterEmail, CreateMemberRequest request) {
@@ -75,7 +114,7 @@ public class MemberOnboardingService {
 
         if (isNewUser) {
             String rawToken = passwordTokenService.createToken(target, TokenPurpose.ACCOUNT_SETUP, requester);
-            mailService.sendMemberInvite(target, org.getName(), passwordTokenService.setupUrl(rawToken));
+            mailService.sendMemberInvite(target, org, passwordTokenService.setupUrl(rawToken));
             log.info("Yeni üye oluşturuldu ve davet maili gönderildi: {} → org '{}'", email, org.getSlug());
         }
 

@@ -22,7 +22,7 @@ spring:
       max-file-size: 20MB
       max-request-size: 25MB
 
-  # ─── SMTP (app.mail.enabled=true iken kullanılır; lokalde Mailpit: port 1025) ─
+  # ─── SMTP (yalnızca app.mail.provider=smtp iken; lokalde Mailpit: port 1025) ──
   mail:
     host: ${SMTP_HOST:localhost}
     port: ${SMTP_PORT:1025}
@@ -84,6 +84,15 @@ app:
       # Boşsa PostForge organizasyonundaki varsayılan gönderici hesabı kullanılır
       sender-code: ${POSTFORGE_SENDER_CODE:}
       timeout-seconds: ${POSTFORGE_TIMEOUT_SECONDS:10}
+      # Tıklama/açılma takibi. PostForge'da takip gönderim başına açılır (şablona
+      # bağlı değildir); alan hiç gönderilmezse takip kapalı sayılır.
+      # NOT: track-clicks açıkken linkler PostForge'un /t/c/<token> adresiyle
+      # değiştirilir — davet ve şifre sıfırlama linkleri de bu yönlendirmeden geçer.
+      track-clicks: ${POSTFORGE_TRACK_CLICKS:true}
+      track-opens: ${POSTFORGE_TRACK_OPENS:true}
+      # PostForge > Webhook'lar ekranındaki gizli anahtar. Boşsa gelen bildirimler
+      # reddedilir (imza doğrulanamaz) — davet durumları güncellenmez.
+      webhook-secret: ${POSTFORGE_WEBHOOK_SECRET:}
   # E-postalardaki linklerde kullanılan frontend adresi
   frontend-base-url: ${APP_FRONTEND_BASE_URL:http://localhost:3000}
   jwt:

@@ -42,7 +42,8 @@ public class SmtpMailService implements MailService {
 
     @Async
     @Override
-    public void sendMemberInvite(User user, String orgName, String setupUrl) {
+    public void sendMemberInvite(User user, Organization org, String setupUrl) {
+        String orgName = org.getName();
         send(user.getEmail(), orgName + " ekibine davet edildiniz",
                 "mail/member-invite",
                 Map.of("name", user.getName(), "orgName", orgName, "setupUrl", setupUrl));

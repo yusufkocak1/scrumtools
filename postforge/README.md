@@ -70,7 +70,51 @@ MAIL_PROVIDER=postforge
 POSTFORGE_BASE_URL=https://postforge.kocak.net.tr
 POSTFORGE_API_KEY=pf_live_...
 POSTFORGE_SENDER_CODE=          # boşsa PostForge'daki varsayılan gönderici
+POSTFORGE_TRACK_CLICKS=true     # tıklama takibi (varsayılan: açık)
+POSTFORGE_TRACK_OPENS=true      # açılma takibi (varsayılan: açık)
 ```
 
 `MAIL_PROVIDER` seçenekleri: `log` (varsayılan, mail gönderilmez), `postforge`, `smtp`.
 Gönderim hataları loglanır ve iş akışını (üye oluşturma, ödeme aktivasyonu vb.) durdurmaz.
+
+## Takip (tıklama / açılma)
+
+Takip PostForge'da **şablona değil gönderime** bağlıdır: `POST /api/v1/emails` gövdesine
+`trackClicks` / `trackOpens` konmazsa takip kapalı sayılır. `PostForgeMailService` bu iki
+alanı her istekte açıkça gönderir.
+
+Bilinmesi gerekenler:
+
+- Tıklama takibi açıkken linkler gönderim anında `…/t/c/<token>` ile değiştirilir; alıcı
+  tıklayınca kayıt düşülür ve orijinal adrese yönlendirilir. **Davet ve şifre sıfırlama
+  linkleri de bu yönlendirmeden geçer** — tek kullanımlık token PostForge'un tıklama
+  kaydına girer. İstenmiyorsa `POSTFORGE_TRACK_CLICKS=false`.
+- Takip yalnızca şemalı (`https://…`) adreslerde çalışır; `mailto:`, `tel:`, göreli yollar
+  (`/fiyatlar`) ve `www.ornek.com` gibi şemasız adresler yeniden yazılmaz.
+- PostForge paketi takibi desteklemiyorsa alanlar gönderilse de yok sayılır; hata dönmez,
+  sayaç sıfır kalır (Paket & Fatura ekranından kontrol edin).
+- Doğrulama: Gönderimler → mesaj detayında HTML gövdede `/t/c/` geçmiyorsa o mail takipsiz
+  gitmiştir. Açılma 1x1 pikselle ölçüldüğü için her zaman eksiktir; takip linkine tıklanan
+  mail açılmış da sayılır.
+
+## Webhook — davet durumlarının güncellenmesi
+
+Gönderilen **davet** maillerinin durumu (`email_messages` tablosu) PostForge bildirimleriyle
+güncellenir ve organizasyon ekranındaki **Gönderilen Davetler** listesinde görünür.
+Yalnızca `scrumtools-member-invite` takip edilir; diğer şablonların olayları yok sayılır.
+
+PostForge > Webhook'lar ekranından:
+
+| Alan | Değer |
+|---|---|
+| Adres | `https://scrumtools.kocak.net.tr/api/webhooks/postforge` |
+| Kapsam | ScrumTools uygulaması |
+| Olaylar | `message.sent`, `message.failed`, `message.opened`, `message.clicked` |
+
+Oluşan gizli anahtarı ScrumTools'a `POSTFORGE_WEBHOOK_SECRET` olarak verin. Tanımlı değilse
+gelen bildirimler **401 ile reddedilir** ve davet durumları `Kuyrukta` kalır.
+
+Doğrulama `X-PostForge-Signature: t=<zaman>,v1=<hex>` başlığı üzerinden yapılır: `v1`,
+`"<t>.<ham gövde>"` metninin HMAC-SHA256 özetidir. Tekrarlanan olaylar `X-PostForge-Delivery`
+kimliğiyle yutulur (aksi halde açılma/tıklama sayaçları her retry'da şişerdi), 5 dakikadan
+eski zaman damgaları replay sayılıp reddedilir.

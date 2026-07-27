@@ -88,6 +88,16 @@ public class OrganizationController {
                 .body(memberOnboardingService.createMember(orgId, userDetails.getUsername(), request));
     }
 
+    /**
+     * Bu organizasyona gönderilmiş davetler ve mail durumları (org sahibi/admin).
+     */
+    @GetMapping("/{orgId}/invites")
+    public ResponseEntity<List<InviteResponse>> getInvites(
+            @AuthenticationPrincipal UserDetails userDetails,
+            @PathVariable UUID orgId) {
+        return ResponseEntity.ok(memberOnboardingService.listInvites(orgId, userDetails.getUsername()));
+    }
+
     @PutMapping("/{orgId}/members/{userId}/role")
     public ResponseEntity<OrgMemberResponse> updateMemberRole(
             @AuthenticationPrincipal UserDetails userDetails,

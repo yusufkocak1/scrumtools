@@ -74,6 +74,10 @@ services:
       POSTFORGE_BASE_URL: ${POSTFORGE_BASE_URL:-https://postforge.kocak.net.tr}
       POSTFORGE_API_KEY: ${POSTFORGE_API_KEY:-}
       POSTFORGE_SENDER_CODE: ${POSTFORGE_SENDER_CODE:-}
+      POSTFORGE_TRACK_CLICKS: ${POSTFORGE_TRACK_CLICKS:-true}
+      POSTFORGE_TRACK_OPENS: ${POSTFORGE_TRACK_OPENS:-true}
+      # Davet durumlarini guncelleyen bildirimlerin imza anahtari
+      POSTFORGE_WEBHOOK_SECRET: ${POSTFORGE_WEBHOOK_SECRET:-}
       # SMTP (MAIL_PROVIDER=smtp iken)
       MAIL_FROM: ${MAIL_FROM:-noreply@kocak.net.tr}
       SMTP_HOST: ${SMTP_HOST:-localhost}

@@ -19,8 +19,9 @@ import java.time.LocalDateTime;
 public class LoggingMailService implements MailService {
 
     @Override
-    public void sendMemberInvite(User user, String orgName, String setupUrl) {
-        log.info("[MAIL devre dışı] Üye daveti → {} | org: {} | setupUrl: {}", user.getEmail(), orgName, setupUrl);
+    public void sendMemberInvite(User user, Organization org, String setupUrl) {
+        log.info("[MAIL devre dışı] Üye daveti → {} | org: {} | setupUrl: {}",
+                user.getEmail(), org.getName(), setupUrl);
     }
 
     @Override

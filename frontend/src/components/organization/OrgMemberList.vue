@@ -70,6 +70,71 @@
       </table>
     </div>
 
+    <!-- Gönderilmiş davetler ve mail durumları (PostForge webhook'larıyla güncellenir) -->
+    <div v-if="invites.length > 0" class="pt-2">
+      <button
+        @click="showInvites = !showInvites"
+        class="flex items-center gap-2 text-sm font-semibold text-gray-900 hover:text-indigo-600 transition-colors"
+      >
+        <svg
+          class="w-4 h-4 transition-transform"
+          :class="showInvites ? 'rotate-90' : ''"
+          fill="none" stroke="currentColor" viewBox="0 0 24 24"
+        >
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+        </svg>
+        Gönderilen Davetler
+        <span class="text-xs font-normal text-gray-500">({{ invites.length }})</span>
+      </button>
+
+      <div v-if="showInvites" class="mt-3 overflow-x-auto rounded-xl border border-gray-200">
+        <table class="w-full text-sm">
+          <thead class="bg-gray-50">
+            <tr>
+              <th class="text-left px-4 py-3 text-gray-600 font-medium">Davetli</th>
+              <th class="text-left px-4 py-3 text-gray-600 font-medium">Mail Durumu</th>
+              <th class="text-left px-4 py-3 text-gray-600 font-medium">Etkileşim</th>
+              <th class="text-left px-4 py-3 text-gray-600 font-medium">Hesap</th>
+              <th class="text-left px-4 py-3 text-gray-600 font-medium">Gönderim</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-gray-100">
+            <tr v-for="invite in invites" :key="invite.id" class="hover:bg-gray-50 transition-colors">
+              <td class="px-4 py-3">
+                <p class="font-medium text-gray-900">{{ invite.name || '-' }}</p>
+                <p class="text-xs text-gray-500">{{ invite.email }}</p>
+              </td>
+              <td class="px-4 py-3">
+                <span
+                  class="px-2 py-1 rounded-full text-xs font-medium"
+                  :class="mailStatusClass(invite.status)"
+                  :title="invite.failureReason || ''"
+                >
+                  {{ formatMailStatus(invite.status) }}
+                </span>
+              </td>
+              <td class="px-4 py-3 text-xs text-gray-600">
+                <span v-if="invite.firstClickedAt">
+                  Tıklandı{{ invite.clickCount > 1 ? ` (${invite.clickCount})` : '' }}
+                </span>
+                <span v-else-if="invite.openedAt">Açıldı</span>
+                <span v-else class="text-gray-400">—</span>
+              </td>
+              <td class="px-4 py-3">
+                <span
+                  class="px-2 py-1 rounded-full text-xs font-medium"
+                  :class="invite.accountActivated ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'"
+                >
+                  {{ invite.accountActivated ? 'Etkin' : 'Bekliyor' }}
+                </span>
+              </td>
+              <td class="px-4 py-3 text-gray-500 text-xs">{{ formatDate(invite.invitedAt) }}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
     <!-- Üye ekleme — hesabı olmayan kullanıcı için hesap oluşturulur, şifre-kurulum maili gider -->
     <div v-if="showInviteModal" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
       <div class="bg-white rounded-xl p-6 w-full max-w-md shadow-2xl">
@@ -116,6 +181,8 @@ const props = defineProps({
 })
 
 const members = ref([])
+const invites = ref([])
+const showInvites = ref(false)
 const loading = ref(false)
 const showInviteModal = ref(false)
 const inviteName = ref('')
@@ -135,6 +202,16 @@ async function loadMembers() {
   }
 }
 
+async function loadInvites() {
+  try {
+    const res = await OrganizationApi.getInvites(props.orgId)
+    invites.value = res.data
+  } catch (e) {
+    // Davet listesi ikincil bilgi — üye listesini bozmasın
+    console.error('Davetler yüklenemedi:', e)
+  }
+}
+
 async function addMember() {
   adding.value = true
   try {
@@ -149,7 +226,8 @@ async function addMember() {
     showInviteModal.value = false
     inviteEmail.value = ''
     inviteName.value = ''
-    await loadMembers()
+    showInvites.value = true
+    await Promise.all([loadMembers(), loadInvites()])
   } catch (e) {
     console.error('Üye eklenemedi:', e)
   } finally {
@@ -189,7 +267,27 @@ function formatDate(dateStr) {
   return new Date(dateStr).toLocaleDateString('tr-TR')
 }
 
-onMounted(loadMembers)
+// QUEUED: PostForge isteği aldı ama henüz teslim bildirimi gelmedi —
+// "gönderilemedi" demek değil, bildirim gecikmiş de olabilir.
+function formatMailStatus(status) {
+  const map = {
+    QUEUED: 'Kuyrukta',
+    SENT: 'Gönderildi',
+    FAILED: 'Başarısız',
+  }
+  return map[status] || status
+}
+
+function mailStatusClass(status) {
+  if (status === 'SENT') return 'bg-green-100 text-green-700'
+  if (status === 'FAILED') return 'bg-red-100 text-red-700'
+  return 'bg-gray-100 text-gray-600'
+}
+
+onMounted(() => {
+  loadMembers()
+  loadInvites()
+})
 </script>
 
 <style scoped>

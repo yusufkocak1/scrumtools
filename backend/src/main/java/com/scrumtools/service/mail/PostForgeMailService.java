@@ -38,7 +38,8 @@ public class PostForgeMailService implements MailService {
             DateTimeFormatter.ofPattern("d MMMM yyyy", Locale.forLanguageTag("tr"));
 
     // PostForge'daki şablon kodları (postforge/templates.json ile birebir aynı olmalı)
-    private static final String T_MEMBER_INVITE = "scrumtools-member-invite";
+    /** Durum takibi yapılan tek şablon — EmailLogService de bu koda bakar. */
+    static final String T_MEMBER_INVITE = "scrumtools-member-invite";
     private static final String T_PASSWORD_RESET = "scrumtools-password-reset";
     private static final String T_TRIAL_EXPIRING = "scrumtools-trial-expiring";
     private static final String T_TRIAL_EXPIRED = "scrumtools-trial-expired";
@@ -52,11 +53,27 @@ public class PostForgeMailService implements MailService {
     /** Boşsa PostForge organizasyonundaki varsayılan gönderici hesabı kullanılır. */
     private final String senderCode;
 
+    /**
+     * Takip PostForge'da şablona değil gönderime bağlıdır: alan hiç gönderilmezse
+     * kapalı sayılır, bu yüzden her istekte açıkça yollanır.
+     */
+    private final boolean trackClicks;
+    private final boolean trackOpens;
+
+    /** Davet maillerinin durum kaydı; webhook bu kaydı günceller. */
+    private final EmailLogService emailLogService;
+
     public PostForgeMailService(@Value("${app.mail.postforge.base-url}") String baseUrl,
                                 @Value("${app.mail.postforge.api-key}") String apiKey,
                                 @Value("${app.mail.postforge.sender-code:}") String senderCode,
-                                @Value("${app.mail.postforge.timeout-seconds:10}") int timeoutSeconds) {
+                                @Value("${app.mail.postforge.timeout-seconds:10}") int timeoutSeconds,
+                                @Value("${app.mail.postforge.track-clicks:true}") boolean trackClicks,
+                                @Value("${app.mail.postforge.track-opens:true}") boolean trackOpens,
+                                EmailLogService emailLogService) {
         this.senderCode = senderCode == null || senderCode.isBlank() ? null : senderCode;
+        this.trackClicks = trackClicks;
+        this.trackOpens = trackOpens;
+        this.emailLogService = emailLogService;
 
         SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
         factory.setConnectTimeout(Duration.ofSeconds(timeoutSeconds));
@@ -76,9 +93,11 @@ public class PostForgeMailService implements MailService {
 
     @Async
     @Override
-    public void sendMemberInvite(User user, String orgName, String setupUrl) {
-        send(T_MEMBER_INVITE, user.getEmail(), params(
-                "name", user.getName(), "orgName", orgName, "setupUrl", setupUrl));
+    public void sendMemberInvite(User user, Organization org, String setupUrl) {
+        String messageId = send(T_MEMBER_INVITE, user.getEmail(), params(
+                "name", user.getName(), "orgName", org.getName(), "setupUrl", setupUrl));
+        // Yalnızca davetlerin durumu takip edilir; diğer şablonlar kayıt açmaz
+        emailLogService.recordQueued(messageId, T_MEMBER_INVITE, user.getEmail(), org, user);
     }
 
     @Async
@@ -136,16 +155,19 @@ public class PostForgeMailService implements MailService {
                 "name", ownerName(org), "orgName", org.getName()));
     }
 
-    private void send(String templateCode, String to, Map<String, Object> params) {
+    /** @return PostForge'un döndürdüğü messageId; gönderilemediyse null. */
+    private String send(String templateCode, String to, Map<String, Object> params) {
         if (to == null || to.isBlank()) {
             log.warn("PostForge gönderimi atlandı ({}): alıcı adresi yok", templateCode);
-            return;
+            return null;
         }
         try {
             Map<String, Object> body = new HashMap<>();
             body.put("templateCode", templateCode);
             body.put("to", to);
             body.put("params", params);
+            body.put("trackClicks", trackClicks);
+            body.put("trackOpens", trackOpens);
             if (senderCode != null) {
                 body.put("senderCode", senderCode);
             }
@@ -157,8 +179,11 @@ public class PostForgeMailService implements MailService {
                     .retrieve()
                     .body(Map.class);
 
+            String messageId = response == null || response.get("messageId") == null
+                    ? null : String.valueOf(response.get("messageId"));
             log.info("PostForge e-posta kuyruğa alındı: {} → {} (messageId={})",
-                    templateCode, to, response == null ? null : response.get("messageId"));
+                    templateCode, to, messageId);
+            return messageId;
         } catch (RestClientResponseException e) {
             // Mail hatası iş akışını bozmamalı — logla ve devam et. API key loglanmaz.
             log.error("PostForge e-posta gönderilemedi ({} → {}): HTTP {} {}",
@@ -166,6 +191,7 @@ public class PostForgeMailService implements MailService {
         } catch (Exception e) {
             log.error("PostForge e-posta gönderilemedi ({} → {}): {}", templateCode, to, e.getMessage());
         }
+        return null;
     }
 
     /** Map.of null kabul etmediği için null değerleri boş stringe çeviren yardımcı. */

@@ -24,6 +24,9 @@ export const OrganizationApi = {
   createMember: (orgId, { email, name, orgRole }) =>
     api.post(`/api/organizations/${orgId}/members/create`, { email, name, orgRole }),
 
+  // Gönderilmiş davetler ve mail durumları (gönderildi/açıldı/tıklandı)
+  getInvites: (orgId) => api.get(`/api/organizations/${orgId}/invites`),
+
   // Üye rolünü güncelle
   updateMemberRole: (orgId, userId, role) =>
     api.put(`/api/organizations/${orgId}/members/${userId}/role`, null, { params: { role } }),

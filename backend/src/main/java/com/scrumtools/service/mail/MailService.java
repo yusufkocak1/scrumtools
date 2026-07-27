@@ -12,8 +12,12 @@ import java.time.LocalDateTime;
  */
 public interface MailService {
 
-    /** Org sahibinin oluşturduğu yeni üyeye şifre-kurulum linki. */
-    void sendMemberInvite(User user, String orgName, String setupUrl);
+    /**
+     * Org sahibinin oluşturduğu yeni üyeye şifre-kurulum linki.
+     * Organizasyon, davetin durum kaydını (bkz. EmailLogService) ilgili org'a
+     * bağlamak için gerekir — davet listesi bu bağa göre filtrelenir.
+     */
+    void sendMemberInvite(User user, Organization org, String setupUrl);
 
     /** Şifremi unuttum akışı. */
     void sendPasswordReset(User user, String resetUrl);
