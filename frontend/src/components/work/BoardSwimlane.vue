@@ -97,6 +97,7 @@
 <script setup>
 import { ref, computed, Transition } from 'vue'
 import BoardColumn from './BoardColumn.vue'
+import { distributeTasks } from '../../utils/boardColumns.js'
 
 const props = defineProps({
   columns:  { type: Array, required: true },
@@ -149,14 +150,23 @@ const swimlanes = computed(() => {
 })
 
 // ─── Lane + Column → görev eşlemesi ──────────────────────────────────────────
-function getTasksForLaneColumn(laneKey, colName) {
-  return props.tasks.filter(task => {
-    const taskLaneKey = props.groupBy === 'assignee'
-      ? (task.assignee || '__unassigned__')
-      : (task.priority || 'Medium')
+// Sütun-durum eşlemesi bir kez hesaplanır: her lane/sütun hücresi için yeniden
+// filtrelemek görev sayısı büyüdükçe kareli maliyet çıkarıyordu.
+const laneKeyOf = (task) => props.groupBy === 'assignee'
+  ? (task.assignee || '__unassigned__')
+  : (task.priority || 'Medium')
 
-    return taskLaneKey === laneKey && task.status === colName
-  })
+const tasksByLaneColumn = computed(() => {
+  const result = {}
+  for (const lane of swimlanes.value) {
+    const laneTasks = props.tasks.filter(t => laneKeyOf(t) === lane.key)
+    result[lane.key] = distributeTasks(props.columns, laneTasks).byColumn
+  }
+  return result
+})
+
+function getTasksForLaneColumn(laneKey, colName) {
+  return tasksByLaneColumn.value[laneKey]?.[colName] ?? []
 }
 
 // ─── Drop handler (swimlane bilgisiyle) ───────────────────────────────────────

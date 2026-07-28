@@ -194,6 +194,8 @@ import BoardSwimlane from './BoardSwimlane.vue'
 import QueryBar      from './QueryBar.vue'
 import { getSprints, getTasks, updateTask } from '../../api/WorkApi.js'
 import { useTaskQuery } from '../../composables/useTaskQuery.js'
+import { useTaskStatuses } from '../../composables/useTaskStatuses.js'
+import { distributeTasks, targetStatusFor } from '../../utils/boardColumns.js'
 
 const props = defineProps({
   teamId:  { type: String, required: true },
@@ -205,20 +207,16 @@ const props = defineProps({
   projectId: { type: String, default: null },
   /** Takımın projeleri — sprint kırılım rozetinde proje adını göstermek için. */
   projects: { type: Array, default: () => [] },
-  columns: {
-    type: Array,
-    default: () => [
-      { name: 'To Do',        color: '#6B7280', wipLimit: 0 },
-      { name: 'In Progress',  color: '#3B82F6', wipLimit: 3 },
-      { name: 'In Review',    color: '#F59E0B', wipLimit: 2 },
-      { name: 'Done',         color: '#10B981', wipLimit: 0 },
-    ]
-  },
+  /** Sütunlar: [{ name, color, wipLimit, statuses[] }] — WorkList üretir. */
+  columns: { type: Array, default: () => [] },
   groupBy: { type: String, default: 'status' }
 })
 
 const route  = useRoute()
 const router = useRouter()
+
+// Durum tanımları (kategori/bitiş bilgisi) takımın iş akışından okunur.
+const { isDone } = useTaskStatuses(() => props.teamId, () => props.projectId)
 
 // ─── State ────────────────────────────────────────────────────────────────────
 const sprints          = ref([])
@@ -338,8 +336,10 @@ const otherProjectsLabel = computed(() => {
   return [...counts.entries()].map(([label, n]) => `${label}: ${n}`).join(' · ')
 })
 
+// "Bitti" sayımı durum adına değil iş akışı kategorisine bakar: takım durumu
+// yeniden adlandırdığında ya da birden fazla bitiş durumu tanımladığında da doğru.
 const doneCount = computed(() =>
-  sprintTasks.value.filter(t => t.status === 'Done').length
+  sprintTasks.value.filter(t => isDone(t.status)).length
 )
 
 const completionPercent = computed(() => {
@@ -352,25 +352,21 @@ const selectedRemainingDays = computed(() => {
 })
 
 // ─── Sütun–görev eşlemesi ─────────────────────────────────────────────────────
-const tasksByColumn = computed(() => {
-  const map = {}
-  for (const col of props.columns) map[col.name] = []
-
-  for (const task of sprintTasks.value) {
-    if (map[task.status]) {
-      map[task.status].push(task)
-    } else {
-      // Bilinmeyen status → ilk sütuna
-      const first = props.columns[0]
-      if (first) (map[first.name] = map[first.name] || []).push(task)
-    }
-  }
-  return map
-})
+// Sütun adı = durum adı varsayımı kaldırıldı; eşleme sütunun `statuses`
+// dizisinden okunur (bkz. utils/boardColumns.js).
+const tasksByColumn = computed(() =>
+  distributeTasks(props.columns, sprintTasks.value).byColumn
+)
 
 // ─── Sürükle-Bırak ───────────────────────────────────────────────────────────
-async function handleDrop({ taskId, toStatus, fromStatus }) {
+async function handleDrop({ taskId, toColumn, fromStatus }) {
   const task = allTasks.value.find(t => t.id === taskId)
+  const column = props.columns.find(c => c.name === toColumn)
+  if (!column) return
+
+  const toStatus = targetStatusFor(column, task?.status ?? fromStatus)
+  if (!toStatus || toStatus === task?.status) return
+
   if (task) task.status = toStatus
   try {
     await updateTask(props.teamId, taskId, { status: toStatus })

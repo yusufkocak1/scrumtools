@@ -60,9 +60,15 @@
               <label class="block text-sm font-medium text-gray-700 mb-2">Status</label>
               <select v-model="formData.status"
                       class="w-full px-4 py-3 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white">
-                <option value="To Do">To Do</option>
-                <option value="In Progress">In Progress</option>
-                <option value="Done">Done</option>
+                <!-- Durumlar takımın iş akışından gelir, sabit liste değil. -->
+                <option v-for="s in workflowStatuses" :key="s.id" :value="s.name">
+                  {{ s.icon ? s.icon + ' ' : '' }}{{ s.name }}
+                </option>
+                <!-- Görev iş akışında tanımsız bir durumdaysa seçim kaybolmasın -->
+                <option v-if="formData.status && !workflowStatuses.some(s => s.name === formData.status)"
+                        :value="formData.status">
+                  {{ formData.status }} (tanımsız)
+                </option>
               </select>
             </div>
           </div>
@@ -365,6 +371,7 @@ import TiptapEditor from "../docs/TiptapEditor.vue";
 import { getTeamById } from "../../api/TeamApi.js";
 import { createTask, updateTask as apiUpdateTask } from "../../api/WorkApi.js";
 import { getTeamReleases } from "../../api/ReleaseApi.js";
+import { useTaskStatuses } from "../../composables/useTaskStatuses.js";
 
 export default {
   name: 'TaskEditForm',
@@ -398,13 +405,21 @@ export default {
     }
   },
   emits: ['close', 'addTask', 'updateTask', 'deleteTask'],
+  setup(props) {
+    // Durum listesi ve başlangıç durumu takımın iş akışından okunur.
+    const { statuses, initialStatus } = useTaskStatuses(
+      () => props.teamId,
+      () => props.projectId
+    )
+    return { workflowStatuses: statuses, initialStatus }
+  },
   data() {
     return {
       formData: {
         title: "",
         description: "",
         issueType: "task",
-        status: "To Do",
+        status: "",
         priority: "Medium",
         storyPoints: 0,
         assignee: "",
@@ -608,7 +623,8 @@ export default {
             const newTaskData = {
               ...baseData,
               createdAt: new Date().toISOString(),
-              status: 'To Do'
+              // Durum gönderilmezse sunucu iş akışının başlangıç durumunu atar.
+              status: this.formData.status || this.initialStatus
             };
             await createTask(this.teamId, newTaskData);
             this.$emit('addTask', newTaskData);
@@ -653,7 +669,7 @@ export default {
         title: "",
         description: "",
         issueType: "task",
-        status: "To Do",
+        status: this.initialStatus,
         priority: "Medium",
         storyPoints: 0,
         assignee: "",

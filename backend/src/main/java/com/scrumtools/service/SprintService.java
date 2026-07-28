@@ -11,6 +11,8 @@ import com.scrumtools.entity.enums.ActivityAction;
 import com.scrumtools.repository.SprintRepository;
 import com.scrumtools.repository.TaskRepository;
 import com.scrumtools.repository.TeamRepository;
+import com.scrumtools.service.workflow.TaskStatusCatalog;
+import com.scrumtools.service.workflow.TaskStatusService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
@@ -35,14 +37,12 @@ public class SprintService {
     private static final String ACTION_COMPLETE = "COMPLETE";
     private static final String ACTION_KEEP = "KEEP";
 
-    /** COMPLETE aksiyonunda yarım kalan işlere yazılan status. */
-    private static final String DONE_STATUS = "Done";
-
     private final SprintRepository sprintRepository;
     private final TeamRepository teamRepository;
     private final TaskRepository taskRepository;
     private final AuditService auditService;
     private final ActivityService activityService;
+    private final TaskStatusService taskStatusService;
 
     public List<SprintResponse> getSprintsByTeam(UUID teamId) {
         return sprintRepository.findByTeamId(teamId)
@@ -126,14 +126,19 @@ public class SprintService {
 
         String userEmail = SecurityContextHolder.getContext().getAuthentication().getName();
 
+        // Durum tanımları takımın workflow'undan okunur; sprint boyunca tek
+        // katalog kullanılır (görev başına yeniden çözmek gereksiz sorgu üretir).
+        TaskStatusCatalog catalog = taskStatusService.getCatalog(teamId, null);
+        String doneStatus = catalog.doneStatusName();
+
         // İptal edilen işler ne "tamamlandı" ne de "yarım kalmış" sayılır —
         // taşınmaları veya toplu kapatılmaları kullanıcıyı yanıltır.
         List<Task> tasks = taskRepository.findByTeamIdAndSprintId(teamId, sprintId).stream()
-                .filter(t -> !"Cancelled".equalsIgnoreCase(t.getStatus()))
+                .filter(t -> !catalog.isCancelled(t.getStatus()))
                 .toList();
 
         List<Task> incomplete = tasks.stream()
-                .filter(t -> !TaskService.isDoneStatus(t.getStatus()))
+                .filter(t -> !catalog.isDone(t.getStatus()))
                 .toList();
 
         for (Task task : incomplete) {
@@ -141,8 +146,8 @@ public class SprintService {
                 case ACTION_BACKLOG -> task.setSprint(null);
                 case ACTION_MOVE -> task.setSprint(target);
                 case ACTION_COMPLETE -> {
-                    auditService.recordChange(task, "status", task.getStatus(), DONE_STATUS, userEmail);
-                    task.setStatus(DONE_STATUS);
+                    auditService.recordChange(task, "status", task.getStatus(), doneStatus, userEmail);
+                    task.setStatus(doneStatus);
                     if (task.getResolvedAt() == null) task.setResolvedAt(LocalDateTime.now());
                 }
                 default -> { /* KEEP — görev kapanan sprintte kalır */ }

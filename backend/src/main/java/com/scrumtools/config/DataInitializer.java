@@ -116,6 +116,8 @@ public class DataInitializer implements ApplicationRunner {
         WorkflowStatus testing = saveStatus(workflow, "Testing", StatusCategory.IN_PROGRESS, "#F59E0B", false, false, 3);
         WorkflowStatus done = saveStatus(workflow, "Done", StatusCategory.DONE, "#10B981", false, true, 4);
         WorkflowStatus cancelled = saveStatus(workflow, "Cancelled", StatusCategory.DONE, "#EF4444", false, true, 5);
+        cancelled.setIsCancellation(true);
+        workflowStatusRepository.save(cancelled);
 
         saveTransition(workflow, "Start Progress", open, inProgress, 0);
         saveTransition(workflow, "Submit for Review", inProgress, inReview, 1);

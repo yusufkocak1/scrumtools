@@ -18,8 +18,15 @@
     <div class="flex items-center justify-between px-3 pt-3 pb-2">
       <div class="flex items-center gap-2 min-w-0">
         <div class="w-2 h-2 rounded-full flex-shrink-0 ring-2 ring-offset-1" :style="{ backgroundColor: column.color || '#6B7280', '--tw-ring-color': (column.color || '#6B7280') + '33' }"></div>
-        <span class="font-bold text-[13px] text-gray-800 truncate tracking-tight">{{ column.name }}</span>
+        <span class="font-bold text-[13px] text-gray-800 truncate tracking-tight" :title="statusTooltip">{{ column.name }}</span>
         <span class="text-[11px] text-gray-500 bg-white border border-gray-200 rounded-full px-2 py-0.5 font-medium shadow-sm">{{ tasks.length }}</span>
+        <!-- Sütun birden fazla durumu topluyorsa bunu görünür kıl: kartın
+             durumu ile sütun adının farklı olması aksi halde kafa karıştırır. -->
+        <span
+          v-if="mappedStatuses.length > 1"
+          class="text-[10px] text-gray-400 bg-white border border-gray-200 rounded-full px-1.5 py-0.5 font-medium shrink-0"
+          :title="statusTooltip"
+        >{{ mappedStatuses.length }} durum</span>
       </div>
       <!-- WIP limiti -->
       <span
@@ -157,9 +164,11 @@
 
 <script setup>
 import { ref, computed } from 'vue'
+import { columnStatuses } from '../../utils/boardColumns.js'
 
 const props = defineProps({
-  column: { type: Object, required: true },  // { name, color, wipLimit }
+  // { name, color, wipLimit, statuses[] } — statuses tanımsızsa sütun kendi adıyla eşleşir
+  column: { type: Object, required: true },
   tasks:  { type: Array,  default: () => [] },
   swimlaneKey: { type: String, default: null },
 })
@@ -173,6 +182,9 @@ const wipExceeded = computed(() =>
   props.column.wipLimit > 0 && props.tasks.length > props.column.wipLimit
 )
 
+const mappedStatuses = computed(() => columnStatuses(props.column))
+const statusTooltip = computed(() => `Durumlar: ${mappedStatuses.value.join(', ')}`)
+
 function onDragStart(task) {
   draggingTask = task
   // DataTransfer'e de yazıyoruz, global state yetersiz olursa kullanılır
@@ -184,9 +196,10 @@ function onDrop(e) {
   isDragOver.value = false
   const taskId     = e.dataTransfer.getData('taskId')
   const fromStatus = e.dataTransfer.getData('fromStatus')
-  if (taskId && fromStatus !== props.column.name) {
-    emit('task-drop', { taskId, toStatus: props.column.name, fromStatus })
-  }
+  if (!taskId) return
+  // Hedef olarak sütun adı bildirilir, durum değil: sütun birden fazla durumu
+  // toplayabildiği için hangi duruma yazılacağına eşlemeye bakan taraf karar verir.
+  emit('task-drop', { taskId, toColumn: props.column.name, fromStatus })
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────

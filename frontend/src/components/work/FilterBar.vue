@@ -105,7 +105,8 @@ import FilterChip from './FilterChip.vue'
 
 const props = defineProps({
   activeFilters: { type: Array, default: () => [] },
-  statuses:      { type: Array, default: () => ['To Do', 'In Progress', 'Done', 'Cancelled'] },
+  /** Durum seçenekleri — QueryBar takımın iş akışından doldurur. */
+  statuses:      { type: Array, default: () => [] },
   priorities:    { type: Array, default: () => ['Low', 'Medium', 'High', 'Critical'] },
   issueTypes:    { type: Array, default: () => ['task', 'story', 'bug', 'epic'] },
 })

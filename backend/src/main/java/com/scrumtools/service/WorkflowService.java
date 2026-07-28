@@ -26,6 +26,7 @@ public class WorkflowService {
     private final WorkflowTransitionRepository workflowTransitionRepository;
     private final ProjectRepository projectRepository;
     private final TeamRepository teamRepository;
+    private final TaskRepository taskRepository;
 
     // ─── Workflow CRUD ────────────────────────────────────────────────────────
 
@@ -109,6 +110,7 @@ public class WorkflowService {
                 .position(request.position() != null ? request.position() : workflow.getStatuses().size())
                 .isInitial(request.isInitial() != null ? request.isInitial() : false)
                 .isFinal(request.isFinal() != null ? request.isFinal() : false)
+                .isCancellation(request.isCancellation() != null ? request.isCancellation() : false)
                 .description(request.description())
                 .build();
 
@@ -120,32 +122,107 @@ public class WorkflowService {
 
     @Transactional
     public WorkflowResponse updateStatus(UUID workflowId, UUID statusId, WorkflowStatusRequest request) {
-        findById(workflowId); // existence check
+        Workflow workflow = findById(workflowId);
         WorkflowStatus status = workflowStatusRepository.findById(statusId)
                 .orElseThrow(() -> new IllegalArgumentException("Status bulunamadı: " + statusId));
 
-        if (request.name() != null) status.setName(request.name());
+        // Ad değişikliği görevlere de yansıtılır. Görev durumu serbest metin
+        // tutulduğu için bu yapılmazsa yeniden adlandırma tüm görevleri
+        // katalog dışına düşürür ve board'da yanlış kolona toplanırlar.
+        String previousName = status.getName();
+        if (request.name() != null && !request.name().isBlank()
+                && !request.name().equals(previousName)) {
+            status.setName(request.name());
+            int moved = reassignTasks(workflow, previousName, request.name());
+            if (moved > 0) {
+                log.info("Durum yeniden adlandırıldı: '{}' → '{}' ({} görev güncellendi)",
+                        previousName, request.name(), moved);
+            }
+        }
+
         if (request.category() != null) status.setCategory(request.category());
         if (request.color() != null) status.setColor(request.color());
         if (request.icon() != null) status.setIcon(request.icon());
         if (request.position() != null) status.setPosition(request.position());
-        if (request.isInitial() != null) status.setIsInitial(request.isInitial());
         if (request.isFinal() != null) status.setIsFinal(request.isFinal());
+        if (request.isCancellation() != null) status.setIsCancellation(request.isCancellation());
         if (request.description() != null) status.setDescription(request.description());
+
+        // Başlangıç durumu tek olmalı — yeni işaretlenen diğerlerini düşürür.
+        if (Boolean.TRUE.equals(request.isInitial())) {
+            for (WorkflowStatus other : workflow.getStatuses()) {
+                if (!other.getId().equals(statusId) && Boolean.TRUE.equals(other.getIsInitial())) {
+                    other.setIsInitial(false);
+                    workflowStatusRepository.save(other);
+                }
+            }
+            status.setIsInitial(true);
+        } else if (Boolean.FALSE.equals(request.isInitial())) {
+            status.setIsInitial(false);
+        }
 
         workflowStatusRepository.save(status);
         return WorkflowResponse.from(findById(workflowId));
     }
 
+    /**
+     * Durumu siler. Bu durumda görev varsa {@code migrateToStatusId} zorunludur —
+     * aksi halde görevler hiçbir kolona düşmeyen bir duruma takılı kalırdı.
+     */
     @Transactional
-    public void deleteStatus(UUID workflowId, UUID statusId) {
-        findById(workflowId);
+    public void deleteStatus(UUID workflowId, UUID statusId, UUID migrateToStatusId) {
+        Workflow workflow = findById(workflowId);
         WorkflowStatus status = workflowStatusRepository.findById(statusId)
                 .orElseThrow(() -> new IllegalArgumentException("Status bulunamadı: " + statusId));
-        if (status.getIsInitial()) {
-            throw new IllegalArgumentException("Başlangıç status'u silinemez.");
+        if (Boolean.TRUE.equals(status.getIsInitial())) {
+            throw new IllegalArgumentException("Başlangıç durumu silinemez. Önce başka bir durumu başlangıç yapın.");
         }
+        if (workflow.getStatuses().size() <= 1) {
+            throw new IllegalArgumentException("Son durum silinemez; iş akışında en az bir durum bulunmalı.");
+        }
+
+        long affected = countTasks(workflow, status.getName());
+        if (affected > 0) {
+            if (migrateToStatusId == null) {
+                throw new IllegalArgumentException(
+                        "Bu durumda " + affected + " görev var. Silmeden önce görevlerin taşınacağı durumu seçin.");
+            }
+            WorkflowStatus target = workflowStatusRepository.findById(migrateToStatusId)
+                    .orElseThrow(() -> new IllegalArgumentException("Hedef durum bulunamadı: " + migrateToStatusId));
+            if (target.getId().equals(statusId)) {
+                throw new IllegalArgumentException("Görevler silinen durumun kendisine taşınamaz.");
+            }
+            reassignTasks(workflow, status.getName(), target.getName());
+            log.info("Durum silindi: '{}' → {} görev '{}' durumuna taşındı",
+                    status.getName(), affected, target.getName());
+        }
+
         workflowStatusRepository.delete(status);
+    }
+
+    /**
+     * Workflow'un kapsamındaki görevlerin durumunu değiştirir.
+     * Proje workflow'u yalnız o projenin görevlerini, takım workflow'u takımın
+     * tüm görevlerini etkiler.
+     */
+    private int reassignTasks(Workflow workflow, String oldStatus, String newStatus) {
+        if (workflow.getProject() != null) {
+            return taskRepository.reassignStatusInProject(workflow.getProject().getId(), oldStatus, newStatus);
+        }
+        if (workflow.getTeam() != null) {
+            return taskRepository.reassignStatusInTeam(workflow.getTeam().getId(), oldStatus, newStatus);
+        }
+        return 0; // sistem şablonu — bağlı görev yok
+    }
+
+    private long countTasks(Workflow workflow, String statusName) {
+        if (workflow.getProject() != null) {
+            return taskRepository.countByProjectIdAndStatus(workflow.getProject().getId(), statusName);
+        }
+        if (workflow.getTeam() != null) {
+            return taskRepository.countByTeamIdAndStatus(workflow.getTeam().getId(), statusName);
+        }
+        return 0;
     }
 
     // ─── Transition CRUD ──────────────────────────────────────────────────────

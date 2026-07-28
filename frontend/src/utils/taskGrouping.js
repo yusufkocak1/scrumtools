@@ -17,7 +17,14 @@ const EMPTY_KEY = '__none__'
 /** Sabit sıraları olan alanlar; alfabetik sıralama bunlarda anlamsız olurdu. */
 const PRIORITY_ORDER = ['Critical', 'High', 'Medium', 'Low']
 const ISSUE_TYPE_ORDER = ['epic', 'story', 'task', 'bug']
-const STATUS_ORDER = ['To Do', 'In Progress', 'Done', 'Cancelled']
+
+/**
+ * Durum sırası takımın iş akışına göre değiştiği için sabit değil, çağıran
+ * tarafından verilir (bkz. groupTasks'ın `statusOrder` seçeneği). Verilmezse
+ * eski sabit sıraya düşülür — durum listesi henüz yüklenmemiş görünümler
+ * sıralamasız kalmasın.
+ */
+const FALLBACK_STATUS_ORDER = ['To Do', 'In Progress', 'In Review', 'Done', 'Cancelled']
 
 const ISSUE_TYPE_LABELS = {
   epic: 'Epic',
@@ -65,7 +72,9 @@ export const GROUP_OPTIONS = [
     label: 'Durum',
     emptyLabel: 'Durumsuz',
     keysOf: t => [t.status || EMPTY_KEY],
-    order: STATUS_ORDER,
+    order: FALLBACK_STATUS_ORDER,
+    /** İş akışından gelen sıra bu alanı geçersiz kılar. */
+    dynamicOrder: 'status',
   },
   {
     value: 'project',
@@ -96,13 +105,19 @@ export function groupOptionLabel(groupBy) {
  *
  * @param {Array} tasks — görev listesi (TaskResponse)
  * @param {string} groupBy — GROUP_OPTIONS içindeki bir `value`
+ * @param {Object} [options]
+ * @param {Array<string>} [options.statusOrder] — takımın iş akışındaki durum
+ *   sırası; durum gruplamasında sabit sıranın yerine geçer
  * @returns {Array<{key: string, label: string, tasks: Array, storyPoints: number}>}
  *          gruplama kapalıysa boş dizi döner (çağıran düz listeye düşer)
  */
-export function groupTasks(tasks, groupBy) {
+export function groupTasks(tasks, groupBy, { statusOrder = null } = {}) {
   if (!isGroupingActive(groupBy)) return []
 
   const option = OPTION_BY_VALUE.get(groupBy)
+  const order = option.dynamicOrder === 'status' && statusOrder?.length
+    ? statusOrder
+    : option.order
   const groups = new Map()
 
   for (const task of tasks) {
@@ -121,7 +136,7 @@ export function groupTasks(tasks, groupBy) {
     }
   }
 
-  return [...groups.values()].sort((a, b) => compareGroups(a, b, option.order))
+  return [...groups.values()].sort((a, b) => compareGroups(a, b, order))
 }
 
 /** Boş grup en sona; sabit sıralı alanlar kendi sırasına, diğerleri alfabetiğe göre. */

@@ -4,6 +4,7 @@
     <WorkSidebar
       :open="showMobileSidebar"
       v-model="activeView"
+      :team-id="teamId"
       :projects="projects"
       :project-id="projectId"
       :active-project="activeProject"
@@ -14,8 +15,6 @@
       v-model:group-by="boardGroupBy"
       @select-project="selectProject"
       @manage-projects="showTeamProjects = true"
-      @create-board="showCreateBoard = true"
-      @board-settings="showBoardSettings = true"
       @close="showMobileSidebar = false"
     />
 
@@ -98,62 +97,6 @@
       </div>
     </div>
 
-    <!-- Board Oluşturma Modal -->
-    <div v-if="showCreateBoard" class="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-      <div class="bg-white rounded-xl shadow-2xl w-full max-w-md mx-4 p-6">
-        <h2 class="text-lg font-semibold text-gray-900 mb-4">Yeni Board Oluştur</h2>
-        <div class="space-y-3 mb-5">
-          <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">Board Adı</label>
-            <input
-              v-model="newBoardName"
-              placeholder="ör: Sprint Board"
-              class="w-full text-sm rounded-md border border-gray-300 px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:outline-none"
-            />
-          </div>
-          <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">Tür</label>
-            <select
-              v-model="newBoardType"
-              class="w-full text-sm rounded-md border border-gray-300 px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:outline-none"
-            >
-              <option value="KANBAN">Kanban</option>
-              <option value="SCRUM">Scrum</option>
-            </select>
-            <p class="text-xs text-gray-400 mt-1">
-              {{ newBoardType === 'SCRUM'
-                ? 'Scrum board aktif sprint üzerinden çalışır. Sprint başlatıldığında görevler görünür.'
-                : 'Kanban board tüm görevleri durumlarına göre sütunlarda gösterir.' }}
-            </p>
-          </div>
-          <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">Proje (Opsiyonel)</label>
-            <select
-              v-model="newBoardProjectId"
-              class="w-full text-sm rounded-md border border-gray-300 px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:outline-none"
-            >
-              <option :value="null">— Proje seçilmedi —</option>
-              <option v-for="p in projects" :key="p.id" :value="p.id">
-                {{ p.name }} ({{ p.key }})
-              </option>
-            </select>
-          </div>
-        </div>
-        <div class="flex justify-end gap-3">
-          <button @click="showCreateBoard = false" class="px-4 py-2 text-sm text-gray-600 hover:text-gray-900">
-            İptal
-          </button>
-          <button
-            @click="handleCreateBoard"
-            :disabled="!newBoardName.trim()"
-            class="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-50"
-          >
-            Oluştur
-          </button>
-        </div>
-      </div>
-    </div>
-
     <!-- Takım Projeleri Modal -->
     <TeamProjectsModal
       v-if="showTeamProjects"
@@ -162,16 +105,6 @@
       :team-projects="projects"
       @close="showTeamProjects = false"
       @changed="handleTeamProjectsChanged"
-    />
-
-    <!-- Board Yönetim Modal -->
-    <BoardSettings
-      v-if="showBoardSettings"
-      :team-id="teamId"
-      :boards="boards"
-      @close="showBoardSettings = false"
-      @updated="handleBoardUpdated"
-      @deleted="handleBoardDeleted"
     />
   </div>
 </template>
@@ -187,13 +120,13 @@ import ListView       from '../components/work/ListView.vue'
 import Backlog        from '../components/work/Backlog.vue'
 import ReleasesView   from '../components/work/ReleasesView.vue'
 import ActivityFeed   from '../components/ActivityFeed.vue'
-import BoardSettings  from '../components/work/BoardSettings.vue'
 import TeamProjectsModal from '../components/work/TeamProjectsModal.vue'
 
-import { getBoards, createBoard as apiCreateBoard } from '../api/BoardApi.js'
+import { getBoards } from '../api/BoardApi.js'
 import { getTeamActivity } from '../api/NotificationApi.js'
 import { useProjectContext } from '../composables/useProjectContext.js'
 import { useTeamContext } from '../composables/useTeamContext.js'
+import { useTaskStatuses } from '../composables/useTaskStatuses.js'
 
 const props = defineProps({
   teamId: String
@@ -219,6 +152,9 @@ const {
   loadProjects,
   ALL_PROJECTS,
 } = useProjectContext(() => props.teamId)
+
+// Board sütunları yapılandırılmamışsa iş akışındaki durumlardan türetilir.
+const { statuses: workflowStatuses } = useTaskStatuses(() => props.teamId, projectId)
 
 const showTeamProjects = ref(false)
 /** Mobilde sidebar off-canvas açılır; lg ve üstünde her zaman görünür olduğu için yok sayılır. */
@@ -248,15 +184,12 @@ const currentViewLabel = computed(() => {
   return labels[activeView.value] || ''
 })
 
-// ─── Board yönetimi ───────────────────────────────────────────────────────
-const boards           = ref([])
-const selectedBoardId  = ref(null)
-const showCreateBoard  = ref(false)
-const showBoardSettings = ref(false)
-const newBoardName     = ref('')
-const newBoardType     = ref('KANBAN')
-const newBoardProjectId = ref(null)
-const boardGroupBy     = ref('status')
+// ─── Board seçimi ─────────────────────────────────────────────────────────
+// Board'ların yapılandırması (sütunlar, durum eşlemesi, oluşturma/silme)
+// /workspace-settings sayfasına taşındı; burada yalnızca görünüm durumu kalır.
+const boards          = ref([])
+const selectedBoardId = ref(null)
+const boardGroupBy    = ref('status')
 
 /**
  * Aktif projenin board'ları + projeye bağlanmamış (takım geneli) board'lar.
@@ -271,25 +204,23 @@ const selectedBoard = computed(() =>
   visibleBoards.value.find(b => b.id === selectedBoardId.value) || visibleBoards.value[0] || null
 )
 
+/**
+ * Board'un sütunları. Sabit varsayılan liste kaldırıldı: board yoksa ya da
+ * sütunları tanımsızsa takımın iş akışındaki durumlardan bir sütun üretilir —
+ * böylece kolonlar hiçbir zaman "To Do / In Progress / Done" sanılmaz.
+ */
 const activeBoardColumns = computed(() => {
-  const board = selectedBoard.value
-  if (!board?.columnConfig?.columns) {
-    // Board tipine göre varsayılan sütunlar
-    if (board?.boardType === 'SCRUM') {
-      return [
-        { name: 'To Do',        color: '#6B7280', wipLimit: 0 },
-        { name: 'In Progress',  color: '#3B82F6', wipLimit: 3 },
-        { name: 'In Review',    color: '#F59E0B', wipLimit: 2 },
-        { name: 'Done',         color: '#10B981', wipLimit: 0 },
-      ]
-    }
-    return [
-      { name: 'To Do',       color: '#6B7280', wipLimit: 0 },
-      { name: 'In Progress', color: '#3B82F6', wipLimit: 3 },
-      { name: 'Done',        color: '#10B981', wipLimit: 0 },
-    ]
-  }
-  return board.columnConfig.columns
+  const configured = selectedBoard.value?.columnConfig?.columns
+  if (configured?.length) return configured
+
+  return workflowStatuses.value
+    .filter(s => !s.isCancellation)
+    .map(s => ({
+      name: s.name,
+      color: s.color || '#6B7280',
+      wipLimit: 0,
+      statuses: [s.name],
+    }))
 })
 
 // Proje de anahtara dahil: proje değişince alt görünümler remount olup veriyi
@@ -321,45 +252,6 @@ function ensureBoardInProject() {
   }
   if (!list.some(b => b.id === selectedBoardId.value)) {
     selectedBoardId.value = (list.find(b => b.isDefault) || list[0]).id
-  }
-}
-
-async function handleCreateBoard() {
-  if (!newBoardName.value.trim()) return
-  try {
-    const board = await apiCreateBoard(props.teamId, {
-      name:      newBoardName.value.trim(),
-      boardType: newBoardType.value,
-      projectId: newBoardProjectId.value || undefined,
-    })
-    boards.value.push(board)
-    selectedBoardId.value = board.id
-    showCreateBoard.value = false
-    newBoardName.value    = ''
-    newBoardType.value    = 'KANBAN'
-    newBoardProjectId.value = null
-  } catch (e) {
-    console.error('Board oluşturma hatası:', e)
-  }
-}
-
-function handleBoardUpdated(updatedBoard) {
-  const idx = boards.value.findIndex(b => b.id === updatedBoard.id)
-  if (idx >= 0) {
-    // Eğer yeni varsayılan yapıldıysa diğerlerini güncelle
-    if (updatedBoard.isDefault) {
-      boards.value.forEach(b => { b.isDefault = b.id === updatedBoard.id })
-    }
-    boards.value[idx] = updatedBoard
-  }
-  loadBoards() // Listeyi tazele
-}
-
-function handleBoardDeleted(boardId) {
-  boards.value = boards.value.filter(b => b.id !== boardId)
-  if (selectedBoardId.value === boardId) {
-    const def = boards.value.find(b => b.isDefault) || boards.value[0] || null
-    selectedBoardId.value = def?.id || null
   }
 }
 

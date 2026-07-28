@@ -6,6 +6,8 @@ import com.scrumtools.dto.TaskSearchResponse;
 import com.scrumtools.entity.*;
 import com.scrumtools.entity.enums.ActivityAction;
 import com.scrumtools.repository.*;
+import com.scrumtools.service.workflow.TaskStatusCatalog;
+import com.scrumtools.service.workflow.TaskStatusService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -32,6 +34,7 @@ public class TaskService {
     private final AuditService auditService;
     private final NotificationService notificationService;
     private final ActivityService activityService;
+    private final TaskStatusService taskStatusService;
 
     // ─── Tasks ────────────────────────────────────────────────────────────────
 
@@ -41,15 +44,21 @@ public class TaskService {
      * kullanır; null geçilirse takımın tüm projelerindeki görevler döner ("Tüm projeler").
      */
     public List<TaskResponse> getTasksByTeam(UUID teamId, UUID projectId, boolean includeCancelled) {
+        // Gizlenecek durumlar workflow'dan okunur: takım "Cancelled"ı yeniden
+        // adlandırdıysa ya da birden fazla iptal durumu tanımladıysa hepsi elenir.
+        List<String> hidden = includeCancelled
+                ? List.of()
+                : taskStatusService.getCatalog(teamId, projectId).cancellationStatusNames();
+
         List<Task> tasks;
         if (projectId != null) {
-            tasks = includeCancelled
+            tasks = hidden.isEmpty()
                     ? taskRepository.findByTeamIdAndProjectId(teamId, projectId)
-                    : taskRepository.findByTeamIdAndProjectIdAndStatusNot(teamId, projectId, "Cancelled");
+                    : taskRepository.findByTeamIdAndProjectIdAndStatusNotIn(teamId, projectId, hidden);
         } else {
-            tasks = includeCancelled
+            tasks = hidden.isEmpty()
                     ? taskRepository.findByTeamId(teamId)
-                    : taskRepository.findByTeamIdAndStatusNot(teamId, "Cancelled");
+                    : taskRepository.findByTeamIdAndStatusNotIn(teamId, hidden);
         }
         return tasks.stream().map(TaskResponse::from).collect(Collectors.toList());
     }
@@ -179,6 +188,12 @@ public class TaskService {
             parentTask = resolveParentTask(teamId, req.getParentTaskId().trim(), null);
         }
 
+        // Durum verilmediyse workflow'un "başlangıç" işaretli durumu kullanılır —
+        // takım durumlarını yeniden adlandırdığında yeni görevler de onu takip etsin.
+        String status = req.getStatus() != null
+                ? req.getStatus()
+                : taskStatusService.initialStatus(teamId, project != null ? project.getId() : null);
+
         Task task = Task.builder()
                 .team(team)
                 .project(project)
@@ -188,7 +203,7 @@ public class TaskService {
                 .customId(customId)
                 .title(req.getTitle())
                 .description(req.getDescription())
-                .status(req.getStatus() != null ? req.getStatus() : "To Do")
+                .status(status)
                 .issueType(req.getIssueType() != null ? req.getIssueType() : "task")
                 .priority(req.getPriority() != null ? req.getPriority() : "Medium")
                 .reporter(req.getReporter() != null ? req.getReporter() : userEmail)
@@ -244,7 +259,7 @@ public class TaskService {
         if (req.getStatus() != null) {
             auditService.recordChange(task, "status", task.getStatus(), req.getStatus(), userEmail);
             task.setStatus(req.getStatus());
-            if (isDoneStatus(req.getStatus()) && task.getResolvedAt() == null) {
+            if (isDoneStatus(task, req.getStatus()) && task.getResolvedAt() == null) {
                 task.setResolvedAt(LocalDateTime.now());
             }
         }
@@ -410,7 +425,7 @@ public class TaskService {
         String userEmail = SecurityContextHolder.getContext().getAuthentication().getName();
         auditService.recordChange(task, "status", task.getStatus(), status, userEmail);
         task.setStatus(status);
-        if (isDoneStatus(status) && task.getResolvedAt() == null) {
+        if (isDoneStatus(task, status) && task.getResolvedAt() == null) {
             task.setResolvedAt(LocalDateTime.now());
         }
         return TaskResponse.from(taskRepository.save(task));
@@ -499,13 +514,17 @@ public class TaskService {
     // ─── Helpers ──────────────────────────────────────────────────────────────
 
     /**
-     * "İş bitti" sayılan status adları. Sprint kapatma akışı da aynı tanımı
-     * kullanır (SprintService) — iki yerde ayrı liste tutulursa backlog'da
-     * tamamlanmış görünen bir iş sprint kapanışında "yarım kalmış" sayılır.
+     * "İş bitti" sayılır mı — cevap artık takımın workflow'undaki
+     * {@link com.scrumtools.entity.enums.StatusCategory} bilgisinden gelir, kodda
+     * sabit bir ad listesinden değil. Sprint kapatma ve raporlar da aynı katalogu
+     * kullanır; iki yerde ayrı liste tutulursa backlog'da tamamlanmış görünen bir
+     * iş sprint kapanışında "yarım kalmış" sayılır.
+     *
+     * <p>Döngü içinde çağırmayın: katalogu bir kez alıp
+     * {@link TaskStatusCatalog#isDone(String)} kullanın.
      */
-    public static boolean isDoneStatus(String status) {
-        return "Done".equalsIgnoreCase(status) || "Closed".equalsIgnoreCase(status)
-                || "Fixed".equalsIgnoreCase(status) || "Verified".equalsIgnoreCase(status);
+    public boolean isDoneStatus(Task task, String status) {
+        return taskStatusService.getCatalogForTask(task).isDone(status);
     }
 
     /**

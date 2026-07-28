@@ -77,7 +77,7 @@
 
       <FilterBar
         :active-filters="filters"
-        :statuses="statuses"
+        :statuses="effectiveStatuses"
         :priorities="priorities"
         :issue-types="issueTypes"
         @add-filter="$emit('add-filter', $event)"
@@ -106,12 +106,13 @@
  * Görsel düzenleyicinin alan listesi sunucudaki alan kataloğundan gelir, böylece
  * yeni sorgulanabilir bir alan eklendiğinde arayüz elle güncellenmek zorunda kalmaz.
  */
-import { ref, watch, onMounted } from 'vue'
+import { ref, computed, watch, onMounted } from 'vue'
 import FilterBar from './FilterBar.vue'
 import FilterBuilder from './FilterBuilder.vue'
 import StqlInput from './StqlInput.vue'
 import SavedFilterMenu from './SavedFilterMenu.vue'
 import { getQueryFields } from '../../api/QueryApi.js'
+import { useTaskStatuses } from '../../composables/useTaskStatuses.js'
 
 const props = defineProps({
   teamId:    { type: String, required: true },
@@ -127,7 +128,8 @@ const props = defineProps({
   activeFilterCount:        { type: Number, default: 0 },
   error:                    { type: Object, default: null },
 
-  statuses:   { type: Array, default: () => ['To Do', 'In Progress', 'Done', 'Cancelled'] },
+  /** Verilmezse takımın iş akışındaki durumlar kullanılır. */
+  statuses:   { type: Array, default: null },
   priorities: { type: Array, default: () => ['Low', 'Medium', 'High', 'Critical'] },
   issueTypes: { type: Array, default: () => ['task', 'story', 'bug', 'epic'] },
 })
@@ -151,6 +153,11 @@ const EXAMPLES = [
 const mode = ref('builder')
 const showBuilder = ref(false)
 const catalogFields = ref([])
+
+// Durum seçenekleri artık sabit değil; çağıran özel bir liste vermediyse
+// takımın iş akışından okunur.
+const { statusNames } = useTaskStatuses(() => props.teamId, () => props.projectId)
+const effectiveStatuses = computed(() => props.statuses ?? statusNames.value)
 
 const query = ref(props.query)
 

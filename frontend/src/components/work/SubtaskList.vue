@@ -75,6 +75,7 @@
 import { ref, computed, nextTick, watch } from 'vue'
 import StatusBadge from '@/components/workflow/StatusBadge.vue'
 import { createSubtask, updateTaskStatus } from '@/api/WorkApi.js'
+import { useTaskStatuses } from '@/composables/useTaskStatuses.js'
 
 const props = defineProps({
   teamId: { type: String, required: true },
@@ -99,22 +100,27 @@ watch(() => props.adding, async open => {
   }
 })
 
+// "Bitti" tanımı ve işaretleme hedefleri iş akışından gelir; sabit ad listesi
+// takım durumlarını yeniden adlandırdığında yanlış sonuç veriyordu.
+const { isDone, statuses, initialStatus } = useTaskStatuses(() => props.teamId)
+
 const completedCount = computed(() => props.subtasks.filter(s => isDone(s.status)).length)
 
 const progressPercent = computed(() =>
   props.subtasks.length === 0 ? 0 : Math.round((completedCount.value / props.subtasks.length) * 100)
 )
 
-function isDone(status) {
-  return ['Done', 'Closed', 'Fixed', 'Verified'].includes(status)
-}
+/** Onay kutusu işaretlendiğinde yazılacak durum — ilk "bitiş" durumu. */
+const doneStatus = computed(() =>
+  statuses.value.find(s => s.category === 'DONE' && !s.isCancellation)?.name ?? 'Done'
+)
 
 function close() {
   emit('update:adding', false)
 }
 
 async function toggleSubtask(sub) {
-  const newStatus = isDone(sub.status) ? 'To Do' : 'Done'
+  const newStatus = isDone(sub.status) ? initialStatus.value : doneStatus.value
   try {
     await updateTaskStatus(props.teamId, sub.id, newStatus)
     emit('update')

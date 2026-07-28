@@ -10,6 +10,8 @@ public record WorkflowStatusRequest(
         Integer position,
         Boolean isInitial,
         Boolean isFinal,
+        /** İptal/vazgeçme durumu — sprint sayımlarında ve listelerde ayrı ele alınır. */
+        Boolean isCancellation,
         String description
 ) {}
 

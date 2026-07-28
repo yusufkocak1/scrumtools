@@ -85,12 +85,17 @@ public class WorkflowController {
         return ResponseEntity.ok(workflowService.updateStatus(workflowId, statusId, request));
     }
 
+    /**
+     * @param migrateTo bu durumdaki görevlerin taşınacağı durum. Durumda görev
+     *                  varsa zorunlu; verilmezse istek 400 ile reddedilir.
+     */
     @DeleteMapping("/api/workflows/{workflowId}/statuses/{statusId}")
     public ResponseEntity<Void> deleteStatus(
             @PathVariable UUID workflowId,
-            @PathVariable UUID statusId
+            @PathVariable UUID statusId,
+            @RequestParam(required = false) UUID migrateTo
     ) {
-        workflowService.deleteStatus(workflowId, statusId);
+        workflowService.deleteStatus(workflowId, statusId, migrateTo);
         return ResponseEntity.noContent().build();
     }
 

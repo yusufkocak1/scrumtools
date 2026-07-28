@@ -61,6 +61,21 @@ public class WorkflowStatus {
     @Builder.Default
     private Boolean isFinal = false;
 
+    /**
+     * İptal/vazgeçme durumu mu (ör. Cancelled, Won't Fix).
+     *
+     * Kategorisi DONE'dur ama "yapılan iş" sayılmaz: sprint kapanışında ne
+     * tamamlanmış ne yarım kalmış kabul edilir ve görev listelerinde varsayılan
+     * olarak gizlenir. Ayrı bir bayrak olmasının nedeni durumun adının
+     * değiştirilebilir olması — "Cancelled" metnine bağlı kontroller takım
+     * durumu yeniden adlandırdığında sessizce bozulurdu.
+     */
+    // columnDefinition'daki DEFAULT bilinçli: tabloda kayıt varken ddl-auto=update
+    // ile NOT NULL sütun eklenebilmesi için gerekli.
+    @Column(nullable = false, columnDefinition = "boolean default false")
+    @Builder.Default
+    private Boolean isCancellation = false;
+
     @Column(columnDefinition = "TEXT")
     private String description;
 }

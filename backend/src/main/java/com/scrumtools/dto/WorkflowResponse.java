@@ -29,11 +29,13 @@ public record WorkflowResponse(
             Integer position,
             Boolean isInitial,
             Boolean isFinal,
+            Boolean isCancellation,
             String description
     ) {
         public static StatusDto from(WorkflowStatus s) {
             return new StatusDto(s.getId(), s.getName(), s.getCategory(), s.getColor(),
-                    s.getIcon(), s.getPosition(), s.getIsInitial(), s.getIsFinal(), s.getDescription());
+                    s.getIcon(), s.getPosition(), s.getIsInitial(), s.getIsFinal(),
+                    s.getIsCancellation(), s.getDescription());
         }
     }
 

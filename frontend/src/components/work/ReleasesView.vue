@@ -256,6 +256,7 @@ import CiReleasePipelineSection from '../ci/CiReleasePipelineSection.vue'
 import { getTeamById, linkTeamToProject } from '../../api/TeamApi.js'
 import { ProjectApi } from '../../api/ProjectApi.js'
 import { updateTask } from '../../api/WorkApi.js'
+import { useTaskStatuses } from '../../composables/useTaskStatuses.js'
 import {
   getProjectReleases,
   deleteRelease,
@@ -275,6 +276,9 @@ const props = defineProps({
 })
 
 const router = useRouter()
+
+// Sürüm yayınlanmadan önceki "yarım kalan iş" kontrolü iş akışına bakar.
+const { isDone, isCancelled } = useTaskStatuses(() => props.teamId, () => props.projectId)
 
 const loading = ref(true)
 const teamPrimaryProjectId = ref(null)
@@ -485,7 +489,8 @@ async function transition(release, t) {
     if (!tasks) {
       try { tasks = await getReleaseTasks(activeProjectId.value, release.id) } catch { tasks = [] }
     }
-    const notDone = (tasks || []).filter(x => x.status !== 'Done' && x.status !== 'Cancelled')
+    // "Tamamlandı" tanımı iş akışından okunur; iptal edilenler zaten sayılmaz.
+    const notDone = (tasks || []).filter(x => !isDone(x.status) && !isCancelled(x.status))
     let msg = `"${release.name}" sürümü yayınlanacak ve dağıtım tarihçesi kaydedilecek. Bu işlem geri alınamaz.`
     if (notDone.length > 0) {
       const list = notDone.slice(0, 10).map(x => `• ${x.customId} — ${x.title} (${x.status})`).join('\n')

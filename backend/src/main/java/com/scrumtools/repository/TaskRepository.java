@@ -16,7 +16,12 @@ import java.util.UUID;
 
 public interface TaskRepository extends JpaRepository<Task, UUID> {
 
-    List<Task> findByTeamIdAndStatusNot(UUID teamId, String status);
+    /**
+     * Gizlenecek durumlar (iptal vb.) hariç görevler. Tekil {@code StatusNot}
+     * yerine liste alır çünkü "iptal" durumunun adı ve sayısı artık takımın
+     * workflow'unda tanımlı — kodda sabit tek bir ada bağlanamaz.
+     */
+    List<Task> findByTeamIdAndStatusNotIn(UUID teamId, List<String> statuses);
 
     List<Task> findByTeamId(UUID teamId);
 
@@ -24,7 +29,7 @@ public interface TaskRepository extends JpaRepository<Task, UUID> {
 
     List<Task> findByTeamIdAndProjectId(UUID teamId, UUID projectId);
 
-    List<Task> findByTeamIdAndProjectIdAndStatusNot(UUID teamId, UUID projectId, String status);
+    List<Task> findByTeamIdAndProjectIdAndStatusNotIn(UUID teamId, UUID projectId, List<String> statuses);
 
     long countByTeamIdAndProjectId(UUID teamId, UUID projectId);
 
@@ -125,4 +130,29 @@ public interface TaskRepository extends JpaRepository<Task, UUID> {
     @Query("SELECT DISTINCT t.resolution FROM Task t WHERE t.team.id = :teamId " +
            "AND t.resolution IS NOT NULL AND t.resolution <> '' ORDER BY t.resolution")
     List<String> findDistinctResolutions(@Param("teamId") UUID teamId);
+
+    // ─── Durum bakımı (workflow düzenlemesi) ──────────────────────────────────
+
+    /**
+     * Durum adı değiştiğinde ya da bir durum silinip başkasına taşındığında
+     * görevlerin durumunu topluca günceller. Bu olmadan durum adını değiştirmek
+     * tüm görevleri katalog dışında ("eşlenmemiş") bırakırdı.
+     */
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query("UPDATE Task t SET t.status = :newStatus WHERE t.team.id = :teamId AND t.status = :oldStatus")
+    int reassignStatusInTeam(@Param("teamId") UUID teamId,
+                             @Param("oldStatus") String oldStatus,
+                             @Param("newStatus") String newStatus);
+
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query("UPDATE Task t SET t.status = :newStatus WHERE t.project.id = :projectId AND t.status = :oldStatus")
+    int reassignStatusInProject(@Param("projectId") UUID projectId,
+                                @Param("oldStatus") String oldStatus,
+                                @Param("newStatus") String newStatus);
+
+    @Query("SELECT COUNT(t) FROM Task t WHERE t.team.id = :teamId AND t.status = :status")
+    long countByTeamIdAndStatus(@Param("teamId") UUID teamId, @Param("status") String status);
+
+    @Query("SELECT COUNT(t) FROM Task t WHERE t.project.id = :projectId AND t.status = :status")
+    long countByProjectIdAndStatus(@Param("projectId") UUID projectId, @Param("status") String status);
 }

@@ -12,9 +12,15 @@
     <dl class="fields">
       <dt>Durum</dt>
       <dd>
-        <select class="field-select" :class="statusClass" :value="task.status" @change="emitField('status', $event.target.value)">
-          <option v-if="!knownStatuses.includes(task.status)" :value="task.status">{{ task.status }}</option>
-          <option v-for="s in knownStatuses" :key="s" :value="s">{{ s }}</option>
+        <select class="field-select" :class="statusClass" :style="statusStyle"
+                :value="task.status" @change="emitField('status', $event.target.value)">
+          <!-- İş akışında tanımsız durumlar (eski görevler) seçili kalabilsin -->
+          <option v-if="task.status && !findStatus(task.status)" :value="task.status">
+            {{ task.status }}
+          </option>
+          <option v-for="s in statuses" :key="s.id" :value="s.name">
+            {{ s.icon ? s.icon + ' ' : '' }}{{ s.name }}
+          </option>
         </select>
       </dd>
 
@@ -105,22 +111,33 @@ import { computed } from 'vue'
 import TaskPanel from '../TaskPanel.vue'
 import { getInitials, displayName, formatShortDate, formatRelativeTime } from '../../../utils/taskFormat.js'
 import { taskPanelProps, taskPanelEmits } from './panelProps.js'
+import { useTaskStatuses } from '../../../composables/useTaskStatuses.js'
 
 const props = defineProps(taskPanelProps)
 const emit = defineEmits(taskPanelEmits)
 
-const knownStatuses = ['To Do', 'In Progress', 'Done']
+// Durum listesi ve renkleri takımın iş akışından gelir.
+const { statuses, findStatus, categoryOf } = useTaskStatuses(
+  () => props.teamId,
+  () => props.task?.projectId ?? null
+)
 
 const typeIcons = { bug: '🐛', story: '📖', epic: '⚡', task: '✅', subtask: '📌' }
 
 const typeIcon = computed(() => typeIcons[(props.task?.issueType || 'task').toLowerCase()] || '✅')
 
+/** Durumun kendi rengi tanımlıysa o kullanılır; yoksa kategoriye düşülür. */
+const statusStyle = computed(() => {
+  const color = findStatus(props.task?.status)?.color
+  return color ? { borderColor: `${color}55`, backgroundColor: `${color}12`, color } : {}
+})
+
 const statusClass = computed(() => {
-  const status = (props.task?.status || '').toLowerCase()
-  if (status === 'done') return 'border-green-200 bg-green-50 text-green-700'
-  if (status === 'in progress') return 'border-blue-200 bg-blue-50 text-blue-700'
-  if (status === 'cancelled') return 'border-red-200 bg-red-50 text-red-700'
-  return 'border-gray-200 bg-white text-gray-700'
+  if (findStatus(props.task?.status)?.color) return ''
+  return {
+    DONE: 'border-green-200 bg-green-50 text-green-700',
+    IN_PROGRESS: 'border-blue-200 bg-blue-50 text-blue-700',
+  }[categoryOf(props.task?.status)] || 'border-gray-200 bg-white text-gray-700'
 })
 
 const priorityClass = computed(() => {

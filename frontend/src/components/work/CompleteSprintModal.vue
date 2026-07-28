@@ -90,6 +90,7 @@
 <script setup>
 import { computed, ref } from 'vue'
 import { completeSprint } from '../../api/WorkApi.js'
+import { useTaskStatuses } from '../../composables/useTaskStatuses.js'
 
 const props = defineProps({
   teamId: { type: String, required: true },
@@ -104,33 +105,38 @@ const props = defineProps({
 
 const emit = defineEmits(['close', 'completed'])
 
-// Backend'deki TaskService.isDoneStatus ile aynı tanım — özet sayıların
-// sunucunun uyguladığı ayrımla birebir örtüşmesi için.
-const DONE_STATUSES = ['done', 'closed', 'fixed', 'verified']
+// "Bitti" ve "iptal" tanımları takımın iş akışından okunur — sunucu da sprint
+// kapanışında aynı katalogu kullanıyor, özet sayılar birebir örtüşsün.
+const { isDone, isCancelled, statuses } = useTaskStatuses(() => props.teamId)
+
+/** COMPLETE aksiyonunun yazacağı durum — kullanıcıya adıyla gösterilir. */
+const doneStatusName = computed(() =>
+  statuses.value.find(s => s.category === 'DONE' && !s.isCancellation)?.name ?? 'Done'
+)
 
 const action = ref('BACKLOG')
 const targetSprintId = ref('')
 const submitting = ref(false)
 const error = ref('')
 
-const actionOptions = [
+const actionOptions = computed(() => [
   { value: 'BACKLOG', label: 'Backlog\'a geri gönder', hint: 'Sprint bağı kaldırılır, işler backlog\'un başında bekler.' },
   { value: 'MOVE', label: 'Başka bir sprinte taşı', hint: 'Bir sonraki sprintin kapsamına eklenir.' },
-  { value: 'COMPLETE', label: 'Tümünü tamamlandı say', hint: 'Yarım kalan işler "Done" olarak işaretlenir.' },
+  { value: 'COMPLETE', label: 'Tümünü tamamlandı say', hint: `Yarım kalan işler "${doneStatusName.value}" olarak işaretlenir.` },
   { value: 'KEEP', label: 'Bu sprintte kalsın', hint: 'İşler kapanan sprintte kalır; backlog ekranında görünmez.' },
-]
+])
 
 // İptal edilen işler ne tamamlanmış ne yarım sayılır — backend de onları dışarıda bırakır.
 const relevantTasks = computed(() =>
-  props.tasks.filter(t => (t.status || '').toLowerCase() !== 'cancelled')
+  props.tasks.filter(t => !isCancelled(t.status))
 )
 
 const completedTasks = computed(() =>
-  relevantTasks.value.filter(t => DONE_STATUSES.includes((t.status || '').toLowerCase()))
+  relevantTasks.value.filter(t => isDone(t.status))
 )
 
 const incompleteTasks = computed(() =>
-  relevantTasks.value.filter(t => !DONE_STATUSES.includes((t.status || '').toLowerCase()))
+  relevantTasks.value.filter(t => !isDone(t.status))
 )
 
 const completionPercent = computed(() => {

@@ -368,6 +368,7 @@
                         <span
                           class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] sm:text-xs font-medium"
                           :class="statusBadgeClass(task.status)"
+                          :style="statusBadgeStyle(task.status)"
                         >
                           {{ task.status }}
                         </span>
@@ -403,7 +404,9 @@
                           >
                             <span class="font-mono text-gray-400">{{ sub.customId }}</span>
                             <span class="truncate flex-1">{{ sub.title }}</span>
-                            <span class="px-1.5 py-0.5 rounded-full shrink-0" :class="statusBadgeClass(sub.status)">{{ sub.status }}</span>
+                            <span class="px-1.5 py-0.5 rounded-full shrink-0"
+                                  :class="statusBadgeClass(sub.status)"
+                                  :style="statusBadgeStyle(sub.status)">{{ sub.status }}</span>
                           </div>
                         </template>
                       </div>
@@ -485,6 +488,7 @@ import AddTaskForm from "./AddTaskForm.vue";
 import CompleteSprintModal from "./CompleteSprintModal.vue";
 import { buildTaskTree } from "../../utils/taskHierarchy.js";
 import { GROUP_OPTIONS, groupTasks, isGroupingActive } from "../../utils/taskGrouping.js";
+import { useTaskStatuses } from "../../composables/useTaskStatuses.js";
 import { createToast } from "mosha-vue-toastify";
 
 /** Gruplama tercihi ekran alışkanlığıdır — sunucuda değil, tarayıcıda saklanır. */
@@ -516,6 +520,19 @@ export default {
     projectId: { type: String, default: null },
     /** Takımın projeleri — sprint satırlarındaki proje kırılım rozeti için. */
     projects: { type: Array, default: () => [] }
+  },
+  setup(props) {
+    // Durum rozetleri ve "bitti" sayımı iş akışından beslenir.
+    const { classOf, styleOf, isDone, statusNames } = useTaskStatuses(
+      () => props.teamId,
+      () => props.projectId
+    )
+    return {
+      statusBadgeClass: classOf,
+      statusBadgeStyle: styleOf,
+      isDoneStatus: isDone,
+      workflowStatusNames: statusNames,
+    }
   },
   data() {
     return {
@@ -575,8 +592,9 @@ export default {
         tasks,
         // Gruplama kapalıyken tek bir isimsiz grup döner; template tek bir
         // döngüyle çalışır, iki ayrı liste şablonu tutmaya gerek kalmaz.
+        // Durum gruplamasında sıralama iş akışındaki durum sırasını izler.
         groups: this.isGrouped
-          ? groupTasks(tasks, this.groupBy)
+          ? groupTasks(tasks, this.groupBy, { statusOrder: this.workflowStatusNames })
           : [{ key: '__all__', label: null, tasks, storyPoints: 0 }],
       });
 
@@ -815,7 +833,8 @@ export default {
     sprintCompletionPercent(sprintId) {
       const items = this.sprintTasks(sprintId);
       if (!items.length) return 0;
-      const done = items.filter(t => t.status === 'Done').length;
+      // Sayım durum adına değil iş akışı kategorisine bakar.
+      const done = items.filter(t => this.isDoneStatus(t.status)).length;
       return Math.round((done / items.length) * 100);
     },
 
@@ -825,15 +844,6 @@ export default {
       const now = new Date();
       const diff = Math.ceil((end - now) / (1000 * 60 * 60 * 24));
       return Math.max(0, diff);
-    },
-
-    statusBadgeClass(status) {
-      return {
-        'To Do':       'bg-gray-100 text-gray-700',
-        'In Progress': 'bg-blue-100 text-blue-700',
-        'Done':        'bg-green-100 text-green-700',
-        'Cancelled':   'bg-red-100 text-red-600',
-      }[status] || 'bg-gray-100 text-gray-700';
     },
 
     priorityBadgeClass(priority) {

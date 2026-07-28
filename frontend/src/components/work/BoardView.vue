@@ -41,7 +41,7 @@
           v-for="col in columns"
           :key="col.name"
           :column="col"
-          :tasks="tasksByStatus[col.name] || []"
+          :tasks="tasksByColumn[col.name] || []"
           @task-click="openTask"
           @task-drop="handleDrop"
         />
@@ -59,19 +59,20 @@ import BoardSwimlane from './BoardSwimlane.vue'
 import QueryBar      from './QueryBar.vue'
 import { getTasks, updateTask } from '../../api/WorkApi.js'
 import { useTaskQuery } from '../../composables/useTaskQuery.js'
+import { distributeTasks, targetStatusFor } from '../../utils/boardColumns.js'
 
 const props = defineProps({
   teamId:  { type: String, required: true },
   /** Aktif proje context'i — null ise takımın tüm projelerindeki görevler gösterilir. */
   projectId: { type: String, default: null },
-  columns: {
-    type: Array,
-    default: () => [
-      { name: 'To Do',       color: '#6B7280', wipLimit: 0 },
-      { name: 'In Progress', color: '#3B82F6', wipLimit: 3 },
-      { name: 'Done',        color: '#10B981', wipLimit: 0 },
-    ]
-  },
+  /**
+   * Sütunlar: [{ name, color, wipLimit, statuses[] }]. `statuses` bir sütunun
+   * hangi görev durumlarını topladığını söyler; tanımsızsa sütun kendi adıyla
+   * eşleşir (eski board'lar için geri uyum). Sütun listesini WorkList üretir —
+   * burada sabit varsayılan tutmuyoruz, aksi halde takımın durumlarını
+   * yeniden adlandırması board'ı sessizce boşaltırdı.
+   */
+  columns: { type: Array, default: () => [] },
   groupBy: { type: String, default: 'status' }
 })
 
@@ -117,25 +118,23 @@ onMounted(() => {
 watch(() => [props.teamId, props.projectId], loadTasks)
 
 // ─── Sütun–görev eşlemesi ─────────────────────────────────────────────────────
-const tasksByStatus = computed(() => {
-  const map = {}
-  for (const col of props.columns) map[col.name] = []
-  for (const task of allTasks.value) {
-    if (map[task.status]) {
-      map[task.status].push(task)
-    } else {
-      // Bilinmeyen status → ilk sütuna at (geri uyumluluk)
-      const first = props.columns[0]
-      if (first) (map[first.name] = map[first.name] || []).push(task)
-    }
-  }
-  return map
-})
+// Sütun adı = durum adı varsayımı kaldırıldı; eşleme sütunun `statuses` dizisinden
+// okunur (bkz. utils/boardColumns.js).
+const distribution = computed(() => distributeTasks(props.columns, allTasks.value))
+const tasksByColumn = computed(() => distribution.value.byColumn)
 
 // ─── Sürükle-Bırak ───────────────────────────────────────────────────────────
-async function handleDrop({ taskId, toStatus, fromStatus }) {
-  // Optimistic update
+async function handleDrop({ taskId, toColumn, fromStatus }) {
   const task = allTasks.value.find(t => t.id === taskId)
+  const column = props.columns.find(c => c.name === toColumn)
+  if (!column) return
+
+  // Hedef sütun birden fazla durum topluyorsa görevin durumu sütunun birincil
+  // durumuna çekilir; görev zaten o sütuna ait bir durumdaysa korunur.
+  const toStatus = targetStatusFor(column, task?.status ?? fromStatus)
+  if (!toStatus || toStatus === task?.status) return
+
+  // Optimistic update
   if (task) task.status = toStatus
   try {
     await updateTask(props.teamId, taskId, { status: toStatus })

@@ -3,6 +3,7 @@ package com.scrumtools.query;
 import com.scrumtools.entity.Project;
 import com.scrumtools.entity.Team;
 import com.scrumtools.repository.*;
+import com.scrumtools.service.workflow.TaskStatusService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -26,7 +27,6 @@ public class QuerySuggestionService {
     /** Veri tabanında karşılığı olmayan, uygulama tarafından sabitlenmiş değerler. */
     private static final List<String> DEFAULT_PRIORITIES = List.of("Critical", "High", "Medium", "Low");
     private static final List<String> DEFAULT_ISSUE_TYPES = List.of("task", "story", "bug", "epic");
-    private static final List<String> DEFAULT_STATUSES = List.of("To Do", "In Progress", "Done", "Cancelled");
     private static final List<String> DEFAULT_RESOLUTIONS =
             List.of("Fixed", "Won't Fix", "Duplicate", "Cannot Reproduce");
 
@@ -35,6 +35,7 @@ public class QuerySuggestionService {
     private final TeamMemberRepository teamMemberRepository;
     private final SprintRepository sprintRepository;
     private final ReleaseRepository releaseRepository;
+    private final TaskStatusService taskStatusService;
 
     /** Alan kataloğu — arayüz bunu alan ve operatör listesi olarak gösterir. */
     public Map<String, Object> fieldCatalog() {
@@ -79,7 +80,10 @@ public class QuerySuggestionService {
         List<Map<String, String>> raw = switch (descriptor.suggestSource()) {
             case "users" -> userSuggestions(teamId);
             case "labels" -> plain(taskRepository.findDistinctLabels(teamId));
-            case "statuses" -> plain(merge(taskRepository.findDistinctStatuses(teamId), DEFAULT_STATUSES));
+            // Önce workflow'da tanımlı durumlar (sıralı), sonra veride kalmış
+            // ama artık tanımlı olmayanlar — sorgu yazan kişi ikisini de görmeli.
+            case "statuses" -> plain(merge(taskRepository.findDistinctStatuses(teamId),
+                    taskStatusService.getCatalog(teamId, projectId).names()));
             case "priorities" -> plain(DEFAULT_PRIORITIES);
             case "issueTypes" -> plain(DEFAULT_ISSUE_TYPES);
             case "resolutions" -> plain(merge(taskRepository.findDistinctResolutions(teamId), DEFAULT_RESOLUTIONS));

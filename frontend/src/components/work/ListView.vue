@@ -78,7 +78,9 @@
             </td>
             <!-- Durum -->
             <td class="px-3 py-2 whitespace-nowrap">
-              <span class="text-xs px-2 py-0.5 rounded-full" :class="statusClass(task.status)">{{ task.status }}</span>
+              <span class="text-xs px-2 py-0.5 rounded-full"
+                    :class="statusClass(task.status)"
+                    :style="statusStyle(task.status)">{{ task.status }}</span>
             </td>
             <!-- Öncelik -->
             <td class="px-3 py-2 whitespace-nowrap">
@@ -135,6 +137,7 @@ import QueryBar from './QueryBar.vue'
 import { getTasks } from '../../api/WorkApi.js'
 import { buildTaskTree } from '../../utils/taskHierarchy.js'
 import { useTaskQuery } from '../../composables/useTaskQuery.js'
+import { useTaskStatuses } from '../../composables/useTaskStatuses.js'
 import { withOrderBy, readOrderBy } from '../../utils/stql.js'
 
 const props = defineProps({
@@ -153,6 +156,11 @@ const {
   page, size, hasQuery,
   addFilter, removeFilter, setFilters, clearAll, setQuery, onValidated, run, restoreFromUrl,
 } = useTaskQuery({ teamId: computed(() => props.teamId), projectId: projectIdRef })
+
+// Durum rozetlerinin rengi/kategorisi iş akışından okunur.
+const { classOf: statusClass, styleOf: statusStyle } = useTaskStatuses(
+  () => props.teamId, projectIdRef
+)
 
 // ─── Liste state'i ────────────────────────────────────────────────────────────
 const allTasks      = ref([])
@@ -310,14 +318,8 @@ function onApplyFilters(list) {
 }
 
 // ─── Stil yardımcıları ────────────────────────────────────────────────────────
-function statusClass(s) {
-  return {
-    'To Do':       'bg-gray-100 text-gray-700',
-    'In Progress': 'bg-blue-100 text-blue-700',
-    'Done':        'bg-green-100 text-green-700',
-    'Cancelled':   'bg-red-100 text-red-600',
-  }[s] || 'bg-gray-100 text-gray-600'
-}
+// Durum rozetleri iş akışındaki renk/kategoriden beslenir (statusClass ve
+// statusStyle composable'dan gelir); sabit ad→renk haritası kaldırıldı.
 
 function priorityClass(p) {
   return {

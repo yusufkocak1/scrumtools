@@ -176,12 +176,13 @@
  * hangi sırada durduğunu tutar. Kullanıcı panelleri sürükleyerek taşıyabildiği
  * için sayfa buradan yalnız veriyi ve ortak event'leri dağıtır.
  */
-import { provide } from 'vue';
+import { provide, ref, computed } from 'vue';
 import { updateTask, searchByCustomId, getLinks, getSubtasks } from '../api/WorkApi.js';
 import { setPokerTask } from '../api/ScrumPokerApi.js';
 import { getTeamReleases, getTaskDeployments } from '../api/ReleaseApi.js';
 import { getTeamById } from '../api/TeamApi.js';
 import { useTaskLayout } from '../composables/useTaskLayout.js';
+import { useTaskStatuses } from '../composables/useTaskStatuses.js';
 
 import AddTaskForm from '../components/work/AddTaskForm.vue';
 import TaskDescriptionPanel from '../components/work/panels/TaskDescriptionPanel.vue';
@@ -217,7 +218,20 @@ export default {
     const taskLayout = useTaskLayout();
     // Paneller kabuklarını (TaskPanel) buradan besler: katlama, sürükleme, taşıma
     provide('taskLayout', taskLayout);
+
+    // teamId görev yüklendikten sonra dolduğu için data() yerine burada ref:
+    // durum kataloğu bu ref'i izleyip takım belli olunca kendini yüklüyor.
+    const teamId = ref(null);
+    const { statuses } = useTaskStatuses(teamId);
+
+    /** "İptal Et" aksiyonunun yazacağı durum — iş akışındaki iptal durumu. */
+    const cancellationStatus = computed(() =>
+      statuses.value.find(s => s.isCancellation)?.name ?? null
+    );
+
     return {
+      teamId,
+      cancellationStatus,
       columns: taskLayout.layout,
       layoutEditing: taskLayout.editing,
       toggleLayoutEditing: taskLayout.toggleEditing,
@@ -230,7 +244,6 @@ export default {
   data() {
     return {
       task: null,
-      teamId: null,
       loading: true,
       showEditForm: false,
       menuOpen: false,
@@ -405,8 +418,14 @@ export default {
 
     cancelTask() {
       this.menuOpen = false;
-      if (!confirm('Görev iptal edilecek. Emin misiniz?')) return;
-      this.updateTaskField('status', 'Cancelled');
+      // İptal durumu iş akışında tanımlı değilse aksiyonu uydurmuyoruz —
+      // rastgele bir duruma yazmak yerine kullanıcıyı ayarlara yönlendiriyoruz.
+      if (!this.cancellationStatus) {
+        alert('İş akışında iptal durumu tanımlı değil. Ayarlar → Görev Durumları ekranından bir durumu "İptal" olarak işaretleyin.');
+        return;
+      }
+      if (!confirm(`Görev "${this.cancellationStatus}" durumuna alınacak. Emin misiniz?`)) return;
+      this.updateTaskField('status', this.cancellationStatus);
     },
 
     startLayoutEditing() {

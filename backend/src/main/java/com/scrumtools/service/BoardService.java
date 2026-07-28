@@ -9,6 +9,7 @@ import com.scrumtools.entity.enums.BoardType;
 import com.scrumtools.repository.BoardRepository;
 import com.scrumtools.repository.ProjectRepository;
 import com.scrumtools.repository.TeamRepository;
+import com.scrumtools.service.workflow.TaskStatusService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -25,6 +26,7 @@ public class BoardService {
     private final BoardRepository boardRepository;
     private final TeamRepository teamRepository;
     private final ProjectRepository projectRepository;
+    private final TaskStatusService taskStatusService;
 
     // ─── Listeleme ────────────────────────────────────────────────────────────
 
@@ -57,7 +59,7 @@ public class BoardService {
                 .name(req.getName() != null ? req.getName() : "Board")
                 .boardType(type)
                 .columnConfig(req.getColumnConfig() != null ? req.getColumnConfig()
-                        : (type == BoardType.SCRUM ? defaultScrumColumnConfig() : defaultColumnConfig()))
+                        : defaultColumnConfig(teamId, req.getProjectId()))
                 .swimlaneConfig(req.getSwimlaneConfig() != null ? req.getSwimlaneConfig() : defaultSwimlaneConfig())
                 .cardConfig(req.getCardConfig() != null ? req.getCardConfig() : defaultCardConfig())
                 .isDefault(req.getIsDefault() != null ? req.getIsDefault() : isFirst)
@@ -113,23 +115,37 @@ public class BoardService {
         return board;
     }
 
-    private Map<String, Object> defaultColumnConfig() {
-        // Varsayılan Kanban sütunları
-        return Map.of("columns", List.of(
-                Map.of("name", "To Do",       "wipLimit", 0, "color", "#6B7280"),
-                Map.of("name", "In Progress",  "wipLimit", 3, "color", "#3B82F6"),
-                Map.of("name", "Done",         "wipLimit", 0, "color", "#10B981")
-        ));
-    }
+    /**
+     * Yeni board'un başlangıç sütunları: takımın iş akışındaki her durum için bir
+     * sütun. Sütunlar durum adına değil {@code statuses} listesine bağlıdır —
+     * kullanıcı sonradan sütunları birleştirebilir (ör. "In Review" + "Testing"
+     * tek "Doğrulama" sütununda) ya da bir durumu board dışında bırakabilir.
+     *
+     * İptal durumları varsayılan olarak sütuna alınmaz; board yürüyen işi
+     * gösterir, vazgeçilen işi değil.
+     */
+    private Map<String, Object> defaultColumnConfig(UUID teamId, UUID projectId) {
+        List<Map<String, Object>> columns = taskStatusService.getCatalog(teamId, projectId)
+                .statuses().stream()
+                .filter(s -> !Boolean.TRUE.equals(s.isCancellation()))
+                .map(s -> Map.<String, Object>of(
+                        "name", s.name(),
+                        "color", s.color() != null ? s.color() : "#6B7280",
+                        "wipLimit", 0,
+                        "statuses", List.of(s.name())))
+                .toList();
 
-    private Map<String, Object> defaultScrumColumnConfig() {
-        // Varsayılan Scrum sütunları (daha fazla aşama)
-        return Map.of("columns", List.of(
-                Map.of("name", "To Do",        "wipLimit", 0, "color", "#6B7280"),
-                Map.of("name", "In Progress",  "wipLimit", 3, "color", "#3B82F6"),
-                Map.of("name", "In Review",    "wipLimit", 2, "color", "#F59E0B"),
-                Map.of("name", "Done",         "wipLimit", 0, "color", "#10B981")
-        ));
+        if (columns.isEmpty()) {
+            columns = List.of(
+                    Map.<String, Object>of("name", "To Do", "color", "#6B7280", "wipLimit", 0,
+                            "statuses", List.of("To Do")),
+                    Map.<String, Object>of("name", "In Progress", "color", "#3B82F6", "wipLimit", 3,
+                            "statuses", List.of("In Progress")),
+                    Map.<String, Object>of("name", "Done", "color", "#10B981", "wipLimit", 0,
+                            "statuses", List.of("Done"))
+            );
+        }
+        return Map.of("columns", columns);
     }
 
     private Map<String, Object> defaultSwimlaneConfig() {

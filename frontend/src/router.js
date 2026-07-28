@@ -101,6 +101,14 @@ const routes = [{
     props: true,
     meta: {requiresAuth: true}
 }, {
+    // Çalışma ayarlarının merkezi: görev durumları, board sütunları, takım projeleri.
+    // teamId opsiyonel — verilmezse merkezi context'teki aktif takım kullanılır.
+    path: '/workspace-settings/:teamId?',
+    name: 'WorkspaceSettings',
+    component: () => import('./pages/WorkspaceSettings.vue'),
+    props: true,
+    meta: {requiresAuth: true}
+}, {
     path: '/codeShare/:teamId',
     name: 'CodeShare',
     component: CodeShare,

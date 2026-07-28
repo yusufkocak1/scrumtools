@@ -3,9 +3,12 @@ package com.scrumtools.service;
 import com.scrumtools.dto.report.*;
 import com.scrumtools.entity.Sprint;
 import com.scrumtools.entity.Task;
+import com.scrumtools.entity.enums.StatusCategory;
 import com.scrumtools.repository.SprintRepository;
 import com.scrumtools.repository.TaskRepository;
 import com.scrumtools.repository.TeamMemberRepository;
+import com.scrumtools.service.workflow.TaskStatusCatalog;
+import com.scrumtools.service.workflow.TaskStatusService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -24,6 +27,7 @@ public class ReportService {
     private final TaskRepository taskRepository;
     private final SprintRepository sprintRepository;
     private final TeamMemberRepository teamMemberRepository;
+    private final TaskStatusService taskStatusService;
 
     private static final DateTimeFormatter DATE_FMT = DateTimeFormatter.ISO_LOCAL_DATE;
 
@@ -31,10 +35,13 @@ public class ReportService {
 
     public TeamSummaryDto getTeamSummary(UUID teamId) {
         List<Task> all = taskRepository.findByTeamId(teamId);
+        // Sayımlar durum adına değil kategoriye bakar: takım "To Do"yu "Backlog"
+        // yapsa ya da üç ayrı "devam ediyor" durumu tanımlasa da özet doğru kalır.
+        TaskStatusCatalog catalog = taskStatusService.getCatalog(teamId, null);
         long total = all.size();
-        long open = all.stream().filter(t -> "To Do".equals(t.getStatus())).count();
-        long inProgress = all.stream().filter(t -> "In Progress".equals(t.getStatus())).count();
-        long done = all.stream().filter(t -> "Done".equals(t.getStatus())).count();
+        long open = countByCategory(all, catalog, StatusCategory.TO_DO);
+        long inProgress = countByCategory(all, catalog, StatusCategory.IN_PROGRESS);
+        long done = countByCategory(all, catalog, StatusCategory.DONE);
         long overdue = taskRepository.findOverdue(teamId, LocalDate.now()).size();
 
         List<Sprint> sprints = sprintRepository.findByTeamId(teamId);
@@ -60,6 +67,7 @@ public class ReportService {
             throw new IllegalArgumentException("Sprint bu takıma ait değil.");
 
         List<Task> sprintTasks = taskRepository.findBySprintId(sprintId);
+        TaskStatusCatalog catalog = taskStatusService.getCatalog(teamId, null);
 
         int totalPoints = sprintTasks.stream()
                 .mapToInt(t -> t.getStoryPoints() != null ? t.getStoryPoints() : 0)
@@ -77,7 +85,7 @@ public class ReportService {
 
         // Her gün için ideal ve gerçek (basit yaklaşım: Done'a geçiş günü bilmiyoruz → güncel Done pts)
         int donePoints = sprintTasks.stream()
-                .filter(t -> "Done".equals(t.getStatus()))
+                .filter(t -> catalog.isDone(t.getStatus()))
                 .mapToInt(t -> t.getStoryPoints() != null ? t.getStoryPoints() : 0)
                 .sum();
         double dailyIdeal = (double) totalPoints / (daysTotal - 1 == 0 ? 1 : daysTotal - 1);
@@ -110,13 +118,14 @@ public class ReportService {
 
     public List<SprintVelocityDto> getVelocity(UUID teamId) {
         List<Sprint> sprints = sprintRepository.findByTeamId(teamId);
+        TaskStatusCatalog catalog = taskStatusService.getCatalog(teamId, null);
         return sprints.stream().map(sprint -> {
             List<Task> tasks = taskRepository.findBySprintId(sprint.getId());
             int committed = tasks.stream()
                     .mapToInt(t -> t.getStoryPoints() != null ? t.getStoryPoints() : 0)
                     .sum();
             int completed = tasks.stream()
-                    .filter(t -> "Done".equals(t.getStatus()))
+                    .filter(t -> catalog.isDone(t.getStatus()))
                     .mapToInt(t -> t.getStoryPoints() != null ? t.getStoryPoints() : 0)
                     .sum();
             return new SprintVelocityDto(sprint.getId().toString(), sprint.getName(), committed, completed);
@@ -191,6 +200,10 @@ public class ReportService {
     }
 
     // ─── Yardımcı ─────────────────────────────────────────────────────────────
+
+    private long countByCategory(List<Task> tasks, TaskStatusCatalog catalog, StatusCategory category) {
+        return tasks.stream().filter(t -> catalog.categoryOf(t.getStatus()) == category).count();
+    }
 
     private List<DistributionItemDto> toDistribution(List<Object[]> rows) {
         return rows.stream()

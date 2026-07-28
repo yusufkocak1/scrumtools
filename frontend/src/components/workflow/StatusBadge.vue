@@ -13,6 +13,7 @@
 
 <script setup>
 import { computed } from 'vue'
+import { guessCategory, CATEGORY_CLASSES } from '../../composables/useTaskStatuses.js'
 
 const props = defineProps({
   /** { name, category, color, icon } veya sadece string status adı */
@@ -24,17 +25,13 @@ const props = defineProps({
 
 const statusObj = computed(() =>
   typeof props.status === 'string'
-    ? { name: props.status, category: guessCategoryFromName(props.status), color: null, icon: null }
+    ? { name: props.status, category: guessCategory(props.status), color: null, icon: null }
     : props.status
 )
 
 const categoryClass = computed(() => {
   const cat = statusObj.value?.category || 'TO_DO'
-  return {
-    TO_DO: 'bg-gray-100 text-gray-700',
-    IN_PROGRESS: 'bg-blue-100 text-blue-700',
-    DONE: 'bg-green-100 text-green-700',
-  }[cat] ?? 'bg-gray-100 text-gray-700'
+  return CATEGORY_CLASSES[cat] ?? CATEGORY_CLASSES.TO_DO
 })
 
 const colorStyle = computed(() => {
@@ -46,13 +43,7 @@ const colorStyle = computed(() => {
   }
 })
 
-function guessCategoryFromName(name) {
-  const n = name?.toLowerCase() || ''
-  if (['done', 'closed', 'fixed', 'verified', 'cancelled', 'won\'t fix'].some(s => n.includes(s)))
-    return 'DONE'
-  if (['progress', 'review', 'testing', 'selected'].some(s => n.includes(s)))
-    return 'IN_PROGRESS'
-  return 'TO_DO'
-}
+// Kategori tahmini tek yerde: composable ile backend aynı sözcük kümesini
+// kullanıyor, burada ayrı bir kopya tutmak üçüncü bir doğruluk kaynağı üretirdi.
 </script>
 
