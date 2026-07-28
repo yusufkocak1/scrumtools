@@ -13,6 +13,7 @@ import com.scrumtools.repository.ProjectRepository;
 import com.scrumtools.repository.ScmBranchRepository;
 import com.scrumtools.repository.ScmCommitRepository;
 import com.scrumtools.repository.ScmConnectionRepository;
+import com.scrumtools.repository.ScmPullRequestRepository;
 import com.scrumtools.repository.ScmRepositoryRepository;
 import com.scrumtools.service.EntitlementService;
 import com.scrumtools.service.PermissionService;
@@ -48,6 +49,7 @@ public class ScmRepoMappingService {
     private final ScmRepositoryRepository scmRepositoryRepository;
     private final ScmConnectionRepository connectionRepository;
     private final ScmBranchRepository scmBranchRepository;
+    private final ScmPullRequestRepository scmPullRequestRepository;
     private final ScmCommitRepository scmCommitRepository;
     private final ProjectRepository projectRepository;
     private final ProjectMemberRepository projectMemberRepository;
@@ -129,6 +131,8 @@ public class ScmRepoMappingService {
                 log.warn("Webhook silinemedi (repo={}): {}", repo.getFullName(), e.getMessage());
             }
         }
+        // PR'lar branch'e FK ile bağlı — branch'lerden önce silinmeli
+        scmPullRequestRepository.deleteByRepositoryId(repo.getId());
         scmBranchRepository.deleteByRepositoryId(repo.getId());
         scmCommitRepository.deleteAll(scmCommitRepository.findByRepositoryId(repo.getId()));
         scmRepositoryRepository.delete(repo);

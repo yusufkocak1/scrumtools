@@ -52,7 +52,8 @@ import java.util.stream.Collectors;
 /**
  * Task detayındaki Geliştirme (Dev) paneli verisini toplar.
  * Görüntüleme takım üyeliğiyle serbesttir (downgrade sonrası veri kaybolmaz);
- * yazma işlemleri (branch açma) featureEnabled + SCM_CREATE_BRANCH ister.
+ * yazma işlemleri featureEnabled + ilgili izni ister: branch açma SCM_CREATE_BRANCH,
+ * pull request açma SCM_CREATE_PULL_REQUEST.
  */
 @Service
 @RequiredArgsConstructor
@@ -184,11 +185,157 @@ public class ScmTaskDevService {
     }
 
     /**
-     * Branch'i sağlayıcıda oluşturur. Kullanıcı tokenı geçersiz çıkarsa hesap
-     * TOKEN_INVALID işaretlenir ve org bağlantısının tokenıyla bir kez daha denenir.
+     * Task'a bağlı bir branch'ten sağlayıcıda pull request (GitLab'da merge request)
+     * açar ve task'a bağlar. Branch açmadaki gibi önce kullanıcının kendi tokenı
+     * denenir — PR sağlayıcıda kullanıcının adına görünür.
      */
-    private ScmBranchInfo createBranchOnProvider(ScmRepository repo, String email,
-                                                 String branchName, String sourceRef) {
+    @Transactional
+    public ScmPullRequestResponse createPullRequest(UUID teamId, UUID taskId, String email,
+                                                    ScmPullRequestCreateRequest request) {
+        Task task = getTaskInTeam(teamId, taskId, email);
+        Project project = task.getProject();
+        if (project == null) {
+            throw new IllegalStateException("Görev bir projeye bağlı değil.");
+        }
+        if (task.getTeam().getOrganization() == null) {
+            throw new IllegalStateException("Takım bir organizasyona bağlı değil.");
+        }
+        entitlementService.assertFeature(task.getTeam().getOrganization(), PlanFeature.GIT_INTEGRATION);
+        permissionService.checkProjectPermission(email, project.getId(), Permission.SCM_CREATE_PULL_REQUEST);
+
+        if (request.branchId() == null) {
+            throw new IllegalArgumentException("Branch seçilmeli.");
+        }
+        ScmBranch branch = scmBranchRepository.findById(request.branchId())
+                .orElseThrow(() -> new IllegalArgumentException("Branch bulunamadı."));
+        if (!branch.getTask().getId().equals(taskId)) {
+            throw new IllegalArgumentException("Branch bu görevle ilişkili değil.");
+        }
+        if (branch.getStatus() == ScmBranchStatus.DELETED) {
+            throw new IllegalStateException("Silinmiş branch için pull request açılamaz.");
+        }
+
+        ScmRepository repo = branch.getRepository();
+        if (!repo.getProject().getId().equals(project.getId())) {
+            throw new IllegalArgumentException("Branch'in reposu bu projeye eşlenmiş değil.");
+        }
+
+        String targetBranch = isBlank(request.targetBranch())
+                ? repo.getDefaultBranch() : request.targetBranch().trim();
+        if (isBlank(targetBranch)) {
+            throw new IllegalArgumentException("Hedef branch belirtilmeli.");
+        }
+        if (targetBranch.equals(branch.getName())) {
+            throw new IllegalArgumentException("Hedef branch kaynak branch'ten farklı olmalı.");
+        }
+
+        // Aynı branch için zaten açık bir PR varsa yenisi açılmaz — kullanıcı mevcut olana yönlendirilir
+        scmPullRequestRepository.findByBranchIdAndState(branch.getId(), ScmPullRequestState.OPEN).stream()
+                .filter(pr -> pr.getTargetBranch().equals(targetBranch))
+                .findFirst()
+                .ifPresent(pr -> {
+                    throw new IllegalStateException("Bu branch için zaten açık bir pull request var: #"
+                            + pr.getExternalId());
+                });
+
+        String title = isBlank(request.title()) ? defaultTitle(task) : request.title().trim();
+        String description = isBlank(request.description()) ? defaultDescription(task) : request.description();
+
+        ScmPullRequestInfo info = createPullRequestOnProvider(
+                repo, email, branch.getName(), targetBranch, title, description, request.draft());
+
+        ScmPullRequest pullRequest = ScmPullRequest.builder()
+                .repository(repo)
+                .task(task)
+                .branch(branch)
+                .externalId(info.externalId())
+                .title(info.title() != null ? info.title() : title)
+                .sourceBranch(info.sourceBranch() != null ? info.sourceBranch() : branch.getName())
+                .targetBranch(info.targetBranch() != null ? info.targetBranch() : targetBranch)
+                .state(info.state() != null ? info.state() : ScmPullRequestState.OPEN)
+                .webUrl(info.webUrl())
+                .draft(info.draft())
+                .createdViaApp(true)
+                .createdBy(email)
+                .mergedAt(info.mergedAt())
+                .lastSyncedAt(LocalDateTime.now())
+                .build();
+        pullRequest = scmPullRequestRepository.save(pullRequest);
+
+        auditService.recordChange(task, "pull request", null,
+                "#" + pullRequest.getExternalId() + " " + pullRequest.getTitle(), email);
+        log.info("Pull request açıldı: {} #{} ({} → {}, task={})", repo.getFullName(),
+                pullRequest.getExternalId(), branch.getName(), targetBranch, task.getCustomId());
+        return ScmPullRequestResponse.from(pullRequest);
+    }
+
+    /**
+     * PR'ın sağlayıcıdaki güncel durumunu çeker ve kaydı günceller. PR merge
+     * edildiyse kaynak branch de MERGED işaretlenir (push webhook'u bunu görmez).
+     * Görüntüleme gibi takım üyeliğiyle serbesttir — dışarı tek bir okuma isteği çıkar.
+     */
+    @Transactional
+    public ScmPullRequestResponse refreshPullRequest(UUID teamId, UUID taskId, UUID pullRequestId, String email) {
+        Task task = getTaskInTeam(teamId, taskId, email);
+        ScmPullRequest pullRequest = scmPullRequestRepository.findById(pullRequestId)
+                .orElseThrow(() -> new IllegalArgumentException("Pull request bulunamadı."));
+        if (!pullRequest.getTask().getId().equals(taskId)) {
+            throw new IllegalArgumentException("Pull request bu görevle ilişkili değil.");
+        }
+        if (task.getTeam().getOrganization() == null) {
+            throw new IllegalStateException("Takım bir organizasyona bağlı değil.");
+        }
+        entitlementService.assertFeature(task.getTeam().getOrganization(), PlanFeature.GIT_INTEGRATION);
+
+        ScmRepository repo = pullRequest.getRepository();
+        ScmPullRequestInfo info = onProvider(repo, email,
+                client -> client.getPullRequest(repo, pullRequest.getExternalId()));
+
+        if (info.title() != null) pullRequest.setTitle(info.title());
+        if (info.targetBranch() != null) pullRequest.setTargetBranch(info.targetBranch());
+        if (info.webUrl() != null) pullRequest.setWebUrl(info.webUrl());
+        if (info.state() != null) pullRequest.setState(info.state());
+        pullRequest.setDraft(info.draft());
+        pullRequest.setMergedAt(info.mergedAt());
+        pullRequest.setLastSyncedAt(LocalDateTime.now());
+        scmPullRequestRepository.save(pullRequest);
+
+        ScmBranch branch = pullRequest.getBranch();
+        if (info.state() == ScmPullRequestState.MERGED
+                && branch != null && branch.getStatus() == ScmBranchStatus.ACTIVE) {
+            branch.setStatus(ScmBranchStatus.MERGED);
+            scmBranchRepository.save(branch);
+        }
+        return ScmPullRequestResponse.from(pullRequest);
+    }
+
+    /**
+     * PR'ı sağlayıcıda açar. Sağlayıcı "zaten var" derse (GitHub 422 / GitLab 409)
+     * açık PR sorgulanıp döndürülür — kullanıcı hata yerine mevcut PR'ın linkini alır.
+     */
+    private ScmPullRequestInfo createPullRequestOnProvider(ScmRepository repo, String email,
+                                                           String sourceBranch, String targetBranch,
+                                                           String title, String description, boolean draft) {
+        try {
+            return onProvider(repo, email, client ->
+                    client.createPullRequest(repo, sourceBranch, targetBranch, title, description, draft));
+        } catch (ScmApiException e) {
+            if (e.getStatusCode() != 409 && e.getStatusCode() != 422) throw e;
+            ScmPullRequestInfo existing = onProvider(repo, email,
+                    client -> client.findOpenPullRequest(repo, sourceBranch, targetBranch));
+            if (existing == null) throw e;
+            log.info("Sağlayıcıda zaten açık PR bulundu, mevcut kayıt bağlanıyor: {} #{}",
+                    repo.getFullName(), existing.externalId());
+            return existing;
+        }
+    }
+
+    /**
+     * Sağlayıcı çağrısını, varsa kullanıcının kendi tokenıyla çalıştırır; token
+     * geçersiz çıkarsa hesap TOKEN_INVALID işaretlenir ve org bağlantısının
+     * tokenıyla bir kez daha denenir.
+     */
+    private <T> T onProvider(ScmRepository repo, String email, Function<ScmClient, T> action) {
         ScmConnection connection = repo.getConnection();
         UserScmAccount userAccount = userScmAccountRepository
                 .findByUserEmailAndProvider(email, connection.getProvider()).stream()
@@ -198,17 +345,35 @@ public class ScmTaskDevService {
                 .orElse(null);
 
         if (userAccount == null) {
-            return clientFactory.forConnection(connection).createBranch(repo, branchName, sourceRef);
+            return action.apply(clientFactory.forConnection(connection));
         }
         try {
-            return clientFactory.forUserAccount(userAccount).createBranch(repo, branchName, sourceRef);
+            return action.apply(clientFactory.forUserAccount(userAccount));
         } catch (ScmApiException e) {
             if (!e.isAuthFailure()) throw e;
             userAccount.setStatus(ScmConnectionStatus.TOKEN_INVALID);
             userScmAccountRepository.save(userAccount);
             log.warn("Kişisel SCM tokenı geçersiz ({}), org bağlantısına düşülüyor.", email);
-            return clientFactory.forConnection(connection).createBranch(repo, branchName, sourceRef);
+            return action.apply(clientFactory.forConnection(connection));
         }
+    }
+
+    /** "DEV-19 Login sayfası hatası" — sağlayıcıda görev anahtarı başta görünsün. */
+    private String defaultTitle(Task task) {
+        String key = task.getCustomId();
+        String title = task.getTitle() == null ? "" : task.getTitle().trim();
+        String combined = isBlank(key) ? title : (key + " " + title).trim();
+        return combined.length() > 500 ? combined.substring(0, 500) : combined;
+    }
+
+    /** Açıklamaya görev linki eklenir; frontend adresi tanımlı değilse sadece anahtar yazılır. */
+    private String defaultDescription(Task task) {
+        String key = task.getCustomId() == null ? "" : task.getCustomId();
+        if (isBlank(frontendBaseUrl)) {
+            return isBlank(key) ? "" : "ScrumTools görevi: " + key;
+        }
+        String link = frontendBaseUrl.replaceAll("/+$", "") + "/task/" + task.getId();
+        return "ScrumTools görevi: [" + (isBlank(key) ? "Görev" : key) + "](" + link + ")";
     }
 
     private Task getTaskInTeam(UUID teamId, UUID taskId, String email) {

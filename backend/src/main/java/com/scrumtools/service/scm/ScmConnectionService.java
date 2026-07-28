@@ -16,6 +16,7 @@ import com.scrumtools.repository.OrganizationRepository;
 import com.scrumtools.repository.ScmBranchRepository;
 import com.scrumtools.repository.ScmCommitRepository;
 import com.scrumtools.repository.ScmConnectionRepository;
+import com.scrumtools.repository.ScmPullRequestRepository;
 import com.scrumtools.repository.ScmRepositoryRepository;
 import com.scrumtools.service.EntitlementService;
 import com.scrumtools.service.scm.client.ScmApiException;
@@ -51,6 +52,7 @@ public class ScmConnectionService {
     private final ScmConnectionRepository connectionRepository;
     private final ScmRepositoryRepository scmRepositoryRepository;
     private final ScmBranchRepository scmBranchRepository;
+    private final ScmPullRequestRepository scmPullRequestRepository;
     private final ScmCommitRepository scmCommitRepository;
     private final OrganizationRepository organizationRepository;
     private final OrganizationMemberRepository organizationMemberRepository;
@@ -147,6 +149,8 @@ public class ScmConnectionService {
         List<ScmRepository> repos = scmRepositoryRepository.findByConnectionId(connectionId);
         for (ScmRepository repo : repos) {
             removeWebhookQuietly(connection, repo);
+            // PR'lar branch'e FK ile bağlı — branch'lerden önce silinmeli
+            scmPullRequestRepository.deleteByRepositoryId(repo.getId());
             scmBranchRepository.deleteByRepositoryId(repo.getId());
             scmCommitRepository.deleteAll(scmCommitRepository.findByRepositoryId(repo.getId()));
         }
