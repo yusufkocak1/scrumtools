@@ -1,6 +1,7 @@
 package com.scrumtools.service.scm.client;
 
 import com.scrumtools.entity.ScmRepository;
+import com.scrumtools.entity.enums.ScmPullRequestState;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientResponseException;
@@ -111,6 +112,52 @@ public class GitLabClient implements ScmClient {
     }
 
     @Override
+    public ScmPullRequestInfo createPullRequest(ScmRepository repo, String sourceBranch, String targetBranch,
+                                                String title, String description, boolean draft) {
+        try {
+            // GitLab'da taslak ayrı bir alan değil, başlıktaki "Draft:" önekiyle belirtilir
+            String effectiveTitle = draft && !title.toLowerCase().startsWith("draft:")
+                    ? "Draft: " + title : title;
+            Map<String, Object> mr = restClient.post()
+                    .uri("/projects/" + repo.getExternalId() + "/merge_requests")
+                    .body(Map.of(
+                            "source_branch", sourceBranch,
+                            "target_branch", targetBranch,
+                            "title", effectiveTitle,
+                            "description", description == null ? "" : description))
+                    .retrieve().body(MAP_TYPE);
+            return toPullRequestInfo(mr);
+        } catch (RestClientResponseException e) {
+            throw wrap(e, PROVIDER, "merge request oluşturma");
+        }
+    }
+
+    @Override
+    public ScmPullRequestInfo findOpenPullRequest(ScmRepository repo, String sourceBranch, String targetBranch) {
+        try {
+            String uri = "/projects/" + repo.getExternalId() + "/merge_requests?state=opened&per_page=1"
+                    + "&source_branch=" + UriUtils.encodeQueryParam(sourceBranch, StandardCharsets.UTF_8)
+                    + "&target_branch=" + UriUtils.encodeQueryParam(targetBranch, StandardCharsets.UTF_8);
+            List<Map<String, Object>> mrs = restClient.get().uri(uri).retrieve().body(LIST_TYPE);
+            return mrs == null || mrs.isEmpty() ? null : toPullRequestInfo(mrs.get(0));
+        } catch (RestClientResponseException e) {
+            throw wrap(e, PROVIDER, "merge request sorgulama");
+        }
+    }
+
+    @Override
+    public ScmPullRequestInfo getPullRequest(ScmRepository repo, String externalId) {
+        try {
+            Map<String, Object> mr = restClient.get()
+                    .uri("/projects/" + repo.getExternalId() + "/merge_requests/" + externalId)
+                    .retrieve().body(MAP_TYPE);
+            return toPullRequestInfo(mr);
+        } catch (RestClientResponseException e) {
+            throw wrap(e, PROVIDER, "merge request sorgulama");
+        }
+    }
+
+    @Override
     public List<ScmCommitInfo> listCommits(ScmRepository repo, String ref, LocalDateTime since) {
         try {
             StringBuilder uri = new StringBuilder("/projects/" + repo.getExternalId()
@@ -169,6 +216,29 @@ public class GitLabClient implements ScmClient {
                 str(project.get("default_branch")),
                 str(project.get("web_url")),
                 !"public".equals(str(project.get("visibility"))));
+    }
+
+    /** state: opened → OPEN, merged → MERGED, closed/locked → CLOSED. */
+    private ScmPullRequestInfo toPullRequestInfo(Map<String, Object> mr) {
+        String rawState = str(mr.get("state"));
+        ScmPullRequestState state = switch (rawState == null ? "" : rawState) {
+            case "merged" -> ScmPullRequestState.MERGED;
+            case "closed", "locked" -> ScmPullRequestState.CLOSED;
+            default -> ScmPullRequestState.OPEN;
+        };
+        String title = str(mr.get("title"));
+        boolean draft = Boolean.TRUE.equals(mr.get("draft"))
+                || Boolean.TRUE.equals(mr.get("work_in_progress"))
+                || (title != null && title.toLowerCase().startsWith("draft:"));
+        return new ScmPullRequestInfo(
+                str(mr.get("iid")),
+                title,
+                str(mr.get("source_branch")),
+                str(mr.get("target_branch")),
+                state,
+                str(mr.get("web_url")),
+                draft,
+                parseDate(mr.get("merged_at")));
     }
 
     /** Numeric id ise olduğu gibi; "grup/proje" path'i ise URL-encode edilir. */

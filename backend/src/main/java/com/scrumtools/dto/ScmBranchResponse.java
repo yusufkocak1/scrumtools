@@ -13,7 +13,9 @@ public record ScmBranchResponse(
         String status,
         boolean createdViaApp,
         String createdBy,
+        UUID repositoryId,
         String repositoryName,
+        String repositoryDefaultBranch,
         LocalDateTime createdAt
 ) {
     public static ScmBranchResponse from(ScmBranch b) {
@@ -24,7 +26,9 @@ public record ScmBranchResponse(
                 b.getStatus().name(),
                 b.isCreatedViaApp(),
                 b.getCreatedBy(),
+                b.getRepository().getId(),
                 b.getRepository().getName(),
+                b.getRepository().getDefaultBranch(),
                 b.getCreatedAt()
         );
     }

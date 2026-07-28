@@ -3,11 +3,14 @@ package com.scrumtools.service.scm;
 import com.scrumtools.dto.ScmBranchCreateRequest;
 import com.scrumtools.dto.ScmBranchResponse;
 import com.scrumtools.dto.ScmCommitResponse;
+import com.scrumtools.dto.ScmPullRequestCreateRequest;
+import com.scrumtools.dto.ScmPullRequestResponse;
 import com.scrumtools.dto.ScmRepositoryResponse;
 import com.scrumtools.dto.TaskScmResponse;
 import com.scrumtools.entity.Project;
 import com.scrumtools.entity.ScmBranch;
 import com.scrumtools.entity.ScmConnection;
+import com.scrumtools.entity.ScmPullRequest;
 import com.scrumtools.entity.ScmRepository;
 import com.scrumtools.entity.Task;
 import com.scrumtools.entity.UserScmAccount;
@@ -16,8 +19,10 @@ import com.scrumtools.entity.enums.PlanFeature;
 import com.scrumtools.entity.enums.ScmBranchStatus;
 import com.scrumtools.entity.enums.ScmConnectionStatus;
 import com.scrumtools.entity.enums.ScmProvider;
+import com.scrumtools.entity.enums.ScmPullRequestState;
 import com.scrumtools.repository.ScmBranchRepository;
 import com.scrumtools.repository.ScmCommitRepository;
+import com.scrumtools.repository.ScmPullRequestRepository;
 import com.scrumtools.repository.ScmRepositoryRepository;
 import com.scrumtools.repository.TaskRepository;
 import com.scrumtools.repository.TeamMemberRepository;
@@ -27,16 +32,21 @@ import com.scrumtools.service.EntitlementService;
 import com.scrumtools.service.PermissionService;
 import com.scrumtools.service.scm.client.ScmApiException;
 import com.scrumtools.service.scm.client.ScmBranchInfo;
+import com.scrumtools.service.scm.client.ScmClient;
 import com.scrumtools.service.scm.client.ScmClientFactory;
+import com.scrumtools.service.scm.client.ScmPullRequestInfo;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 /**
@@ -53,12 +63,17 @@ public class ScmTaskDevService {
     private final TeamMemberRepository teamMemberRepository;
     private final ScmRepositoryRepository scmRepositoryRepository;
     private final ScmBranchRepository scmBranchRepository;
+    private final ScmPullRequestRepository scmPullRequestRepository;
     private final ScmCommitRepository scmCommitRepository;
     private final UserScmAccountRepository userScmAccountRepository;
     private final PermissionService permissionService;
     private final EntitlementService entitlementService;
     private final ScmClientFactory clientFactory;
     private final AuditService auditService;
+
+    /** PR açıklamasına eklenen görev linki için (e-postalardakiyle aynı adres). */
+    @Value("${app.frontend-base-url:}")
+    private String frontendBaseUrl;
 
     @Transactional(readOnly = true)
     public TaskScmResponse getTaskScm(UUID teamId, UUID taskId, String email) {
@@ -74,13 +89,15 @@ public class ScmTaskDevService {
         if (project == null) {
             // Görev hiçbir projeye bağlı değil — DevPanel boş durum gösterir (§13)
             return new TaskScmResponse(featureEnabled, false, null,
-                    false, false, false, List.of(), List.of(), List.of());
+                    false, false, false, false, List.of(), List.of(), List.of(), List.of());
         }
 
         List<ScmRepository> repos = scmRepositoryRepository.findByProjectId(project.getId());
 
         boolean canCreateBranch = featureEnabled && !repos.isEmpty()
                 && permissionService.hasProjectPermission(email, project.getId(), Permission.SCM_CREATE_BRANCH);
+        boolean canCreatePullRequest = featureEnabled && !repos.isEmpty()
+                && permissionService.hasProjectPermission(email, project.getId(), Permission.SCM_CREATE_PULL_REQUEST);
         boolean canManageRepos =
                 permissionService.hasProjectPermission(email, project.getId(), Permission.PROJECT_MANAGE_SETTINGS);
 
@@ -96,11 +113,14 @@ public class ScmTaskDevService {
                 true,
                 project.getId(),
                 canCreateBranch,
+                canCreatePullRequest,
                 canManageRepos,
                 hasUserAccount,
                 repos.stream().map(ScmRepositoryResponse::from).toList(),
                 scmBranchRepository.findByTaskIdOrderByCreatedAtDesc(taskId).stream()
                         .map(ScmBranchResponse::from).toList(),
+                scmPullRequestRepository.findByTaskIdOrderByCreatedAtDesc(taskId).stream()
+                        .map(ScmPullRequestResponse::from).toList(),
                 scmCommitRepository.findByTaskId(taskId).stream()
                         .map(ScmCommitResponse::from).toList()
         );
@@ -144,7 +164,7 @@ public class ScmTaskDevService {
                     throw new IllegalStateException("Bu branch zaten bu task'a bağlı: " + branchName);
                 });
 
-        ScmBranchInfo info = createBranchOnProvider(repo, email, branchName, sourceRef);
+        ScmBranchInfo info = onProvider(repo, email, client -> client.createBranch(repo, branchName, sourceRef));
 
         ScmBranch branch = ScmBranch.builder()
                 .repository(repo)

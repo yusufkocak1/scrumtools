@@ -73,11 +73,16 @@ public class DataInitializer implements ApplicationRunner {
             roleRepository.findByNameAndScope(roleName, RoleScope.PROJECT)
                     .filter(Role::getIsDefault)
                     .ifPresent(role -> {
-                        if (!role.getPermissions().contains(Permission.SCM_CREATE_BRANCH)) {
-                            role.getPermissions().add(Permission.SCM_CREATE_BRANCH);
-                            roleRepository.save(role);
-                            log.info("'{}' rolüne SCM_CREATE_BRANCH izni eklendi.", roleName);
+                        boolean changed = false;
+                        for (Permission permission : List.of(Permission.SCM_CREATE_BRANCH,
+                                Permission.SCM_CREATE_PULL_REQUEST)) {
+                            if (!role.getPermissions().contains(permission)) {
+                                role.getPermissions().add(permission);
+                                changed = true;
+                                log.info("'{}' rolüne {} izni eklendi.", roleName, permission);
+                            }
                         }
+                        if (changed) roleRepository.save(role);
                     });
         }
     }

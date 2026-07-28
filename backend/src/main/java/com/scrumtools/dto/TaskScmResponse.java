@@ -13,9 +13,11 @@ public record TaskScmResponse(
         boolean projectLinked,
         UUID projectId,
         boolean canCreateBranch,
+        boolean canCreatePullRequest,
         boolean canManageRepos,
         boolean hasUserAccount,
         List<ScmRepositoryResponse> repos,
         List<ScmBranchResponse> branches,
+        List<ScmPullRequestResponse> pullRequests,
         List<ScmCommitResponse> commits
 ) {}

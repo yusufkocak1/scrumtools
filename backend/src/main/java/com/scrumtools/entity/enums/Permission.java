@@ -65,6 +65,7 @@ public enum Permission {
 
     // SCM / Git Entegrasyonu
     SCM_CREATE_BRANCH,
+    SCM_CREATE_PULL_REQUEST,
 
     // Admin
     ADMIN_FULL_ACCESS

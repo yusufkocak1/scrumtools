@@ -1,6 +1,7 @@
 package com.scrumtools.service.scm.client;
 
 import com.scrumtools.entity.ScmRepository;
+import com.scrumtools.entity.enums.ScmPullRequestState;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientResponseException;
@@ -115,6 +116,54 @@ public class GitHubClient implements ScmClient {
     }
 
     @Override
+    public ScmPullRequestInfo createPullRequest(ScmRepository repo, String sourceBranch, String targetBranch,
+                                                String title, String description, boolean draft) {
+        try {
+            Map<String, Object> pr = restClient.post()
+                    .uri("/repos/" + repo.getExternalId() + "/pulls")
+                    .body(Map.of(
+                            "title", title,
+                            "head", sourceBranch,
+                            "base", targetBranch,
+                            "body", description == null ? "" : description,
+                            "draft", draft))
+                    .retrieve().body(MAP_TYPE);
+            return toPullRequestInfo(pr);
+        } catch (RestClientResponseException e) {
+            throw wrap(e, PROVIDER, "pull request oluşturma");
+        }
+    }
+
+    @Override
+    public ScmPullRequestInfo findOpenPullRequest(ScmRepository repo, String sourceBranch, String targetBranch) {
+        try {
+            // head parametresi "owner:branch" biçimini ister; externalId = "owner/name"
+            String owner = repo.getExternalId().contains("/")
+                    ? repo.getExternalId().substring(0, repo.getExternalId().indexOf('/'))
+                    : repo.getExternalId();
+            List<Map<String, Object>> prs = restClient.get()
+                    .uri("/repos/" + repo.getExternalId() + "/pulls?state=open&per_page=1&head={head}&base={base}",
+                            owner + ":" + sourceBranch, targetBranch)
+                    .retrieve().body(LIST_TYPE);
+            return prs == null || prs.isEmpty() ? null : toPullRequestInfo(prs.get(0));
+        } catch (RestClientResponseException e) {
+            throw wrap(e, PROVIDER, "pull request sorgulama");
+        }
+    }
+
+    @Override
+    public ScmPullRequestInfo getPullRequest(ScmRepository repo, String externalId) {
+        try {
+            Map<String, Object> pr = restClient.get()
+                    .uri("/repos/" + repo.getExternalId() + "/pulls/" + externalId)
+                    .retrieve().body(MAP_TYPE);
+            return toPullRequestInfo(pr);
+        } catch (RestClientResponseException e) {
+            throw wrap(e, PROVIDER, "pull request sorgulama");
+        }
+    }
+
+    @Override
     public List<ScmCommitInfo> listCommits(ScmRepository repo, String ref, LocalDateTime since) {
         try {
             StringBuilder uri = new StringBuilder("/repos/" + repo.getExternalId() + "/commits?per_page=50");
@@ -178,6 +227,24 @@ public class GitHubClient implements ScmClient {
                 str(repo.get("default_branch")),
                 str(repo.get("html_url")),
                 Boolean.TRUE.equals(repo.get("private")));
+    }
+
+    /** merged_at dolu → MERGED; state=closed → CLOSED; aksi halde OPEN. */
+    private ScmPullRequestInfo toPullRequestInfo(Map<String, Object> pr) {
+        LocalDateTime mergedAt = parseDate(pr.get("merged_at"));
+        ScmPullRequestState state = mergedAt != null
+                ? ScmPullRequestState.MERGED
+                : ("closed".equalsIgnoreCase(str(pr.get("state")))
+                        ? ScmPullRequestState.CLOSED : ScmPullRequestState.OPEN);
+        return new ScmPullRequestInfo(
+                str(pr.get("number")),
+                str(pr.get("title")),
+                str(asMap(pr.get("head")).get("ref")),
+                str(asMap(pr.get("base")).get("ref")),
+                state,
+                str(pr.get("html_url")),
+                Boolean.TRUE.equals(pr.get("draft")),
+                mergedAt);
     }
 
     private String branchUrl(ScmRepository repo, String branchName) {
