@@ -11,7 +11,7 @@
       :active-filter-count="activeFilterCount"
       :error="error"
       @run="loadTasks"
-      @validate="validate"
+      @validated="onValidated"
       @add-filter="onAddFilter"
       @remove-filter="onRemoveFilter"
       @clear-filters="onClearFilters"
@@ -85,7 +85,7 @@ const isLoading = ref(false)
 const {
   query, filters, builderCompatible, builderIncompatibleReason, activeFilterCount,
   error, tasks: queryTasks, hasQuery,
-  addFilter, removeFilter, setFilters, clearAll, validate, run, restoreFromUrl,
+  addFilter, removeFilter, setFilters, clearAll, onValidated, run, restoreFromUrl,
 } = useTaskQuery({
   teamId: computed(() => props.teamId),
   projectId: computed(() => props.projectId),

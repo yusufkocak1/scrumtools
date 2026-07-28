@@ -1,6 +1,5 @@
 <template>
-  <div class="flex flex-row w-full bg-gray-50 min-h-screen pb-20 lg:pb-0">
-    <SideBar/>
+  <div class="flex flex-row w-full bg-gray-50 min-h-screen">
     <!-- Main Content -->
     <div class="flex-1 w-full min-w-0 overflow-auto">
       <div class="p-4 sm:p-6 w-full h-full">
@@ -74,13 +73,12 @@ import RetroItem from "../components/retro/RetroItem.vue";
 import RetroItemDetail from "../components/retro/RetroItemDetail.vue";
 import RetroBoardHeader from "../components/retro/RetroBoardHeader.vue";
 import RetroBoardSettings from "../components/retro/RetroBoardSettings.vue";
-import SideBar from "../components/SideBar.vue";
 import { createToast } from "mosha-vue-toastify";
 import { useTeamContext } from "../composables/useTeamContext.js";
 
 export default {
   name: "RetroBoard",
-  components: { SideBar, RetroBoardHeader, RetroBoardSettings, RetroItemDetail, RetroItem, RetroColumn },
+  components: { RetroBoardHeader, RetroBoardSettings, RetroItemDetail, RetroItem, RetroColumn },
   props: {
     boardId: { type: String, required: true },
     teamId: { type: String, required: true }

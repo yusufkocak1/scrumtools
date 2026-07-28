@@ -17,7 +17,7 @@
 
 import { ref, computed, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { runQuery, validateQuery } from '../api/QueryApi.js'
+import { runQuery } from '../api/QueryApi.js'
 import { filtersToStql, stqlToFilters } from '../utils/stql.js'
 
 /**
@@ -160,17 +160,18 @@ export function useTaskQuery({ teamId, projectId = ref(null), pageSize = 50, syn
         }
     }
 
-    /** Sorguyu çalıştırmadan doğrular — editör yazarken çağırır. */
-    async function validate(text = query.value) {
-        if (!teamIdRef.value) return { valid: true }
-        try {
-            const result = await validateQuery(teamIdRef.value, text, projectIdRef.value)
-            error.value = result.valid ? null : result.error
-            return result
-        } catch {
-            // Doğrulama ucu erişilemiyorsa editör kullanılabilir kalmalı.
-            return { valid: true }
-        }
+    /**
+     * Editörün doğrulama sonucunu state'e işler.
+     *
+     * Doğrulama isteğini editör bileşeni atar (sayaçla aynı istekte); burada
+     * ikinci bir çağrı yapmak her tuş vuruşunu iki gidiş-dönüşe çıkarırdı.
+     *
+     * Yalnızca hatayı *temizler*. Yarım yazılmış bir sorgu henüz bir hata değil;
+     * yazım anındaki uyarıyı editör kendi ipucu satırında yumuşak biçimde gösterir.
+     * Buradaki hata state'i sorgu fiilen çalıştırıldığında dolar.
+     */
+    function onValidated(result) {
+        if (result?.valid) error.value = null
     }
 
     function setPage(p) {
@@ -209,7 +210,7 @@ export function useTaskQuery({ teamId, projectId = ref(null), pageSize = 50, syn
         // görsel koşullar
         addFilter, removeFilter, setFilters, clearAll,
         // stql
-        setQuery, validate,
+        setQuery, onValidated,
         // çalıştırma
         run, setPage, restoreFromUrl,
     }

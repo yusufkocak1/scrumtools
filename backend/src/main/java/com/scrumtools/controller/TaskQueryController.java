@@ -37,9 +37,12 @@ public class TaskQueryController {
     }
 
     /**
-     * Sorguyu yalnızca doğrular. Hata varsa 200 ile birlikte
-     * {@code {valid:false, error:{message, position, length}}} döner —
-     * editör yazarken çağırdığı için hata bir HTTP hatası değil, veri.
+     * Sorguyu doğrular ve geçerliyse eşleşen kayıt sayısını da döner:
+     * {@code {valid:true, count:24}} veya
+     * {@code {valid:false, error:{message, position, length}}}.
+     *
+     * Her iki durumda da 200 döner — editör yazarken çağırdığı için yarım kalmış
+     * bir sorgu HTTP hatası değil, beklenen bir durumdur.
      */
     @PostMapping("/validate")
     public ResponseEntity<Map<String, Object>> validate(

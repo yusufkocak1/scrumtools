@@ -1,6 +1,5 @@
 <template>
-  <div class="flex flex-row w-full pb-20 lg:pb-0">
-    <SideBar></SideBar>
+  <div class="flex flex-row w-full">
     <div class="flex-1 min-w-0 p-4">
       <div class="flex flex-col items-center min-h-screen">
         <div class="w-full max-w-7xl mx-auto">
@@ -177,7 +176,6 @@ import { ref, reactive, computed, watch, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import PokerTable from "../components/poker/pokerTable.vue";
 import PokerCard from "../components/poker/pokerCard.vue";
-import SideBar from "../components/SideBar.vue";
 import { getTeamById } from "../api/TeamApi.js";
 import * as ScrumPokerApi from "../api/ScrumPokerApi.js";
 import { connect, subscribe, unsubscribe } from "../api/websocket.js";
@@ -185,7 +183,7 @@ import { useTeamContext } from "../composables/useTeamContext.js";
 
 export default {
   name: "ScrumPoker",
-  components: {PokerCard, PokerTable, SideBar},
+  components: {PokerCard, PokerTable},
   props: {
     teamId: String
   },

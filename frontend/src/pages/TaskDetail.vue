@@ -1,7 +1,5 @@
 <template>
-  <div class="flex flex-col lg:flex-row min-h-screen w-full bg-gray-50 pb-20 lg:pb-0">
-    <SideBar />
-
+  <div class="flex flex-col lg:flex-row min-h-screen w-full bg-gray-50">
     <div class="flex flex-col flex-1 w-full min-w-0">
 
       <!-- ── Başlık ── -->
@@ -185,7 +183,6 @@ import { getTeamReleases, getTaskDeployments } from '../api/ReleaseApi.js';
 import { getTeamById } from '../api/TeamApi.js';
 import { useTaskLayout } from '../composables/useTaskLayout.js';
 
-import SideBar from '../components/SideBar.vue';
 import AddTaskForm from '../components/work/AddTaskForm.vue';
 import TaskDescriptionPanel from '../components/work/panels/TaskDescriptionPanel.vue';
 import TaskRelationsPanel from '../components/work/panels/TaskRelationsPanel.vue';
@@ -212,7 +209,7 @@ const PANEL_COMPONENTS = {
 
 export default {
   name: 'TaskDetailPage',
-  components: { SideBar, AddTaskForm },
+  components: { AddTaskForm },
   props: {
     taskId: String,
   },

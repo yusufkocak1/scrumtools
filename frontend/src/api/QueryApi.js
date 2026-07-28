@@ -8,6 +8,13 @@
 import apiClient from './axios.js'
 
 /**
+ * Sorgu uçlarında global hata toast'ı kapalıdır: yazım hâlindeki bir sorgunun
+ * geçersiz olması beklenen bir durumdur, hata mesajı editörün içinde konumuyla
+ * birlikte gösterilir. Toast burada yalnızca gürültü olurdu.
+ */
+const SILENT = { _skipErrorToast: true }
+
+/**
  * Sorguyu çalıştırır.
  * @param {string} teamId
  * @param {Object} params
@@ -20,27 +27,29 @@ import apiClient from './axios.js'
 export const runQuery = async (teamId, { query, projectId = null, page = 0, size = 50 }) => {
     const { data } = await apiClient.post(`/api/teams/${teamId}/tasks/query`, {
         query, projectId, page, size
-    })
+    }, SILENT)
     return data
 }
 
 /**
- * Sorguyu yalnızca doğrular — çalıştırmaz.
- * Hata bir HTTP hatası değil veri olarak döner; editör yazarken çağırır.
- * @returns {Promise<{valid: boolean, error?: {message: string, position: number, length: number}}>}
+ * Sorguyu doğrular ve geçerliyse eşleşen kayıt sayısını da döner.
+ * Doğrulama ile sayaç tek istekte birleştirilmiştir — editör her duraklamada
+ * bunu çağırdığı için iki ayrı gidiş-dönüş gereksiz yük olurdu.
+ *
+ * @returns {Promise<{valid: boolean, count?: number, error?: {message: string, position: number, length: number}}>}
  */
 export const validateQuery = async (teamId, query, projectId = null) => {
     const { data } = await apiClient.post(`/api/teams/${teamId}/tasks/query/validate`, {
         query, projectId
-    })
+    }, SILENT)
     return data
 }
 
-/** Eşleşen kayıt sayısı — editördeki canlı "N sonuç" göstergesi için. */
+/** Eşleşen kayıt sayısı. Editör validateQuery kullanır; bu uç program içi kullanım içindir. */
 export const countQuery = async (teamId, query, projectId = null) => {
     const { data } = await apiClient.post(`/api/teams/${teamId}/tasks/query/count`, {
         query, projectId
-    })
+    }, SILENT)
     return data.count
 }
 
@@ -49,7 +58,7 @@ export const countQuery = async (teamId, query, projectId = null) => {
  * @returns {Promise<{fields: Array, functions: Array, keywords: Array, customFieldSyntax: string}>}
  */
 export const getQueryFields = async (teamId) => {
-    const { data } = await apiClient.get(`/api/teams/${teamId}/tasks/query/fields`)
+    const { data } = await apiClient.get(`/api/teams/${teamId}/tasks/query/fields`, SILENT)
     return data
 }
 
@@ -59,7 +68,8 @@ export const getQueryFields = async (teamId) => {
  */
 export const suggestValues = async (teamId, field, prefix = '', projectId = null) => {
     const { data } = await apiClient.get(`/api/teams/${teamId}/tasks/query/suggest`, {
-        params: { field, prefix, ...(projectId ? { projectId } : {}) }
+        params: { field, prefix, ...(projectId ? { projectId } : {}) },
+        ...SILENT,
     })
     return data
 }

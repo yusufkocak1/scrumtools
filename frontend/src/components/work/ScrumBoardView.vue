@@ -149,7 +149,7 @@
         :active-filter-count="activeFilterCount"
         :error="error"
         @run="loadData"
-        @validate="validate"
+        @validated="onValidated"
         @add-filter="onAddFilter"
         @remove-filter="onRemoveFilter"
         @clear-filters="onClearFilters"
@@ -232,7 +232,7 @@ const isLoading        = ref(false)
 const {
   query, filters, builderCompatible, builderIncompatibleReason, activeFilterCount,
   error, tasks: queryTasks, hasQuery,
-  addFilter, removeFilter, setFilters, clearAll, validate, run, restoreFromUrl,
+  addFilter, removeFilter, setFilters, clearAll, onValidated, run, restoreFromUrl,
 } = useTaskQuery({
   teamId: computed(() => props.teamId),
   projectId: computed(() => props.projectId),
@@ -267,7 +267,7 @@ async function loadData() {
         : (activeSprints.value.length > 0 ? activeSprints.value[0].id : null)
 
       // Query'deki sprintId'yi bir kere tükettikten sonra temizle; aksi halde
-      // bu görünüme tekrar dönüldüğünde (ör. ViewSwitcher ile) eski seçim
+      // bu görünüme tekrar dönüldüğünde (ör. sidebar'dan) eski seçim
       // URL'de asılı kalıp yeniden dayatılabilir
       if (route.query.sprintId) {
         const { sprintId, ...rest } = route.query

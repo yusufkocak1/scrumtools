@@ -41,7 +41,7 @@
         :project-id="projectId"
         :error="error"
         @run="onRun"
-        @validate="$emit('validate', $event)"
+        @validated="$emit('validated', $event)"
       />
       <p class="mt-1.5 px-1 text-[11px] text-gray-400">
         Örnek:
@@ -133,7 +133,7 @@ const props = defineProps({
 })
 
 const emit = defineEmits([
-  'update:query', 'run', 'validate',
+  'update:query', 'run', 'validated',
   'add-filter', 'remove-filter', 'clear-filters', 'apply-filters',
 ])
 

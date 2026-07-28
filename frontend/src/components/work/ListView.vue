@@ -11,7 +11,7 @@
       :active-filter-count="activeFilterCount"
       :error="error"
       @run="loadTasks"
-      @validate="validate"
+      @validated="onValidated"
       @add-filter="onAddFilter"
       @remove-filter="onRemoveFilter"
       @clear-filters="onClearFilters"
@@ -151,7 +151,7 @@ const {
   query, filters, builderCompatible, builderIncompatibleReason, activeFilterCount,
   error, tasks: queryTasks, totalElements: queryTotal, totalPages: queryPages,
   page, size, hasQuery,
-  addFilter, removeFilter, setFilters, clearAll, setQuery, validate, run, restoreFromUrl,
+  addFilter, removeFilter, setFilters, clearAll, setQuery, onValidated, run, restoreFromUrl,
 } = useTaskQuery({ teamId: computed(() => props.teamId), projectId: projectIdRef })
 
 // ─── Liste state'i ────────────────────────────────────────────────────────────

@@ -1,6 +1,5 @@
 <template>
-  <div class="flex flex-row w-full min-h-screen bg-gray-50 pb-20 lg:pb-0">
-    <SideBar />
+  <div class="flex flex-row w-full min-h-screen bg-gray-50">
     <div class="flex-1 min-w-0 p-4 sm:p-6">
       <div class="max-w-4xl mx-auto">
         <!-- Header -->
@@ -248,13 +247,9 @@ import { useOrganizationContext } from '../composables/useOrganizationContext.js
 import { useTeamContext } from '../composables/useTeamContext.js'
 import { createToast } from 'mosha-vue-toastify'
 import { updateDisplayNameAcrossTeams, removeMember } from '../api/TeamApi.js'
-import SideBar from '../components/SideBar.vue'
 
 export default {
   name: 'Settings',
-  components: {
-    SideBar
-  },
   setup() {
     // useAuth — merkezi auth kaynağından okuyoruz
     const { user: authUser, userEmail, name: authName } = useAuth()

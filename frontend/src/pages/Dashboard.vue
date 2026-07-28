@@ -1,7 +1,5 @@
 <template>
-  <div class="flex flex-row w-full min-h-screen bg-gray-50 pb-20 lg:pb-0">
-    <SideBar />
-
+  <div class="flex flex-row w-full min-h-screen bg-gray-50">
     <div class="flex-1 min-w-0 flex flex-col overflow-hidden">
       <!-- Üst Bar -->
       <div class="bg-white border-b border-gray-200 px-4 sm:px-6 py-3 flex flex-wrap items-center justify-between gap-2 sm:gap-4">
@@ -111,7 +109,6 @@
 <script setup>
 import { ref, watch, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
-import SideBar from '../components/SideBar.vue'
 import SummaryWidget from '../components/dashboard/SummaryWidget.vue'
 import BurndownWidget from '../components/dashboard/BurndownWidget.vue'
 import VelocityWidget from '../components/dashboard/VelocityWidget.vue'

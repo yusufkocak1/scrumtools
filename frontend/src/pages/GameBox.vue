@@ -1,6 +1,5 @@
 <template>
-  <div class="flex w-full min-h-screen pb-20 lg:pb-0">
-    <SideBar />
+  <div class="flex w-full min-h-screen">
     <div class="flex-1 min-w-0 p-4 sm:p-6 bg-gray-50 overflow-auto">
 
       <!-- Oyun Merkezi (henüz oyun seçilmedi ve aktif takım oturumu yok) -->
@@ -201,7 +200,6 @@
 </template>
 
 <script>
-import SideBar from '../components/SideBar.vue'
 import QuizTemplateList from '../components/quiz/QuizTemplateList.vue'
 import QuizTemplateForm from '../components/quiz/QuizTemplateForm.vue'
 import QuizLobby from '../components/quiz/QuizLobby.vue'
@@ -229,7 +227,6 @@ import { useTeamContext } from '../composables/useTeamContext.js'
 export default {
   name: 'GameBox',
   components: {
-    SideBar,
     QuizTemplateList,
     QuizTemplateForm,
     QuizLobby,

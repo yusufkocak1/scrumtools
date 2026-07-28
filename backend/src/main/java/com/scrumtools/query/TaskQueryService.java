@@ -94,9 +94,13 @@ public class TaskQueryService {
     }
 
     /**
-     * Sorguyu yalnızca doğrular — çalıştırmaz.
-     * Hata varsa konumuyla birlikte döner, arayüz bu aralığın altını çizer.
+     * Sorguyu doğrular ve geçerliyse eşleşen kayıt sayısını da döner.
+     *
+     * Editör yazarken bunu çağırır; doğrulama ve sayaç tek istekte birleştirilmiştir —
+     * ayrı uçlar her tuş vuruşunda iki gidiş-dönüş demek olurdu. Sözdizimi hatası
+     * bir HTTP hatası değil veri olarak döner: yazım hâlindeki sorgu "hata" değildir.
      */
+    @Transactional(readOnly = true)
     public Map<String, Object> validate(UUID teamId, UUID projectId, String stql) {
         Map<String, Object> out = new LinkedHashMap<>();
         try {
@@ -104,8 +108,11 @@ public class TaskQueryService {
             // Alan/operatör uyumu ancak Criteria'ya çevrilirken anlaşılır; sorguyu
             // çalıştırmadan derleyerek anlamsal hataları da yakalıyoruz.
             compileOnly(teamId, projectId, parsed);
+
             out.put("valid", true);
             out.put("conditionCount", countConditions(parsed.where()));
+            out.put("count", countMatching(em.getCriteriaBuilder(),
+                    buildContext(teamId, projectId), parsed));
         } catch (QueryParseException e) {
             out.put("valid", false);
             out.put("error", Map.of(

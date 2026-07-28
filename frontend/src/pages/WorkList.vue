@@ -1,97 +1,41 @@
 <template>
-  <div class="flex flex-row w-full min-h-screen bg-gray-50 pb-20 lg:pb-0">
-    <SideBar/>
+  <div class="flex flex-row w-full min-h-screen bg-gray-50">
+    <!-- Modül sidebar'ı: proje context'i, görünümler ve board kontrolleri -->
+    <WorkSidebar
+      :open="showMobileSidebar"
+      v-model="activeView"
+      :projects="projects"
+      :project-id="projectId"
+      :active-project="activeProject"
+      :has-projects="hasProjects"
+      :all-projects-value="ALL_PROJECTS"
+      :boards="visibleBoards"
+      v-model:selected-board-id="selectedBoardId"
+      v-model:group-by="boardGroupBy"
+      @select-project="selectProject"
+      @manage-projects="showTeamProjects = true"
+      @create-board="showCreateBoard = true"
+      @board-settings="showBoardSettings = true"
+      @close="showMobileSidebar = false"
+    />
 
     <div class="flex-1 min-w-0 flex flex-col overflow-hidden">
       <!-- Üst Bar -->
-      <div class="bg-white border-b border-gray-200 px-3 sm:px-6 py-2 sm:py-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-4">
-        <h1 class="text-lg font-semibold text-gray-900 hidden sm:block shrink-0">
+      <div class="bg-white border-b border-gray-200 px-3 sm:px-6 py-2 sm:py-3 flex items-center gap-3">
+        <!-- Mobilde sidebar'ı açar; masaüstünde sidebar zaten sabit -->
+        <button
+          class="lg:hidden shrink-0 p-1.5 -ml-1 rounded-md text-gray-600 hover:bg-gray-100 transition-colors"
+          @click="showMobileSidebar = true"
+          title="Menü"
+        >
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/>
+          </svg>
+        </button>
+
+        <h1 class="text-lg font-semibold text-gray-900 truncate">
           {{ currentViewLabel }}
         </h1>
-
-        <div class="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 w-full sm:w-auto sm:ml-auto min-w-0">
-          <!-- Aktif proje context'i: görev/backlog/sürüm görünümlerinin tamamını daraltır.
-               Sprintler takım bazlı kaldığı için bu seçim sprintleri gizlemez, içindeki
-               görevleri filtreler. -->
-          <div class="flex items-center gap-1.5 shrink-0">
-            <span
-              v-if="activeProject"
-              class="w-2 h-2 rounded-full shrink-0"
-              :style="{ backgroundColor: activeProject.color || '#3B82F6' }"
-            ></span>
-            <select
-              v-if="hasProjects"
-              :value="projectId ?? ALL_PROJECTS"
-              @change="selectProject($event.target.value === ALL_PROJECTS ? null : $event.target.value)"
-              class="min-w-0 text-xs font-medium rounded-md border border-gray-300 px-2 py-1.5 bg-white focus:ring-2 focus:ring-blue-500 focus:outline-none"
-              title="Aktif proje"
-            >
-              <option v-for="p in projects" :key="p.id" :value="p.id">
-                {{ p.name }} ({{ p.key }})
-              </option>
-              <option v-if="projects.length > 1" :value="ALL_PROJECTS">Tüm projeler</option>
-            </select>
-
-            <!-- Takıma proje ekleme/çıkarma: projesiz takımın da buraya ulaşabilmesi
-                 gerekiyor, bu yüzden hasProjects'e bağlı değil. -->
-            <button
-              class="shrink-0 text-xs text-gray-500 hover:text-blue-600 border border-gray-300 hover:border-blue-400 rounded-md px-2 py-1.5 whitespace-nowrap transition"
-              @click="showTeamProjects = true"
-              title="Takım projelerini yönet"
-            >
-              {{ hasProjects ? '+ Proje' : '+ Proje Bağla' }}
-            </button>
-          </div>
-
-          <!-- Görünüm seçici: mobilde tam genişlik, sığmazsa yatay kaydırma -->
-          <div class="w-full sm:w-auto overflow-x-auto no-scrollbar">
-            <ViewSwitcher v-model="activeView" />
-          </div>
-
-          <!-- Board kontrolleri (sadece Board modunda) -->
-          <div v-if="activeView === 'board'" class="flex items-center gap-2 sm:gap-3 min-w-0">
-            <!-- Board seçici — yalnızca aktif projenin (ve takım geneli) board'ları -->
-            <select
-              v-if="visibleBoards.length > 1"
-              v-model="selectedBoardId"
-              class="flex-1 sm:flex-none min-w-0 text-xs rounded-md border border-gray-300 px-2 py-1.5 bg-white focus:ring-2 focus:ring-blue-500 focus:outline-none"
-            >
-              <option v-for="b in visibleBoards" :key="b.id" :value="b.id">
-                {{ b.name }} ({{ b.boardType === 'SCRUM' ? 'Scrum' : 'Kanban' }})
-              </option>
-            </select>
-
-            <!-- Gruplama seçici -->
-            <select
-              v-model="boardGroupBy"
-              class="flex-1 sm:flex-none min-w-0 text-xs rounded-md border border-gray-300 px-2 py-1.5 bg-white focus:ring-2 focus:ring-blue-500 focus:outline-none"
-            >
-              <option value="status">Grupla: Status</option>
-              <option value="assignee">Grupla: Kişi</option>
-            </select>
-
-            <!-- Board yönetim butonu -->
-            <button
-              class="shrink-0 text-xs text-gray-500 hover:text-gray-700 border border-gray-300 hover:border-gray-400 rounded-md px-2 py-1.5 transition"
-              @click="showBoardSettings = true"
-              title="Board Yönetimi"
-            >
-              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                  d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/>
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
-              </svg>
-            </button>
-
-            <!-- Yeni board oluştur -->
-            <button
-              class="shrink-0 text-xs text-gray-500 hover:text-blue-600 border border-gray-300 hover:border-blue-400 rounded-md px-2 py-1.5 whitespace-nowrap transition"
-              @click="showCreateBoard = true"
-            >
-              + Board
-            </button>
-          </div>
-        </div>
       </div>
 
       <!-- İçerik alanı -->
@@ -236,8 +180,7 @@
 import { ref, computed, onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
-import SideBar        from '../components/SideBar.vue'
-import ViewSwitcher   from '../components/work/ViewSwitcher.vue'
+import WorkSidebar    from '../components/work/WorkSidebar.vue'
 import BoardView      from '../components/work/BoardView.vue'
 import ScrumBoardView from '../components/work/ScrumBoardView.vue'
 import ListView       from '../components/work/ListView.vue'
@@ -278,6 +221,8 @@ const {
 } = useProjectContext(() => props.teamId)
 
 const showTeamProjects = ref(false)
+/** Mobilde sidebar off-canvas açılır; lg ve üstünde her zaman görünür olduğu için yok sayılır. */
+const showMobileSidebar = ref(false)
 
 /**
  * Takıma proje eklendi/çıkarıldı. Proje listesi tazelenir; board'lar da yeniden
@@ -444,6 +389,8 @@ async function loadActivity(reset = true) {
 watch(activeView, (v) => {
   // URL query'yi güncelle (sayfa yenilemede korunsun)
   router.replace({ query: { ...route.query, view: v } })
+  // Mobilde görünüm seçimi drawer'dan yapılır; seçimden sonra kapanmalı
+  showMobileSidebar.value = false
   if (v === 'activity') loadActivity(true)
 })
 

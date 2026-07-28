@@ -2,7 +2,7 @@
   <div class="relative">
     <div
       class="flex items-start gap-2 rounded-lg border bg-white transition-all"
-      :class="error
+      :class="props.error
         ? 'border-red-300 ring-2 ring-red-500/10'
         : 'border-gray-200 focus-within:border-blue-400 focus-within:ring-2 focus-within:ring-blue-500/20'"
     >
@@ -51,16 +51,30 @@
       </div>
     </div>
 
-    <!-- Hata: konumuyla birlikte -->
-    <div v-if="error" class="mt-1.5 flex items-start gap-1.5 px-1">
-      <svg class="w-3.5 h-3.5 text-red-500 mt-px shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <!--
+      Hata gösterimi iki seviyeli:
+        · Çalıştırma hatası (props.error) kırmızı — kullanıcı bilerek çalıştırdı.
+        · Yazım anındaki uyarı (liveError) amber — sorgu henüz yarım olabilir,
+          kırmızı göstermek yazarken sürekli "hata yaptın" demek olurdu.
+    -->
+    <div v-if="displayedError" class="mt-1.5 flex items-start gap-1.5 px-1">
+      <svg
+        class="w-3.5 h-3.5 mt-px shrink-0"
+        :class="props.error ? 'text-red-500' : 'text-amber-500'"
+        fill="none" stroke="currentColor" viewBox="0 0 24 24"
+      >
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
               d="M12 9v2m0 4h.01M5 19h14a2 2 0 001.84-2.75L13.74 4a2 2 0 00-3.5 0l-7.1 12.25A2 2 0 004.99 19z"/>
       </svg>
       <div class="text-[11px] leading-relaxed">
-        <p class="text-red-600">{{ error.message }}</p>
+        <p :class="props.error ? 'text-red-600' : 'text-amber-700'">{{ displayedError.message }}</p>
         <p v-if="marker" class="mt-0.5 font-mono text-gray-500 whitespace-pre-wrap break-all">
-          <span>{{ marker.before }}</span><span class="bg-red-100 text-red-700 rounded-sm underline decoration-wavy decoration-red-400">{{ marker.error }}</span><span>{{ marker.after }}</span>
+          <span>{{ marker.before }}</span><span
+            class="rounded-sm underline decoration-wavy"
+            :class="props.error
+              ? 'bg-red-100 text-red-700 decoration-red-400'
+              : 'bg-amber-100 text-amber-800 decoration-amber-400'"
+          >{{ marker.error }}</span><span>{{ marker.after }}</span>
         </p>
       </div>
     </div>
@@ -101,9 +115,18 @@
  * Doğrulama sunucuda yapılır — dilin tek yorumcusu backend'dir. İstemci yalnız
  * hatayı konumuyla gösterir.
  */
-import { ref, computed, watch, nextTick, onMounted } from 'vue'
-import { getQueryFields, suggestValues, countQuery } from '../../api/QueryApi.js'
+import { ref, computed, watch, nextTick, onMounted, onBeforeUnmount } from 'vue'
+import { getQueryFields, suggestValues, validateQuery } from '../../api/QueryApi.js'
 import { highlightError, quote } from '../../utils/stql.js'
+
+/**
+ * Kullanıcı yazmayı bıraktıktan sonra sunucuya gidilene kadar beklenen süre.
+ * Her tuş vuruşunda sorgulamak hem gereksiz yük hem de yarım sorgular yüzünden
+ * sürekli hata gösterimi demek olurdu.
+ */
+const VALIDATE_DEBOUNCE_MS = 700
+/** Öneri listesi yereldeki katalogdan da beslendiği için daha kısa tutulabilir. */
+const SUGGEST_DEBOUNCE_MS = 250
 
 const props = defineProps({
   modelValue: { type: String, default: '' },
@@ -116,7 +139,7 @@ const props = defineProps({
   },
 })
 
-const emit = defineEmits(['update:modelValue', 'run', 'validate'])
+const emit = defineEmits(['update:modelValue', 'run', 'validated'])
 
 const inputEl = ref(null)
 const text = ref(props.modelValue)
@@ -129,17 +152,26 @@ const highlighted = ref(0)
 const resultCount = ref(null)
 const isLoading = ref(false)
 
+/** Yazarken yapılan doğrulamadan gelen uyarı — çalıştırma hatasından ayrı tutulur. */
+const liveError = ref(null)
+
 /** Öneri uygulanırken değiştirilecek metin aralığı. */
 const replaceRange = ref({ start: 0, end: 0 })
 
-const marker = computed(() => highlightError(text.value, props.error))
+/** Çalıştırma hatası varsa o önceliklidir; yoksa yazım anındaki uyarı gösterilir. */
+const displayedError = computed(() => props.error || liveError.value)
+
+const marker = computed(() => highlightError(text.value, displayedError.value))
 
 watch(() => props.modelValue, (v) => {
   if (v !== text.value) {
     text.value = v ?? ''
-    refreshCount()
+    scheduleCheck(0)
   }
 })
+
+// Takım veya proje değişince önbellekteki değerler artık geçerli değil.
+watch(() => [props.teamId, props.projectId], () => valueCache.clear())
 
 onMounted(async () => {
   try {
@@ -147,23 +179,24 @@ onMounted(async () => {
   } catch {
     // Katalog alınamazsa editör yazılabilir kalır, sadece öneri gösterilmez.
   }
-  refreshCount()
+  scheduleCheck(0)
+})
+
+onBeforeUnmount(() => {
+  clearTimeout(checkTimer)
+  clearTimeout(suggestTimer)
 })
 
 // ─── Giriş ────────────────────────────────────────────────────────────────────
 
-let debounceTimer = null
+let checkTimer = null
 
 function onInput() {
   emit('update:modelValue', text.value)
   autoGrow()
   updateSuggestions()
-
-  clearTimeout(debounceTimer)
-  debounceTimer = setTimeout(() => {
-    emit('validate', text.value)
-    refreshCount()
-  }, 400)
+  // Yazarken sorgu çalıştırılmaz; yalnızca duraklamada doğrulanır ve sayılır.
+  scheduleCheck(VALIDATE_DEBOUNCE_MS)
 }
 
 function autoGrow() {
@@ -211,29 +244,64 @@ function onBlur() {
 }
 
 function emitRun() {
+  // Bekleyen doğrulama isteği gereksiz: çalıştırma zaten sunucuya gidiyor.
+  clearTimeout(checkTimer)
   showSuggestions.value = false
   emit('update:modelValue', text.value)
   emit('run', text.value)
 }
 
 function clear() {
+  clearTimeout(checkTimer)
   text.value = ''
-  emit('update:modelValue', '')
-  emit('run', '')
   resultCount.value = null
+  liveError.value = null
+  emit('update:modelValue', '')
+  emit('validated', { valid: true })
+  emit('run', '')
 }
 
-// ─── Canlı sonuç sayacı ───────────────────────────────────────────────────────
+// ─── Doğrulama + canlı sonuç sayacı (tek istek) ───────────────────────────────
 
-async function refreshCount() {
+/** Aynı anda birden çok yanıt dönerse yalnız en sonuncusu uygulanır. */
+let checkSeq = 0
+
+function scheduleCheck(delay = VALIDATE_DEBOUNCE_MS) {
+  clearTimeout(checkTimer)
+  checkTimer = setTimeout(runCheck, delay)
+}
+
+async function runCheck() {
   if (!props.teamId) return
+
+  // Boş sorgu için sunucuya gitmeye gerek yok — sayaç da anlamsız olurdu.
+  if (!text.value.trim()) {
+    checkSeq++
+    liveError.value = null
+    resultCount.value = null
+    isLoading.value = false
+    emit('validated', { valid: true })
+    return
+  }
+
+  const seq = ++checkSeq
+  const snapshot = text.value
   isLoading.value = true
   try {
-    resultCount.value = await countQuery(props.teamId, text.value, props.projectId)
+    const result = await validateQuery(props.teamId, snapshot, props.projectId)
+    // Kullanıcı bu arada yazmaya devam ettiyse eski yanıtı uygulama.
+    if (seq !== checkSeq) return
+
+    liveError.value = result.valid ? null : result.error
+    resultCount.value = result.valid ? (result.count ?? null) : null
+    emit('validated', result)
   } catch {
+    if (seq !== checkSeq) return
+    // Doğrulama ucuna ulaşılamıyorsa editör kullanılabilir kalmalı.
+    liveError.value = null
     resultCount.value = null
   } finally {
-    isLoading.value = false
+    if (seq === checkSeq) isLoading.value = false
   }
 }
 
@@ -323,14 +391,37 @@ function updateSuggestions() {
     }
 
     showSuggestions.value = suggestions.value.length > 0
-  }, 120)
+  }, SUGGEST_DEBOUNCE_MS)
 }
+
+/**
+ * Alan başına değer listesi önbelleği.
+ *
+ * Sunucu en fazla 50 öneri döndürür. Liste bu sınıra ulaşmadıysa alanın tüm
+ * değerleri elimizde demektir ve ön ek süzmesi yerelde yapılabilir — her tuş
+ * vuruşunda sunucuya gitmeye gerek kalmaz. Sınıra ulaşıldıysa (büyük takımlar,
+ * çok etiket) süzmeyi sunucu yapmalıdır.
+ */
+const SUGGEST_PAGE_LIMIT = 50
+const valueCache = new Map()
 
 async function fetchValues(fieldName, prefix) {
   const field = findField(fieldName)
   if (!field?.hasSuggestions) return []
+
+  const cached = valueCache.get(field.name)
+  if (cached && cached.complete) {
+    const q = prefix.toLowerCase()
+    return cached.items.filter(item =>
+      !q || item.value.toLowerCase().includes(q) || (item.label || '').toLowerCase().includes(q))
+  }
+
   try {
-    return await suggestValues(props.teamId, fieldName, prefix, props.projectId)
+    const items = await suggestValues(props.teamId, field.name, prefix, props.projectId)
+    if (!prefix) {
+      valueCache.set(field.name, { items, complete: items.length < SUGGEST_PAGE_LIMIT })
+    }
+    return items
   } catch {
     return []
   }

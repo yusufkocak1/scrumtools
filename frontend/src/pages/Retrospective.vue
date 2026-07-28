@@ -1,6 +1,5 @@
 <template>
-  <div class="flex flex-row w-full pb-20 lg:pb-0">
-    <SideBar></SideBar>
+  <div class="flex flex-row w-full">
     <div class="flex-1 min-w-0 p-4">
       <div class="flex flex-col w-full h-screen">
         <div v-if="showCreateRetroBoard"
@@ -53,12 +52,11 @@
 import { getBoards, deleteBoard as apiDeleteBoard, renameBoard } from "../api/RetroBoardApi.js";
 import RetroBoardList from "../components/retro/RetroBoardList.vue";
 import CreateRetroBoard from "../components/retro/CreateRetroBoard.vue";
-import SideBar from "../components/SideBar.vue";
 import { useTeamContext } from "../composables/useTeamContext.js";
 
 export default {
   name: "Retrospective",
-  components: {SideBar, CreateRetroBoard, RetroBoardList},
+  components: {CreateRetroBoard, RetroBoardList},
   setup() {
     // Takım seçimi merkezi: Ayarlar > Çalışma Alanı. Sayfa yalnızca okur.
     const { activeTeamId, activeTeam, loadTeams } = useTeamContext()

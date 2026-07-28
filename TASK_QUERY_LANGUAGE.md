@@ -198,8 +198,8 @@ bkz. [DASHBOARD_WIDGET_ROADMAP.md](DASHBOARD_WIDGET_ROADMAP.md).
 | Uç | Açıklama |
 |---|---|
 | `POST /api/teams/{teamId}/tasks/query` | Sorguyu çalıştırır → sayfalı sonuç |
-| `POST /api/teams/{teamId}/tasks/query/validate` | Yalnız doğrular → `{valid, error:{message, position, length}}` |
-| `POST /api/teams/{teamId}/tasks/query/count` | Eşleşen kayıt sayısı |
+| `POST /api/teams/{teamId}/tasks/query/validate` | Doğrular **ve sayar** → `{valid, count}` veya `{valid:false, error:{message, position, length}}` |
+| `POST /api/teams/{teamId}/tasks/query/count` | Yalnız eşleşen kayıt sayısı (program içi kullanım) |
 | `GET /api/teams/{teamId}/tasks/query/fields` | Alan + operatör + fonksiyon kataloğu |
 | `GET /api/teams/{teamId}/tasks/query/suggest` | Bir alan için değer önerileri |
 | `GET/POST/PUT/DELETE /api/teams/{teamId}/filters` | Kayıtlı filtre CRUD |
@@ -207,6 +207,19 @@ bkz. [DASHBOARD_WIDGET_ROADMAP.md](DASHBOARD_WIDGET_ROADMAP.md).
 
 Eski `POST /api/teams/{teamId}/tasks/filter` ucu geriye dönük uyum için durmaya devam
 ediyor; sunucuda o da aynı motora çevriliyor (`LegacyFilterTranslator`).
+
+### Editörün istek davranışı
+
+Sorgu editörü **yazarken sorgu çalıştırmaz**. Kullanıcı 700 ms duraklayınca tek bir
+`validate` isteği atar; bu istek hem sözdizimini denetler hem eşleşen kayıt sayısını
+döndürür. Sorgu ancak Enter'a basıldığında veya "Çalıştır" ile fiilen çalışır.
+
+Sorgu uçlarında global hata bildirimi (toast) kapalıdır: yazım hâlindeki bir sorgunun
+geçersiz olması beklenen bir durumdur, hata editörün içinde konumuyla gösterilir.
+Yazım anındaki uyarı amber, çalıştırma hatası kırmızıdır.
+
+Değer önerileri alan başına önbelleğe alınır; sunucunun 50'lik öneri sınırına
+ulaşılmadıysa ön ek süzmesi yerelde yapılır ve her tuşta istek atılmaz.
 
 ---
 

@@ -1,7 +1,5 @@
 <template>
-  <div class="flex flex-row w-full pb-20 lg:pb-0">
-    <SideBar></SideBar>
-
+  <div class="flex flex-row w-full">
     <div class="transition-all duration-300 flex-1 min-w-0">
       <div class="px-4 sm:px-6 lg:px-8 py-6">
         <!-- Header Section -->
@@ -334,13 +332,11 @@
 
 <script>
 import { getTeamById, removeMember, updateMemberRole, updateTeam } from "../api/TeamApi.js";
-import SideBar from "../components/SideBar.vue";
 import {createToast} from "mosha-vue-toastify";
 import { useTeamContext } from "../composables/useTeamContext.js";
 
 export default {
   name: "Teams",
-  components: {SideBar},
   setup() {
     // Görüntülenen takım = merkezi context'teki aktif takım (Ayarlar'dan seçilir)
     const { activeTeamId, loadTeams } = useTeamContext()

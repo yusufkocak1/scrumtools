@@ -1,6 +1,5 @@
 <template>
-  <div class="flex flex-row w-full bg-gray-50 min-h-screen pb-20 lg:pb-0">
-    <SideBar />
+  <div class="flex flex-row w-full bg-gray-50 min-h-screen">
     <div class="flex-1 min-w-0 p-4 sm:p-6">
       <div class="mx-auto">
         <!-- Header -->
@@ -118,7 +117,6 @@
 </template>
 
 <script>
-import SideBar from '../components/SideBar.vue'
 import { defineAsyncComponent } from 'vue'
 const MonacoEditor = defineAsyncComponent({
   loader: () => import('../components/share/MonacoEditor.vue'),
@@ -132,7 +130,7 @@ import { useTeamContext } from '../composables/useTeamContext.js'
 
 export default {
   name: 'CodeShare',
-  components: { SideBar, MonacoEditor },
+  components: { MonacoEditor },
   props: { teamId: { type: String, required: true } },
   setup(props) {
     // Paylaşılan linkteki takım merkezi context'e adopte edilir — sonraki
