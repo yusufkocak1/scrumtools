@@ -2,7 +2,50 @@
 @tailwind components;
 @tailwind utilities;
 
+@layer base {
+  html {
+    /* iOS yatay çevirmede metni kendiliğinden büyütmesin */
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+  }
+
+  body {
+    /* Dokunmatikte gri flaş yerine kendi hover/active stillerimiz görünsün */
+    -webkit-tap-highlight-color: transparent;
+    /* Ana ekrana kurulu uygulamada sayfa kenarında lastik gibi esneme olmasın */
+    overscroll-behavior-y: contain;
+  }
+
+  /* Çift dokunuşla yakınlaştırma gecikmesini kaldırır (kullanıcı zoom'u açık kalır) */
+  button,
+  [role="button"],
+  a {
+    touch-action: manipulation;
+  }
+
+  /* iOS Safari, 16px altındaki bir alana odaklanınca sayfayı zorla yakınlaştırır.
+     Uygulamada text-xs/text-sm form alanları çok — bu yüzden yalnız iOS'ta
+     (webkit-touch-callout desteği) ve yalnız dar ekranda taban 16px'e çekilir. */
+  @supports (-webkit-touch-callout: none) {
+    @media (max-width: 767px) {
+      input:not([type="checkbox"]):not([type="radio"]),
+      select,
+      textarea {
+        font-size: 16px;
+      }
+    }
+  }
+}
+
 @layer utilities {
+  /* Çentik/gesture bar güvenli alanları — viewport-fit=cover ile birlikte çalışır */
+  .pt-safe { padding-top: env(safe-area-inset-top); }
+  .pb-safe { padding-bottom: env(safe-area-inset-bottom); }
+  .px-safe {
+    padding-left: env(safe-area-inset-left);
+    padding-right: env(safe-area-inset-right);
+  }
+
   /* Kaydırma çubuğunu gizle — mobilde yatay kaydırılan sekme/kontrol satırları için */
   .no-scrollbar {
     -ms-overflow-style: none;

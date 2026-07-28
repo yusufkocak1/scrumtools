@@ -3,8 +3,24 @@
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%232563eb'%3e%3cpath d='M20 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zM4 18V6h16v12H4z'/%3e%3cpath d='M6 8h2v2H6zm0 3h2v2H6zm3-3h2v2H9zm0 3h2v2H9zm3-3h6v2h-6zm0 3h4v2h-4z'/%3e%3ccircle cx='17' cy='14' r='1.5'/%3e%3cpath d='M6 15l2-2 2 2'/%3e%3c/svg%3e" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!-- viewport-fit=cover: çentikli telefonlarda safe-area değişkenleri devreye girer.
+         maximum-scale/user-scalable bilerek kısıtlanmadı — kullanıcı yakınlaştırması
+         erişilebilirlik için açık kalmalı. -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <title>Scrum Tools</title>
+    <meta name="description" content="Takımın için board, backlog, sprint, retrospektif ve scrum poker — tek yerde." />
+
+    <!-- PWA: ana ekrana kurulunca tarayıcı çubuğu olmadan, native görünümlü açılır -->
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <meta name="theme-color" content="#2563eb" />
+
+    <!-- iOS ana ekran desteği — Safari manifest'in bir kısmını yok sayar -->
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-title" content="ScrumTools" />
+    <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
+
       <script
               type="module"
               src="node_modules/@material-tailwind/html/scripts/popover.js"

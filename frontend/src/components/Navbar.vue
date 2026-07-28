@@ -1,22 +1,41 @@
 <template>
-  <div class="relative w-full bg-white border-b border-gray-200 shadow-sm z-[9999]">
-    <div class="flex items-center justify-between px-4 lg:px-6 py-3">
+  <!-- pt-safe/px-safe: ana ekrana kurulu uygulamada içerik durum çubuğunun ve
+       yatay moddaki çentiğin altında kalmasın -->
+  <div class="relative w-full bg-white border-b border-gray-200 shadow-sm z-[9999] pt-safe px-safe">
+    <div class="flex items-center gap-2 lg:gap-4 px-3 sm:px-4 lg:px-6 py-2.5">
       <!-- Logo -->
       <RouterLink to="/" @click="closeAllMenus"
-                  class="flex items-center gap-2 lg:gap-3 text-lg lg:text-2xl font-bold text-gray-900 hover:text-blue-600 transition-colors">
-        <div class="w-8 h-8 lg:w-10 lg:h-10 bg-blue-100 rounded-lg flex items-center justify-center flex-shrink-0">
-          <svg class="w-5 h-5 lg:w-6 lg:h-6 text-blue-600" fill="currentColor" viewBox="0 0 24 24">
+                  class="flex items-center gap-2 shrink-0 text-lg lg:text-xl font-bold text-gray-900 hover:text-blue-600 transition-colors">
+        <div class="w-8 h-8 lg:w-9 lg:h-9 bg-blue-100 rounded-lg flex items-center justify-center flex-shrink-0">
+          <svg class="w-5 h-5 text-blue-600" fill="currentColor" viewBox="0 0 24 24">
             <path d="M20 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zM4 18V6h16v12H4z"/>
             <path d="M6 8h2v2H6zm0 3h2v2H6zm3-3h2v2H9zm0 3h2v2H9zm3-3h6v2h-6zm0 3h4v2h-4z"/>
             <circle cx="17" cy="14" r="1.5"/>
             <path d="M6 15l2-2 2 2"/>
           </svg>
         </div>
-        <span>ScrumTools</span>
+        <!-- Dar ekranda yazı gizlenir; modül ikonlarına yer açar -->
+        <span :class="isLogged ? 'hidden sm:inline' : ''">ScrumTools</span>
       </RouterLink>
 
+      <!-- Modül navigasyonu — eski SideBar'ın yerini alır. md altında gizlenir,
+           modüllere hamburger menüsünden ulaşılır; sığmazsa yatay kaydırılır. -->
+      <nav v-if="isLogged" class="hidden md:flex flex-1 min-w-0 items-center gap-0.5 overflow-x-auto no-scrollbar">
+        <button
+          v-for="item in navItems"
+          :key="item.label"
+          @click="item.action()"
+          :title="item.label"
+          type="button"
+          :class="['flex items-center gap-2 shrink-0 px-2.5 xl:px-3 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-colors',
+                   item.active ? 'bg-blue-50 text-blue-700' : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900']">
+          <svg class="w-4 h-4 shrink-0" fill="currentColor" :viewBox="item.viewBox" v-html="item.paths"></svg>
+          <span class="hidden xl:inline">{{ item.label }}</span>
+        </button>
+      </nav>
+
       <!-- Desktop: notification bell + profile -->
-      <div v-if="isLogged" class="hidden lg:flex items-center gap-2">
+      <div v-if="isLogged" class="hidden lg:flex items-center gap-2 ml-auto shrink-0">
         <NotificationBell />
 
         <!-- Profile Dropdown -->
@@ -153,7 +172,7 @@
       </div>
 
       <!-- Mobile: notification bell + hamburger -->
-      <div v-if="isLogged" class="lg:hidden flex items-center gap-1">
+      <div v-if="isLogged" class="lg:hidden flex items-center gap-1 ml-auto shrink-0">
         <NotificationBell />
         <button
           @click="toggleMobileMenu"
@@ -167,23 +186,6 @@
       </div>
     </div>
 
-    <!-- Modül navigasyonu — eski SideBar'ın yerini alır. İkinci satırda durur ki
-         7 modül dar ekranlarda da sıkışmadan sığsın; taşarsa yatay kaydırılır. -->
-    <nav v-if="isLogged" class="border-t border-gray-100 px-2 lg:px-4">
-      <div class="flex items-center gap-1 overflow-x-auto no-scrollbar py-1.5">
-        <button
-          v-for="item in navItems"
-          :key="item.label"
-          @click="item.action()"
-          type="button"
-          :class="['flex items-center gap-2 shrink-0 px-3 py-1.5 rounded-lg text-sm font-medium whitespace-nowrap transition-colors',
-                   item.active ? 'bg-blue-50 text-blue-700' : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900']">
-          <svg class="w-4 h-4" fill="currentColor" :viewBox="item.viewBox" v-html="item.paths"></svg>
-          {{ item.label }}
-        </button>
-      </div>
-    </nav>
-
     <!-- Mobile Menu (overlay panel — sayfa içeriğini itmez) -->
     <div v-if="isLogged && showMobileMenu"
          class="lg:hidden absolute top-full inset-x-0 bg-white border-b border-gray-200 shadow-lg z-50 max-h-[calc(100vh-4rem)] overflow-y-auto">
@@ -195,6 +197,23 @@
           <div class="flex flex-col min-w-0">
             <span class="text-base font-medium text-gray-900 truncate">{{ name }}</span>
             <span class="text-xs text-gray-500 truncate">{{ auth.userEmail.value }}</span>
+          </div>
+        </div>
+
+        <!-- Modüller — inline navigasyon md altında gizlendiği için burada listelenir -->
+        <div class="md:hidden pb-2 mb-2 border-b border-gray-100">
+          <p class="px-1 pb-2 text-[11px] font-semibold uppercase tracking-wide text-gray-400">Modüller</p>
+          <div class="grid grid-cols-2 gap-1.5">
+            <button
+              v-for="item in navItems"
+              :key="item.label"
+              @click="item.action()"
+              type="button"
+              :class="['flex items-center gap-2 px-3 py-3 rounded-xl text-sm font-medium text-left transition-colors',
+                       item.active ? 'bg-blue-50 text-blue-700' : 'text-gray-700 hover:bg-gray-100']">
+              <svg class="w-4 h-4 shrink-0" fill="currentColor" :viewBox="item.viewBox" v-html="item.paths"></svg>
+              <span class="truncate">{{ item.label }}</span>
+            </button>
           </div>
         </div>
 

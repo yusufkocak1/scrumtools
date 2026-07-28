@@ -24,3 +24,26 @@ const app = createApp(App)
 installErrorReporting(app)
 
 app.mount('#app')
+
+// PWA service worker — ana ekrana kurulabilirlik ve çevrimdışı kabuk için.
+// Sürüm query'de taşınır: yeni sürümde dosya URL'i değişir, tarayıcı SW'yi
+// günceller ve eski cache'ler temizlenir (bkz. public/sw.js).
+if ('serviceWorker' in navigator && import.meta.env.PROD) {
+    window.addEventListener('load', () => {
+        navigator.serviceWorker
+            .register(`/sw.js?v=${__APP_VERSION__}`)
+            .catch(err => console.warn('[pwa] service worker kaydedilemedi:', err))
+    })
+
+    // Yeni SW kontrolü devraldığında sayfayı bir kez tazele ki kullanıcı
+    // yarısı eski yarısı yeni bir uygulamada kalmasın. İlk kurulumda controller
+    // henüz yok — o durumda yenileme yapılmaz, aksi halde her yeni ziyaretçi
+    // sayfayı bir kez boşuna yeniden yüklerdi.
+    const hadController = Boolean(navigator.serviceWorker.controller)
+    let refreshing = false
+    navigator.serviceWorker.addEventListener('controllerchange', () => {
+        if (!hadController || refreshing) return
+        refreshing = true
+        window.location.reload()
+    })
+}

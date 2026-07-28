@@ -11,6 +11,7 @@
   <aside
     :class="[
       'fixed inset-y-0 left-0 z-[9999] w-64 flex flex-col bg-white border-r border-gray-200 transition-transform duration-200 overflow-y-auto',
+      'pt-safe pb-safe lg:pt-0 lg:pb-0',
       'lg:static lg:z-auto lg:w-60 lg:shrink-0 lg:translate-x-0 lg:transition-none',
       open ? 'translate-x-0' : '-translate-x-full'
     ]"

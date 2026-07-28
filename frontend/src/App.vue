@@ -19,6 +19,9 @@
 
     <!-- Paket limiti aşıldığında (402) açılan global yükseltme modalı -->
     <UpgradeModal/>
+
+    <!-- Ana ekrana kurulum önerisi (PWA) -->
+    <PwaInstallPrompt/>
   </div>
 </template>
 
@@ -29,13 +32,15 @@ import { useOrganizationContext } from "./composables/useOrganizationContext.js"
 import { useTeamContext } from "./composables/useTeamContext.js";
 import Navbar from "./components/Navbar.vue";
 import UpgradeModal from "./components/billing/UpgradeModal.vue";
+import PwaInstallPrompt from "./components/PwaInstallPrompt.vue";
 import './scripts/collapse.js'
 
 export default {
   name: "App",
   components: {
     Navbar,
-    UpgradeModal
+    UpgradeModal,
+    PwaInstallPrompt
   },
   setup() {
     const auth = useAuth()
