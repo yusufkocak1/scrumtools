@@ -13,10 +13,17 @@
 
 const lower = (v) => String(v ?? '').toLowerCase()
 
-/** Sütunun topladığı durum adları. */
+/**
+ * Sütunun topladığı durum adları.
+ *
+ * `statuses` alanı hiç yoksa (eşleme özelliğinden önce oluşturulmuş board)
+ * sütun kendi adıyla eşleşir. Boş dizi ise bu bilinçli bir seçimdir —
+ * "bu sütun hiçbir durumu toplamıyor" — ve sütun adına geri düşülmez; aksi
+ * halde kullanıcının kaldırdığı eşleme sessizce geri gelirdi.
+ */
 export function columnStatuses(column) {
     const explicit = column?.statuses
-    if (Array.isArray(explicit) && explicit.length > 0) return explicit
+    if (Array.isArray(explicit)) return explicit
     return column?.name ? [column.name] : []
 }
 

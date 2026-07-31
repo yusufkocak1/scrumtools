@@ -297,17 +297,14 @@ watch(() => route.query.view, (v) => {
   }
 })
 
-// Proje değişince board seçimi de o projeye taşınır ve yeni board oluşturma
-// formu aktif projeyi ön seçili getirir.
-watch(projectId, (v) => {
+// Proje değişince board seçimi de o projeye taşınır.
+watch(projectId, () => {
   ensureBoardInProject()
-  newBoardProjectId.value = v
 })
 
 onMounted(async () => {
   adoptTeam(props.teamId)
   await loadProjects()
-  newBoardProjectId.value = projectId.value
   await loadBoards()
 })
 // teamId route seviyesinde değişebilir; composable proje listesini kendi

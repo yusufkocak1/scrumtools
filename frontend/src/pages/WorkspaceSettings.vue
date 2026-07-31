@@ -61,7 +61,7 @@
     <!-- İçerik -->
     <div class="flex-1 min-w-0 p-4 sm:p-6">
       <div class="max-w-4xl mx-auto">
-        <div v-if="!teamId" class="rounded-lg border border-gray-200 bg-white p-8 text-center text-sm text-gray-500">
+        <div v-if="!resolvedTeamId" class="rounded-lg border border-gray-200 bg-white p-8 text-center text-sm text-gray-500">
           Önce bir takım seçin.
           <router-link to="/settings" class="text-blue-600 font-medium hover:underline">Çalışma alanı ayarları →</router-link>
         </div>
@@ -69,16 +69,16 @@
         <template v-else>
           <StatusManager
             v-if="activeSection === 'statuses'"
-            :key="`status-${teamId}-${projectId || 'team'}`"
-            :team-id="teamId"
+            :key="`status-${resolvedTeamId}-${projectId || 'team'}`"
+            :team-id="resolvedTeamId"
             :project-id="projectId"
             @changed="bumpVersion"
           />
 
           <BoardManager
             v-else-if="activeSection === 'boards'"
-            :key="`board-${teamId}-${statusVersion}`"
-            :team-id="teamId"
+            :key="`board-${resolvedTeamId}-${statusVersion}`"
+            :team-id="resolvedTeamId"
             :project-id="projectId"
             :projects="projects"
             @changed="bumpVersion"
@@ -120,7 +120,7 @@
 
     <TeamProjectsModal
       v-if="showTeamProjects"
-      :team-id="teamId"
+      :team-id="resolvedTeamId"
       :organization-id="organizationId"
       :team-projects="projects"
       @close="showTeamProjects = false"
@@ -156,13 +156,17 @@ const router = useRouter()
 
 const { adoptTeam, activeTeam, activeTeamId } = useTeamContext()
 
-/** URL'de takım yoksa merkezi context'teki aktif takıma düşülür. */
-const teamId = computed(() => props.teamId || activeTeamId.value || null)
+/**
+ * URL'de takım yoksa merkezi context'teki aktif takıma düşülür.
+ * Prop ile aynı adı taşımaması bilinçli: `<script setup>` içinde aynı isim
+ * şablonda hangisinin kazandığını okuyan için belirsiz bırakırdı.
+ */
+const resolvedTeamId = computed(() => props.teamId || activeTeamId.value || null)
 
 const {
   projects, projectId, organizationId, hasProjects,
   selectProject, loadProjects, ALL_PROJECTS,
-} = useProjectContext(() => teamId.value)
+} = useProjectContext(() => resolvedTeamId.value)
 
 const validSections = ['statuses', 'boards', 'projects']
 const activeSection = ref(
@@ -211,10 +215,10 @@ watch(activeSection, (section) => {
   router.replace({ query: { ...route.query, section } })
 })
 
-watch(() => teamId.value, (id) => { if (id) adoptTeam(id) })
+watch(resolvedTeamId, (id) => { if (id) adoptTeam(id) })
 
 onMounted(() => {
-  if (teamId.value) adoptTeam(teamId.value)
+  if (resolvedTeamId.value) adoptTeam(resolvedTeamId.value)
   loadProjects()
 })
 </script>
