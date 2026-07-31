@@ -96,89 +96,11 @@
           </div>
 
           <!-- Sütunlar + durum eşleme -->
-          <div>
-            <div class="flex items-center justify-between mb-2">
-              <label class="text-xs font-medium text-gray-700">Sütunlar ve Durum Eşlemesi</label>
-              <button class="text-xs text-blue-600 hover:text-blue-800" @click="addColumn">+ Sütun Ekle</button>
-            </div>
-
-            <div class="space-y-2">
-              <div
-                v-for="(col, idx) in form.columns"
-                :key="idx"
-                class="rounded-lg border border-gray-200 bg-white p-3 space-y-2.5"
-              >
-                <div class="flex items-center gap-2">
-                  <input
-                    v-model="col.name"
-                    class="flex-1 min-w-0 text-sm rounded border border-gray-300 px-2 py-1.5 focus:ring-1 focus:ring-blue-500 focus:outline-none"
-                    placeholder="Sütun adı"
-                  />
-                  <input type="color" v-model="col.color" class="w-8 h-8 rounded border border-gray-300 cursor-pointer shrink-0" />
-                  <input
-                    type="number"
-                    v-model.number="col.wipLimit"
-                    min="0"
-                    class="w-16 text-xs rounded border border-gray-300 px-2 py-1.5 shrink-0"
-                    placeholder="WIP"
-                    title="WIP limiti (0 = sınırsız)"
-                  />
-                  <button
-                    class="p-1 text-gray-400 hover:text-gray-700 disabled:opacity-30 shrink-0"
-                    :disabled="idx === 0"
-                    title="Sola taşı"
-                    @click="moveColumn(idx, -1)"
-                  >◀</button>
-                  <button
-                    class="p-1 text-gray-400 hover:text-gray-700 disabled:opacity-30 shrink-0"
-                    :disabled="idx === form.columns.length - 1"
-                    title="Sağa taşı"
-                    @click="moveColumn(idx, 1)"
-                  >▶</button>
-                  <button
-                    class="p-1 text-red-400 hover:text-red-600 disabled:opacity-30 shrink-0"
-                    :disabled="form.columns.length <= 1"
-                    title="Sütunu sil"
-                    @click="form.columns.splice(idx, 1)"
-                  >✕</button>
-                </div>
-
-                <!-- Durum seçimi -->
-                <div class="flex flex-wrap gap-1.5">
-                  <button
-                    v-for="status in statuses"
-                    :key="status.id"
-                    type="button"
-                    class="text-[11px] rounded-full border px-2 py-1 transition"
-                    :class="isAssigned(col, status.name)
-                      ? 'border-blue-400 bg-blue-50 text-blue-700 font-medium'
-                      : ownerOf(status.name, idx)
-                        ? 'border-gray-200 bg-gray-50 text-gray-300 cursor-not-allowed'
-                        : 'border-gray-200 text-gray-500 hover:border-blue-300 hover:text-blue-600'"
-                    :disabled="!isAssigned(col, status.name) && !!ownerOf(status.name, idx)"
-                    :title="ownerOf(status.name, idx)
-                      ? `Bu durum '${ownerOf(status.name, idx)}' sütununa atanmış`
-                      : ''"
-                    @click="toggleStatus(col, status.name)"
-                  >
-                    <span class="inline-block w-1.5 h-1.5 rounded-full mr-1 align-middle"
-                          :style="{ backgroundColor: status.color || '#6B7280' }"></span>
-                    {{ status.name }}
-                  </button>
-                </div>
-                <p v-if="columnStatuses(col).length === 0" class="text-[11px] text-amber-700">
-                  Durum seçilmedi — sütun boş kalır.
-                </p>
-              </div>
-            </div>
-
-            <!-- Board dışında kalan durumlar -->
-            <p v-if="outsideBoard.length > 0" class="mt-2 text-[11px] text-gray-500">
-              Board'da gösterilmeyen durumlar:
-              <span class="font-medium text-gray-600">{{ outsideBoard.join(', ') }}</span>.
-              Bu durumdaki görevler ilk sütunda toplanır.
-            </p>
-          </div>
+          <ColumnMapEditor
+            v-model="form.columns"
+            :statuses="statuses"
+            :counts="statusCounts"
+          />
 
           <p v-if="formError" class="text-xs text-red-600">{{ formError }}</p>
 
@@ -274,16 +196,18 @@
 
 <script setup>
 /**
- * Board yönetimi — sütunlar ve durum eşlemesi.
+ * Board yönetimi — board listesi ve düzenleme kabuğu.
  *
  * Eskiden sütun adı doğrudan durum adı sayılıyordu; artık sütun bir durum kümesi
- * topluyor. Bir durum yalnızca tek sütuna atanabilir (aksi halde aynı görev iki
- * sütunda görünürdü), bu yüzden başka sütuna atanmış durumlar pasif gösterilir.
+ * topluyor. Eşlemenin kendisi {@link ColumnMapEditor} içinde: burası yalnızca
+ * board CRUD'unu ve kaydetmeden önceki doğrulamayı yürütür.
  */
-import { ref, computed, onMounted, watch } from 'vue'
+import { ref, onMounted, watch } from 'vue'
 import { getBoards, createBoard, updateBoard, deleteBoard } from '../../api/BoardApi.js'
+import WorkflowApi from '../../api/WorkflowApi.js'
 import { useTaskStatuses } from '../../composables/useTaskStatuses.js'
-import { columnStatuses, statusesOutsideBoard } from '../../utils/boardColumns.js'
+import { columnStatuses } from '../../utils/boardColumns.js'
+import ColumnMapEditor from './ColumnMapEditor.vue'
 
 const props = defineProps({
   teamId: { type: String, required: true },
@@ -293,7 +217,7 @@ const props = defineProps({
 
 const emit = defineEmits(['changed'])
 
-const { statuses, statusNames } = useTaskStatuses(() => props.teamId, () => props.projectId)
+const { statuses } = useTaskStatuses(() => props.teamId, () => props.projectId)
 
 const boards = ref([])
 const loading = ref(false)
@@ -314,33 +238,26 @@ function projectName(projectId) {
   return props.projects.find(p => p.id === projectId)?.name || 'Proje'
 }
 
-// ─── Durum ↔ sütun eşleme yardımcıları ───────────────────────────────────────
+// ─── Durum başına görev sayısı ───────────────────────────────────────────────
 
-function isAssigned(col, statusName) {
-  return columnStatuses(col).some(s => s.toLowerCase() === statusName.toLowerCase())
+/**
+ * Eşleme ekranı her durumun kaç iş taşıdığını gösterir. Sayım katalogdan ayrı
+ * bir uçtan gelir ve alınamazsa ekran sayısız çalışır — eşleme yapmak için
+ * gerekli değil.
+ */
+const statusCounts = ref(null)
+
+async function loadStatusCounts() {
+  if (!props.teamId) return
+  try {
+    const { data } = await WorkflowApi.getStatusCounts(props.teamId, props.projectId)
+    statusCounts.value = data || {}
+  } catch (e) {
+    // null kalır: eşleme ekranı sayı yerine "—" gösterir, yanlış sıfır göstermez.
+    console.warn('Durum görev sayıları alınamadı:', e)
+    statusCounts.value = null
+  }
 }
-
-/** Durum başka bir sütuna atanmışsa o sütunun adı; değilse null. */
-function ownerOf(statusName, exceptIndex) {
-  const key = statusName.toLowerCase()
-  const owner = form.value.columns.find((c, i) =>
-    i !== exceptIndex && columnStatuses(c).some(s => s.toLowerCase() === key)
-  )
-  return owner?.name || null
-}
-
-function toggleStatus(col, statusName) {
-  const list = Array.isArray(col.statuses) ? col.statuses : columnStatuses(col)
-  const key = statusName.toLowerCase()
-  const idx = list.findIndex(s => s.toLowerCase() === key)
-  if (idx >= 0) list.splice(idx, 1)
-  else list.push(statusName)
-  col.statuses = list
-}
-
-const outsideBoard = computed(() =>
-  statusesOutsideBoard(form.value.columns, statusNames.value)
-)
 
 // ─── CRUD ────────────────────────────────────────────────────────────────────
 
@@ -371,17 +288,9 @@ function startEdit(board) {
       statuses: [...columnStatuses(c)],
     })),
   }
-}
-
-function addColumn() {
-  form.value.columns.push({ name: '', color: '#6B7280', wipLimit: 0, statuses: [] })
-}
-
-function moveColumn(index, delta) {
-  const target = index + delta
-  if (target < 0 || target >= form.value.columns.length) return
-  const cols = form.value.columns
-  ;[cols[index], cols[target]] = [cols[target], cols[index]]
+  // Sayımlar düzenleme açılırken tazelenir: panel açık kalırken başka biri görev
+  // taşımış olabilir.
+  loadStatusCounts()
 }
 
 async function saveEdit() {
@@ -471,6 +380,11 @@ async function handleDelete() {
 onMounted(() => {
   newBoard.value.projectId = props.projectId
   load()
+  loadStatusCounts()
 })
-watch(() => props.teamId, () => { editingId.value = null; load() })
+watch(() => [props.teamId, props.projectId], () => {
+  editingId.value = null
+  load()
+  loadStatusCounts()
+})
 </script>

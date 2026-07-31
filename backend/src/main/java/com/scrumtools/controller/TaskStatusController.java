@@ -7,6 +7,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.Map;
 import java.util.UUID;
 
 /**
@@ -32,6 +33,21 @@ public class TaskStatusController {
             @RequestParam(required = false) UUID projectId
     ) {
         return ResponseEntity.ok(taskStatusService.getCatalogResponse(teamId, projectId));
+    }
+
+    /**
+     * Durum adı → görev sayısı (anahtarlar küçük harf).
+     *
+     * Katalog yanıtına eklenmedi: katalog board, backlog ve liste görünümlerinin
+     * her açılışında çağrılıyor, bu sayım ise yalnızca sütun eşleme ekranını
+     * ilgilendiriyor.
+     */
+    @GetMapping("/api/teams/{teamId}/statuses/counts")
+    public ResponseEntity<Map<String, Long>> getStatusCounts(
+            @PathVariable UUID teamId,
+            @RequestParam(required = false) UUID projectId
+    ) {
+        return ResponseEntity.ok(taskStatusService.getStatusCounts(teamId, projectId));
     }
 
     /** Ayarlar ekranının düzenleyeceği workflow — durum ve geçişleriyle birlikte. */

@@ -77,6 +77,10 @@ public interface TaskRepository extends JpaRepository<Task, UUID> {
     @Query("SELECT t.status, COUNT(t) FROM Task t WHERE t.team.id = :teamId GROUP BY t.status")
     List<Object[]> countByStatus(@Param("teamId") UUID teamId);
 
+    /** Status → count, tek proje kapsamında (sütun eşleme ekranı proje bazlı sayar) */
+    @Query("SELECT t.status, COUNT(t) FROM Task t WHERE t.project.id = :projectId GROUP BY t.status")
+    List<Object[]> countByStatusInProject(@Param("projectId") UUID projectId);
+
     /** Priority → count */
     @Query("SELECT t.priority, COUNT(t) FROM Task t WHERE t.team.id = :teamId GROUP BY t.priority")
     List<Object[]> countByPriority(@Param("teamId") UUID teamId);

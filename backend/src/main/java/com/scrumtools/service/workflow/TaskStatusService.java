@@ -11,7 +11,10 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Comparator;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
+import java.util.Map;
 import java.util.UUID;
 
 /**
@@ -137,6 +140,29 @@ public class TaskStatusService {
         return TaskStatusCatalogResponse.of(catalog,
                 projectScoped ? "PROJECT" : "TEAM",
                 unmappedFor(teamId, catalog));
+    }
+
+    /**
+     * Durum adı → o durumdaki görev sayısı (anahtarlar küçük harf).
+     *
+     * Sütun eşleme ekranı her durumun kaç iş taşıdığını gösterir: boş bir durumu
+     * board dışında bırakmakla 36 işi taşıyan durumu dışarıda bırakmak aynı şey
+     * değil. Durum serbest metin olduğu için "In Progress" ve "in progress" tek
+     * kovada toplanır.
+     */
+    @Transactional(readOnly = true)
+    public Map<String, Long> getStatusCounts(UUID teamId, UUID projectId) {
+        List<Object[]> rows = projectId != null
+                ? taskRepository.countByStatusInProject(projectId)
+                : taskRepository.countByStatus(teamId);
+
+        Map<String, Long> counts = new LinkedHashMap<>();
+        for (Object[] row : rows) {
+            if (row[0] == null) continue;
+            counts.merge(row[0].toString().toLowerCase(Locale.ROOT),
+                    ((Number) row[1]).longValue(), Long::sum);
+        }
+        return counts;
     }
 
     /** isDefault işaretli olan tercih edilir; yoksa ilk kayıt. */

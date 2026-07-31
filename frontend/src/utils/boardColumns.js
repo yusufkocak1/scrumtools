@@ -81,34 +81,7 @@ export function distributeTasks(columns, tasks, { fallbackToFirst = true } = {})
     return { byColumn, unmapped }
 }
 
-/**
- * Sütunlarda hiç yer almayan durum adları — ayarlar ekranı bunları "board'da
- * görünmüyor" uyarısı olarak listeler.
- */
-export function statusesOutsideBoard(columns, statusNames) {
-    const mapped = new Set()
-    for (const col of columns) {
-        for (const s of columnStatuses(col)) mapped.add(lower(s))
-    }
-    return statusNames.filter(name => !mapped.has(lower(name)))
-}
-
-/**
- * Aynı durumu birden fazla sütuna vermiş yapılandırmalar — kaydetmeden önce
- * uyarı göstermek için.
- */
-export function duplicateStatusAssignments(columns) {
-    const seen = new Map()
-    const duplicates = []
-    for (const col of columns) {
-        for (const s of columnStatuses(col)) {
-            const key = lower(s)
-            if (seen.has(key)) {
-                duplicates.push({ status: s, columns: [seen.get(key), col.name] })
-            } else {
-                seen.set(key, col.name)
-            }
-        }
-    }
-    return duplicates
-}
+// Eşlenmemiş durumları bulan ve aynı durumun iki sütuna verilmesini yakalayan
+// yardımcılar buradan kaldırıldı: ColumnMapEditor eşlemeyi tek bir düzen üzerinde
+// yürütüyor, eşlenmemişler zaten kendi panelinde duruyor ve bir durum aynı anda
+// yalnızca tek sütunda olabiliyor.

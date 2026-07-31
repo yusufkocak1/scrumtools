@@ -13,6 +13,16 @@ export default {
       params: projectId ? { projectId } : {},
     }),
 
+  /**
+   * Durum adı (küçük harf) → görev sayısı.
+   * Sütun eşleme ekranı bir durumu board dışına almanın kaç işi etkilediğini
+   * gösterebilsin diye ayrı uçtan gelir — katalog çağrısını ağırlaştırmaz.
+   */
+  getStatusCounts: (teamId, projectId = null) =>
+    axios.get(`/api/teams/${teamId}/statuses/counts`, {
+      params: projectId ? { projectId } : {},
+    }),
+
   /** Ayarlar ekranının düzenlediği workflow (durumlar + geçişler). */
   getEffective: (teamId, projectId = null) =>
     axios.get(`/api/teams/${teamId}/workflows/effective`, {

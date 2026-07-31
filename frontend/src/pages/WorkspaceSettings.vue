@@ -60,7 +60,8 @@
 
     <!-- İçerik -->
     <div class="flex-1 min-w-0 p-4 sm:p-6">
-      <div class="max-w-4xl mx-auto">
+      <!-- Sütun eşleme yatay bir şerit; dar kolonda sürekli kaydırma gerektirirdi -->
+      <div class="mx-auto" :class="activeSection === 'boards' ? 'max-w-6xl' : 'max-w-4xl'">
         <div v-if="!resolvedTeamId" class="rounded-lg border border-gray-200 bg-white p-8 text-center text-sm text-gray-500">
           Önce bir takım seçin.
           <router-link to="/settings" class="text-blue-600 font-medium hover:underline">Çalışma alanı ayarları →</router-link>
