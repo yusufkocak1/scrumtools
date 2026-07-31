@@ -78,11 +78,14 @@
     <div v-if="loading" class="py-10 text-center text-sm text-gray-400">Yükleniyor…</div>
 
     <!-- Durum listesi -->
-    <ul v-else class="space-y-2">
+    <ul v-else ref="listEl" class="space-y-2">
       <li
-        v-for="(status, idx) in statuses"
+        v-for="(status, idx) in rows"
         :key="status.id"
-        class="rounded-lg border border-gray-200 bg-white transition hover:border-gray-300"
+        class="rounded-lg border bg-white transition"
+        :class="status.id === NEW_ID
+          ? 'border-blue-300 ring-1 ring-blue-100'
+          : 'border-gray-200 hover:border-gray-300'"
       >
         <!-- Görüntüleme -->
         <div v-if="editingId !== status.id" class="flex items-center gap-3 px-4 py-3">
@@ -135,6 +138,9 @@
 
         <!-- Düzenleme -->
         <div v-else class="px-4 py-4 space-y-3 bg-gray-50/60">
+          <p v-if="editingId === NEW_ID" class="text-xs font-semibold text-blue-700">
+            Yeni Durum
+          </p>
           <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <div class="sm:col-span-2">
               <label class="block text-xs font-medium text-gray-700 mb-1">Durum Adı</label>
@@ -259,7 +265,7 @@
  * görev varsa hedef durum zorunludur. Bu yüzden ekran her iki işlemde de
  * kullanıcıyı bilgilendiriyor — sessiz veri kaybı olmasın.
  */
-import { ref, computed, watch } from 'vue'
+import { ref, computed, watch, nextTick } from 'vue'
 import WorkflowApi from '../../api/WorkflowApi.js'
 import { useTaskStatuses, CATEGORY_LABELS, CATEGORY_CLASSES } from '../../composables/useTaskStatuses.js'
 
@@ -276,6 +282,7 @@ const {
   statuses, unmapped, workflowId, scope, isFallback, loading, refresh,
 } = useTaskStatuses(() => props.teamId, () => props.projectId)
 
+const listEl = ref(null)
 const editingId = ref(null)
 const originalName = ref('')
 const saving = ref(false)
@@ -290,6 +297,16 @@ const emptyForm = () => ({
 })
 const form = ref(emptyForm())
 
+/**
+ * Düzenleme formu listenin içinde yaşıyor; yeni kayıt için de bir satır gerekiyor.
+ * Sanal satır sona ekleniyor — kaydedilince alacağı pozisyonla aynı yer.
+ */
+const rows = computed(() =>
+  editingId.value === NEW_ID
+    ? [...statuses.value, { id: NEW_ID }]
+    : statuses.value
+)
+
 function categoryClass(category) {
   return CATEGORY_CLASSES[category] || CATEGORY_CLASSES.TO_DO
 }
@@ -299,6 +316,13 @@ function startCreate() {
   originalName.value = ''
   formError.value = null
   form.value = emptyForm()
+  // Buton listenin üstünde, form sonuna eklenir: uzun listede kullanıcı
+  // formu görmeden "hiçbir şey olmadı" sanmasın.
+  nextTick(() => {
+    const row = listEl.value?.lastElementChild
+    row?.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
+    row?.querySelector('input')?.focus()
+  })
 }
 
 function startEdit(status) {
