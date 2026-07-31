@@ -1,15 +1,18 @@
 package com.scrumtools.dto;
 
 import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.NotEmpty;
 
 import java.util.List;
 
 /**
- * @param category HangmanCategory kodu (ör. ANIMALS) — kelimeler bir kategoriye eklenir.
+ * Toplu kelime ekleme. Kelimeler tek kategoriye, iki dil için birlikte eklenir;
+ * diller bağımsız havuzlardır, listelerin aynı uzunlukta veya birbirinin çevirisi
+ * olması gerekmez. En az birinin dolu olması yeterlidir.
+ *
+ * @param category HangmanCategory kodu (ör. ANIMALS)
  */
 public record HangmanWordBulkRequest(
-        @NotBlank String language,
         @NotBlank String category,
-        @NotEmpty List<@NotBlank String> words
+        List<String> trWords,
+        List<String> enWords
 ) {}

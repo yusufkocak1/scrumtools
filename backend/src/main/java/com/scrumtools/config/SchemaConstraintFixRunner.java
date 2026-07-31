@@ -40,10 +40,25 @@ public class SchemaConstraintFixRunner implements ApplicationRunner {
         dropConstraint("role_permissions", "role_permissions_permission_check");
         dropConstraint("plan_features", "plan_features_feature_check");
         dropConstraint("activity_events", "activity_events_action_check");
+
+        // Adam Asmaca kelimeleri takım bazlıyken global'e çevrildi; entity'de team_id
+        // kalmadı ama ddl-auto:update kolonu düşürmediği için NOT NULL kısıtı insert'leri
+        // patlatıyordu. Kolon artık ölü — verisi korunsun diye sadece NOT NULL kaldırılıyor.
+        dropNotNull("hangman_words", "team_id");
     }
 
     private void dropConstraint(String table, String constraint) {
         jdbcTemplate.execute("ALTER TABLE " + table + " DROP CONSTRAINT IF EXISTS " + constraint);
         log.info("Eskimiş CHECK kısıtı kontrol edildi/düşürüldü: {}.{}", table, constraint);
+    }
+
+    /** Kolon yoksa sessizce geçer; ALTER COLUMN'un IF EXISTS karşılığı yok. */
+    private void dropNotNull(String table, String column) {
+        try {
+            jdbcTemplate.execute("ALTER TABLE " + table + " ALTER COLUMN " + column + " DROP NOT NULL");
+            log.info("Eskimiş NOT NULL kısıtı düşürüldü: {}.{}", table, column);
+        } catch (Exception e) {
+            log.debug("NOT NULL düşürülemedi (kolon yok olabilir): {}.{} — {}", table, column, e.getMessage());
+        }
     }
 }

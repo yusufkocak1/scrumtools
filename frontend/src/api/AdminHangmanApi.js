@@ -12,7 +12,8 @@ export const AdminHangmanApi = {
     if (search) params.search = search
     return api.get('/api/admin/hangman/words', { params })
   },
-  addWords: (language, category, words) => api.post('/api/admin/hangman/words', { language, category, words }),
+  /** Tek kategoriye iki dilin kelimeleri birlikte eklenir; biri boş bırakılabilir. */
+  addWords: (category, trWords, enWords) => api.post('/api/admin/hangman/words', { category, trWords, enWords }),
   deleteWord: (wordId) => api.delete(`/api/admin/hangman/words/${wordId}`),
 }
 

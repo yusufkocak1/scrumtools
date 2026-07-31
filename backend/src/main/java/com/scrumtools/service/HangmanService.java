@@ -128,47 +128,63 @@ public class HangmanService {
                 .toList();
     }
 
+    /**
+     * Kelimeleri tek kategoriye, iki dil için birlikte ekler. Diller bağımsız
+     * havuzlardır; listelerin eşleşmesi (birbirinin çevirisi olması) gerekmez.
+     */
     @Transactional
     public HangmanWordBulkResponse addWords(HangmanWordBulkRequest request) {
-        String lang = normalizeLanguage(request.language());
         HangmanCategory category = HangmanCategory.require(request.category());
         String email = currentEmail();
 
-        Locale locale = localeOf(lang);
-        Pattern pattern = "tr".equals(lang) ? TR_WORD : EN_WORD;
-        // Dahili havuzda zaten olan kelimeyi tekrar eklemek listede çift kayıt yaratır.
-        Set<String> builtIn = new HashSet<>(HangmanWordPool.forLanguage(lang));
+        if (isEmpty(request.trWords()) && isEmpty(request.enWords())) {
+            throw new IllegalArgumentException("En az bir dil için kelime girin");
+        }
 
         int added = 0;
         int duplicate = 0;
         List<String> invalid = new ArrayList<>();
 
-        for (String raw : request.words()) {
-            if (raw == null) continue;
-            String normalized = raw.trim().toLowerCase(locale);
-            if (normalized.isEmpty()) continue;
+        for (String lang : List.of("tr", "en")) {
+            List<String> words = "tr".equals(lang) ? request.trWords() : request.enWords();
+            if (isEmpty(words)) continue;
 
-            if (!pattern.matcher(normalized).matches()) {
-                invalid.add(raw.trim());
-                continue;
-            }
-            // Aynı kelime birden fazla kategoriye girmesin: aynı oyunda iki kez çıkmasını önler.
-            if (builtIn.contains(normalized)
-                    || wordRepository.existsByLanguageAndWordIgnoreCase(lang, normalized)) {
-                duplicate++;
-                continue;
-            }
+            Locale locale = localeOf(lang);
+            Pattern pattern = "tr".equals(lang) ? TR_WORD : EN_WORD;
+            // Dahili havuzda zaten olan kelimeyi tekrar eklemek listede çift kayıt yaratır.
+            Set<String> builtIn = new HashSet<>(HangmanWordPool.forLanguage(lang));
 
-            wordRepository.save(HangmanWord.builder()
-                    .language(lang)
-                    .category(category)
-                    .word(normalized)
-                    .createdByEmail(email)
-                    .build());
-            added++;
+            for (String raw : words) {
+                if (raw == null) continue;
+                String normalized = raw.trim().toLowerCase(locale);
+                if (normalized.isEmpty()) continue;
+
+                if (!pattern.matcher(normalized).matches()) {
+                    invalid.add(lang + ": " + raw.trim());
+                    continue;
+                }
+                // Aynı kelime birden fazla kategoriye girmesin: aynı oyunda iki kez çıkmasını önler.
+                if (builtIn.contains(normalized)
+                        || wordRepository.existsByLanguageAndWordIgnoreCase(lang, normalized)) {
+                    duplicate++;
+                    continue;
+                }
+
+                wordRepository.save(HangmanWord.builder()
+                        .language(lang)
+                        .category(category)
+                        .word(normalized)
+                        .createdByEmail(email)
+                        .build());
+                added++;
+            }
         }
 
         return new HangmanWordBulkResponse(added, duplicate, invalid);
+    }
+
+    private boolean isEmpty(List<String> words) {
+        return words == null || words.stream().allMatch(w -> w == null || w.isBlank());
     }
 
     @Transactional

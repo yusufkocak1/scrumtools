@@ -24,8 +24,8 @@
       silinemez. Kelimeler bir kategoriye eklenir; oyuncular kategori seçerek ya da karışık oynar.
     </p>
 
-    <!-- Ekleme -->
-    <div class="space-y-2 bg-gray-50 dark:bg-gray-800/50 rounded-lg p-3">
+    <!-- Ekleme: iki dil birlikte -->
+    <div class="space-y-3 bg-gray-50 dark:bg-gray-800/50 rounded-lg p-3">
       <select v-model="addCategory" class="input-field w-full">
         <option :value="null">Kategori seç…</option>
         <option v-for="opt in categoryOptions" :key="opt.code" :value="opt.code">
@@ -33,18 +33,39 @@
         </option>
       </select>
 
-      <textarea
-        v-model="input"
-        rows="2"
-        class="input-field w-full"
-        :disabled="!addCategory"
-        :placeholder="placeholder">
-      </textarea>
-      <button @click="addWords" :disabled="adding || !addCategory || !input.trim()" class="btn-primary text-sm">
+      <div class="grid sm:grid-cols-2 gap-3">
+        <div>
+          <label class="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-1">🇹🇷 Türkçe</label>
+          <textarea
+            v-model="trInput"
+            rows="3"
+            class="input-field w-full"
+            :disabled="!addCategory"
+            :placeholder="addCategory ? 'inek, koyun, kunduz' : 'Önce bir kategori seç'">
+          </textarea>
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-1">🇬🇧 English</label>
+          <textarea
+            v-model="enInput"
+            rows="3"
+            class="input-field w-full"
+            :disabled="!addCategory"
+            :placeholder="addCategory ? 'cow, sheep, beaver' : 'Select a category first'">
+          </textarea>
+        </div>
+      </div>
+
+      <button
+        @click="addWords"
+        :disabled="adding || !addCategory || (!trInput.trim() && !enInput.trim())"
+        class="btn-primary text-sm">
         {{ adding ? 'Ekleniyor...' : '+ Kelimeleri Ekle' }}
       </button>
       <p class="text-xs text-gray-500 dark:text-gray-400">
-        Her satıra bir kelime, ya da virgülle ayırarak yapıştır. Sadece harf, boşluksuz, 2-30 karakter.
+        Her satıra bir kelime, ya da virgülle ayırarak yapıştır. Sadece harf, boşluksuz, 2-30 karakter
+        (Türkçe'de q/w/x yok). İki dil bağımsız havuzdur — listelerin birbirinin çevirisi
+        veya aynı uzunlukta olması gerekmez, tek dil de bırakılabilir.
       </p>
     </div>
 
@@ -160,14 +181,10 @@ const totalElements = ref(0)
 const totalPages = ref(1)
 const loading = ref(false)
 const adding = ref(false)
-const input = ref('')
+const trInput = ref('')
+const enInput = ref('')
 
 const categoryOptions = computed(() => hangmanCategoryOptions(language.value))
-
-const placeholder = computed(() => {
-  if (!addCategory.value) return 'Önce bir kategori seç'
-  return language.value === 'tr' ? 'örnek: retrospektif, teslimat, moral' : 'e.g. teamwork, delivery, morale'
-})
 
 /** Kategori özelliğinden önce eklenmiş kayıtlarda kategori boştur. */
 function categoryText(code) {
@@ -196,19 +213,26 @@ async function load() {
   }
 }
 
-async function addWords() {
-  if (!addCategory.value) return
-
-  const parsed = input.value
+/** "a, b\nc" → ['a','b','c'] */
+function parseWords(raw) {
+  return raw
     .split(/[\n,]+/)
     .map(w => w.trim())
     .filter(w => w.length > 0)
-  if (!parsed.length) return
+}
+
+async function addWords() {
+  if (!addCategory.value) return
+
+  const trWords = parseWords(trInput.value)
+  const enWords = parseWords(enInput.value)
+  if (!trWords.length && !enWords.length) return
 
   adding.value = true
   try {
-    const { data } = await AdminHangmanApi.addWords(language.value, addCategory.value, parsed)
-    input.value = ''
+    const { data } = await AdminHangmanApi.addWords(addCategory.value, trWords, enWords)
+    trInput.value = ''
+    enInput.value = ''
     if (data.addedCount > 0) {
       createToast(`${data.addedCount} kelime eklendi`, { type: 'success', position: 'top-center' })
     }
