@@ -98,8 +98,8 @@ export const deleteMyScmAccount = async (accountId) => {
 
 /**
  * Task'ın geliştirme verisi:
- * { featureEnabled, projectLinked, projectId, canCreateBranch, canManageRepos,
- *   hasUserAccount, repos, branches, commits }
+ * { featureEnabled, projectLinked, projectId, canCreateBranch, canCreatePullRequest,
+ *   canManageRepos, hasUserAccount, repos, branches, pullRequests, commits }
  */
 export const getTaskScm = async (teamId, taskId) => {
     const { data } = await apiClient.get(`/api/teams/${teamId}/tasks/${taskId}/scm`)
@@ -109,5 +109,22 @@ export const getTaskScm = async (teamId, taskId) => {
 /** Task'tan branch açar: { repositoryId, branchName, sourceRef } */
 export const createTaskBranch = async (teamId, taskId, payload) => {
     const { data } = await apiClient.post(`/api/teams/${teamId}/tasks/${taskId}/scm/branches`, payload)
+    return data
+}
+
+/**
+ * Göreve bağlı bir branch'ten pull request (GitLab'da merge request) açar:
+ * { branchId, targetBranch, title, description, draft }
+ */
+export const createTaskPullRequest = async (teamId, taskId, payload) => {
+    const { data } = await apiClient.post(`/api/teams/${teamId}/tasks/${taskId}/scm/pull-requests`, payload)
+    return data
+}
+
+/** PR'ın sağlayıcıdaki güncel durumunu çeker (açık / merged / kapalı). */
+export const refreshTaskPullRequest = async (teamId, taskId, pullRequestId) => {
+    const { data } = await apiClient.post(
+        `/api/teams/${teamId}/tasks/${taskId}/scm/pull-requests/${pullRequestId}/refresh`
+    )
     return data
 }

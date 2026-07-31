@@ -235,31 +235,37 @@ public class ScmTaskDevService {
                 .findFirst()
                 .ifPresent(pr -> {
                     throw new IllegalStateException("Bu branch için zaten açık bir pull request var: #"
-                            + pr.getExternalId());
+                            + pr.getExternalId() + ". Kapandıysa durumu yenileyip tekrar deneyin.");
                 });
 
-        String title = isBlank(request.title()) ? defaultTitle(task) : request.title().trim();
+        String title = isBlank(request.title()) ? defaultTitle(task) : clampTitle(request.title().trim());
+        if (isBlank(title)) {
+            throw new IllegalArgumentException("Başlık boş olamaz.");
+        }
         String description = isBlank(request.description()) ? defaultDescription(task) : request.description();
 
         ScmPullRequestInfo info = createPullRequestOnProvider(
                 repo, email, branch.getName(), targetBranch, title, description, request.draft());
 
-        ScmPullRequest pullRequest = ScmPullRequest.builder()
-                .repository(repo)
-                .task(task)
-                .branch(branch)
-                .externalId(info.externalId())
-                .title(info.title() != null ? info.title() : title)
-                .sourceBranch(info.sourceBranch() != null ? info.sourceBranch() : branch.getName())
-                .targetBranch(info.targetBranch() != null ? info.targetBranch() : targetBranch)
-                .state(info.state() != null ? info.state() : ScmPullRequestState.OPEN)
-                .webUrl(info.webUrl())
-                .draft(info.draft())
-                .createdViaApp(true)
-                .createdBy(email)
-                .mergedAt(info.mergedAt())
-                .lastSyncedAt(LocalDateTime.now())
-                .build();
+        // Sağlayıcıda zaten açık olan bir PR'a düşülmüş olabilir; o numara bu görevde
+        // kayıtlıysa yeni satır yerine mevcut kayıt tazelenir (unique kısıt korunur).
+        ScmPullRequest pullRequest = scmPullRequestRepository
+                .findByRepositoryIdAndTaskIdAndExternalId(repo.getId(), taskId, info.externalId())
+                .orElseGet(ScmPullRequest::new);
+        pullRequest.setRepository(repo);
+        pullRequest.setTask(task);
+        pullRequest.setBranch(branch);
+        pullRequest.setExternalId(info.externalId());
+        pullRequest.setTitle(clampTitle(info.title() != null ? info.title() : title));
+        pullRequest.setSourceBranch(info.sourceBranch() != null ? info.sourceBranch() : branch.getName());
+        pullRequest.setTargetBranch(info.targetBranch() != null ? info.targetBranch() : targetBranch);
+        pullRequest.setState(info.state() != null ? info.state() : ScmPullRequestState.OPEN);
+        pullRequest.setWebUrl(info.webUrl());
+        pullRequest.setDraft(info.draft());
+        pullRequest.setCreatedViaApp(true);
+        if (pullRequest.getCreatedBy() == null) pullRequest.setCreatedBy(email);
+        pullRequest.setMergedAt(info.mergedAt());
+        pullRequest.setLastSyncedAt(LocalDateTime.now());
         pullRequest = scmPullRequestRepository.save(pullRequest);
 
         auditService.recordChange(task, "pull request", null,
@@ -291,7 +297,7 @@ public class ScmTaskDevService {
         ScmPullRequestInfo info = onProvider(repo, email,
                 client -> client.getPullRequest(repo, pullRequest.getExternalId()));
 
-        if (info.title() != null) pullRequest.setTitle(info.title());
+        if (info.title() != null) pullRequest.setTitle(clampTitle(info.title()));
         if (info.targetBranch() != null) pullRequest.setTargetBranch(info.targetBranch());
         if (info.webUrl() != null) pullRequest.setWebUrl(info.webUrl());
         if (info.state() != null) pullRequest.setState(info.state());
@@ -362,8 +368,13 @@ public class ScmTaskDevService {
     private String defaultTitle(Task task) {
         String key = task.getCustomId();
         String title = task.getTitle() == null ? "" : task.getTitle().trim();
-        String combined = isBlank(key) ? title : (key + " " + title).trim();
-        return combined.length() > 500 ? combined.substring(0, 500) : combined;
+        return clampTitle(isBlank(key) ? title : (key + " " + title).trim());
+    }
+
+    /** Başlık kolonu 500 karakter — sağlayıcıdan ya da istekten daha uzunu gelirse kırpılır. */
+    private String clampTitle(String title) {
+        if (title == null) return null;
+        return title.length() > 500 ? title.substring(0, 500) : title;
     }
 
     /** Açıklamaya görev linki eklenir; frontend adresi tanımlı değilse sadece anahtar yazılır. */
