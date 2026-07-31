@@ -5,6 +5,13 @@
 > tamamlandı; bu iş onun üzerine binecek.
 >
 > Önkoşul dokümanı: [TASK_QUERY_LANGUAGE.md](TASK_QUERY_LANGUAGE.md)
+>
+> **Not:** Bu doküman [RICH_FILTER_PLAN.md](RICH_FILTER_PLAN.md) ile birleşmiştir.
+> Buradaki `FILTER_COUNT` / `FILTER_LIST` / `FILTER_GROUPED_CHART` widget'ları ayrı bir
+> aile olarak değil, zengin filtre widget'larının (`RF_STAT`, `RF_RESULTS`, `RF_CHART`)
+> özel hâli olarak yazılacak — öğesiz bir zengin filtre zaten kayıtlı filtredir.
+> §4'teki `/aggregate` ucu iki planın ortak gövdesidir. Fazlandırma için zengin filtre
+> planına bakın; buradaki mimari kararlar (K6–K10) geçerliliğini koruyor.
 
 ---
 
