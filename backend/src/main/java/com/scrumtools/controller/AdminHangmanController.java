@@ -16,9 +16,9 @@ import java.util.UUID;
 /**
  * Adam Asmaca kelime havuzu yönetimi — sadece SUPER_ADMIN.
  *
- *   GET    /api/admin/hangman/words?language=tr|en → kelime listesi
- *   POST   /api/admin/hangman/words                → toplu kelime ekle
- *   DELETE /api/admin/hangman/words/{wordId}       → kelime sil
+ *   GET    /api/admin/hangman/words?language=tr|en&category=.. → kelime listesi (kategori opsiyonel)
+ *   POST   /api/admin/hangman/words                            → toplu kelime ekle (kategori zorunlu)
+ *   DELETE /api/admin/hangman/words/{wordId}                   → kelime sil
  */
 @RestController
 @RequestMapping("/api/admin/hangman")
@@ -29,8 +29,10 @@ public class AdminHangmanController {
     private final HangmanService hangmanService;
 
     @GetMapping("/words")
-    public ResponseEntity<List<HangmanWordResponse>> getWords(@RequestParam(defaultValue = "tr") String language) {
-        return ResponseEntity.ok(hangmanService.getWords(language));
+    public ResponseEntity<List<HangmanWordResponse>> getWords(
+            @RequestParam(defaultValue = "tr") String language,
+            @RequestParam(required = false) String category) {
+        return ResponseEntity.ok(hangmanService.getWords(language, category));
     }
 
     @PostMapping("/words")

@@ -10,7 +10,7 @@
 
       <div class="p-6 sm:p-8">
         <!-- Dil seçimi + istatistik + yeni kelime -->
-        <div class="flex flex-wrap items-center justify-between gap-3 mb-6">
+        <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
           <div class="flex items-center gap-2 bg-gray-100 rounded-xl p-1">
             <button
                 v-for="opt in languageOptions"
@@ -30,6 +30,21 @@
               🔄 Yeni Kelime
             </button>
           </div>
+        </div>
+
+        <!-- Kategori seçimi -->
+        <div class="flex flex-wrap items-center gap-2 mb-6">
+          <label for="hangman-category" class="text-sm font-semibold text-gray-700">Kategori</label>
+          <select
+              id="hangman-category"
+              v-model="category"
+              class="px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white text-gray-800 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none">
+            <option :value="null">🎲 Rastgele (tüm kategoriler)</option>
+            <option v-for="opt in categoryOptions" :key="opt.code" :value="opt.code">
+              {{ opt.emoji }} {{ opt.label }}
+            </option>
+          </select>
+          <span class="text-xs text-gray-400">{{ poolSize }} kelime</span>
         </div>
 
         <div class="grid sm:grid-cols-[auto_1fr] gap-6 items-start">
@@ -99,7 +114,7 @@
 </template>
 
 <script>
-import { randomHangmanWord } from '../../data/hangmanWords.js'
+import { randomHangmanWord, hangmanCategoryOptions, hangmanWordsOf } from '../../data/hangmanWords.js'
 import { getHangmanWords } from '../../api/HangmanApi.js'
 
 const TR_ALPHABET = ['A', 'B', 'C', 'Ç', 'D', 'E', 'F', 'G', 'Ğ', 'H', 'I', 'İ', 'J', 'K', 'L', 'M',
@@ -112,6 +127,8 @@ export default {
   name: 'HangmanGame',
   data: () => ({
     language: 'tr',
+    /** null = tüm kategorilerden rastgele */
+    category: null,
     targetWord: '',
     guessedLetters: [],
     wrongCount: 0,
@@ -127,6 +144,13 @@ export default {
   computed: {
     locale() {
       return this.language === 'tr' ? 'tr-TR' : 'en-US'
+    },
+    categoryOptions() {
+      return hangmanCategoryOptions(this.language)
+    },
+    /** Seçili kategorinin dahili + DB kelime sayısı (tekrarsız). */
+    poolSize() {
+      return new Set([...hangmanWordsOf(this.language, this.category), ...this.extraWords]).size
     },
     alphabet() {
       return this.language === 'tr' ? TR_ALPHABET : EN_ALPHABET
@@ -164,6 +188,10 @@ export default {
       await this.loadWords()
       this.newWord()
     },
+    async category() {
+      await this.loadWords()
+      this.newWord()
+    },
     isGameOver(over) {
       if (!over) return
       if (this.isWinner) this.wins++
@@ -194,7 +222,11 @@ export default {
       }
     },
     newWord() {
-      this.targetWord = randomHangmanWord(this.language, this.targetWord, this.extraWords)
+      this.targetWord = randomHangmanWord(this.language, {
+        category: this.category,
+        exclude: this.targetWord,
+        extraWords: this.extraWords
+      })
       this.guessedLetters = []
       this.wrongCount = 0
     },
@@ -206,12 +238,14 @@ export default {
       }
     },
 
+    /** Admin'in eklediği kelimeler dahili havuza eklenir; kategori seçiliyse sadece o kategori. */
     async loadWords() {
       try {
-        const words = await getHangmanWords(this.language)
+        const words = await getHangmanWords(this.language, this.category)
         this.extraWords = words.map(w => w.word)
       } catch (e) {
         console.error('Kelime havuzu yüklenemedi:', e)
+        this.extraWords = []
       }
     }
   },

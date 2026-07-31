@@ -16,6 +16,9 @@ public record HangmanSessionResponse(
         String status,
         String language,
         String wordSource,
+        /** Rastgele kelime kategorisi; karışık oynanıyorsa null. */
+        String category,
+        String categoryLabel,
         boolean moderatorPlays,
         int currentRoundIndex,
         int totalRounds,
@@ -57,6 +60,8 @@ public record HangmanSessionResponse(
                 session.getStatus().name(),
                 session.getLanguage(),
                 session.getWordSource().name(),
+                session.getCategory() == null ? null : session.getCategory().name(),
+                session.getCategory() == null ? null : session.getCategory().label(session.getLanguage()),
                 Boolean.TRUE.equals(session.getModeratorPlays()),
                 session.getCurrentRoundIndex(),
                 totalRounds,

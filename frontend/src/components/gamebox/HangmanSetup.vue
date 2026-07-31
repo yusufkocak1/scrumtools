@@ -55,6 +55,32 @@
         <!-- Rastgele ayarları -->
         <div v-if="wordSource === 'RANDOM'" class="space-y-4">
           <div>
+            <label class="block text-sm font-semibold text-gray-700 mb-2">Kategori</label>
+            <div class="flex flex-wrap items-center gap-2">
+              <select
+                  v-model="category"
+                  class="flex-1 min-w-[220px] px-4 py-2.5 border border-gray-300 rounded-xl text-sm bg-white text-gray-800 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none">
+                <option :value="null">🎲 Karışık (tüm kategoriler)</option>
+                <option v-for="opt in categoryOptions" :key="opt.code" :value="opt.code">
+                  {{ opt.emoji }} {{ opt.label }}{{ opt.wordCount ? ` (${opt.wordCount})` : '' }}
+                </option>
+              </select>
+            </div>
+            <p class="text-xs text-gray-500 mt-2">
+              <template v-if="selectedCategory">
+                {{ selectedCategory.emoji }} {{ selectedCategory.label }} kategorisinde
+                <strong>{{ selectedCategory.wordCount }}</strong> kelime var.
+              </template>
+              <template v-else>
+                Kelimeler tüm kategorilerden karışık gelir.
+              </template>
+            </p>
+            <p v-if="tooFewWords" class="text-xs text-amber-600 mt-1">
+              ⚠️ Bu kategoride {{ selectedCategory.wordCount }} kelime var; oyun bu sayıda turla oynanır.
+            </p>
+          </div>
+
+          <div>
             <label class="block text-sm font-semibold text-gray-700 mb-2">
               Kaç kelime oynanacak?
               <span class="text-indigo-600 font-bold">{{ roundCount }}</span>
@@ -121,7 +147,8 @@
 </template>
 
 <script>
-import { startHangmanSession } from '../../api/HangmanApi.js'
+import { startHangmanSession, getHangmanCategories } from '../../api/HangmanApi.js'
+import { hangmanCategoryOptions } from '../../data/hangmanWords.js'
 
 export default {
   name: 'HangmanSetup',
@@ -133,6 +160,10 @@ export default {
     language: 'tr',
     wordSource: 'RANDOM',
     roundCount: 5,
+    /** null = tüm kategorilerden karışık */
+    category: null,
+    /** Sunucudan gelen kelime sayıları: { [code]: wordCount } */
+    categoryCounts: {},
     moderatorPlays: true,
     customWordsRaw: '',
     submitting: false,
@@ -142,6 +173,19 @@ export default {
     ]
   }),
   computed: {
+    /** Kategori listesi yereldeki emoji/etiketlerle, sayılar sunucudan. */
+    categoryOptions() {
+      return hangmanCategoryOptions(this.language)
+          .map(opt => ({ ...opt, wordCount: this.categoryCounts[opt.code] || 0 }))
+    },
+    selectedCategory() {
+      return this.categoryOptions.find(o => o.code === this.category) || null
+    },
+    tooFewWords() {
+      return !!this.selectedCategory
+          && this.selectedCategory.wordCount > 0
+          && this.selectedCategory.wordCount < this.roundCount
+    },
     wordPlaceholder() {
       return this.language === 'tr'
           ? 'bilgisayar\nkahve\nsprint'
@@ -157,7 +201,22 @@ export default {
       return this.wordSource === 'RANDOM' || this.parsedWords.length > 0
     }
   },
+  watch: {
+    language: 'loadCategories'
+  },
+  mounted() {
+    this.loadCategories()
+  },
   methods: {
+    async loadCategories() {
+      try {
+        const categories = await getHangmanCategories(this.language)
+        this.categoryCounts = Object.fromEntries(categories.map(c => [c.code, c.wordCount]))
+      } catch (e) {
+        // Sayılar gösterilemese de kategori seçimi çalışmaya devam eder.
+        this.categoryCounts = {}
+      }
+    },
     async submit() {
       if (!this.canSubmit) return
       this.submitting = true
@@ -166,6 +225,8 @@ export default {
         const session = await startHangmanSession(this.teamId, {
           language: this.language,
           roundCount: custom ? null : this.roundCount,
+          // Kategori sadece rastgele kelimelerde anlamlı; null = karışık.
+          category: custom ? null : this.category,
           customWords: custom ? this.parsedWords : [],
           // Kelimeleri moderatör girdiyse sunucu zaten oynamasına izin vermez.
           moderatorPlays: custom ? false : this.moderatorPlays

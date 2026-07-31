@@ -18,8 +18,17 @@ const base = (teamId) => `/api/teams/${teamId}/hangman`
 
 // ─── Kelime havuzu (tek kişilik oyun) ───────────────────────────────────────
 
-export const getHangmanWords = async (language) => {
-    const { data } = await apiClient.get('/api/hangman/words', { params: { language } })
+/** Kategoriler + kelime sayıları (dahili havuz + DB). */
+export const getHangmanCategories = async (language) => {
+    const { data } = await apiClient.get('/api/hangman/categories', { params: { language } })
+    return data
+}
+
+/** @param {string} [category] verilmezse tüm kategoriler döner. */
+export const getHangmanWords = async (language, category = null) => {
+    const { data } = await apiClient.get('/api/hangman/words', {
+        params: category ? { language, category } : { language }
+    })
     return data
 }
 
@@ -27,7 +36,7 @@ export const getHangmanWords = async (language) => {
 
 /**
  * Oturum açar ve açan kişiyi moderatör yapar.
- * @param {object} payload { language, roundCount, customWords, moderatorPlays }
+ * @param {object} payload { language, roundCount, category, customWords, moderatorPlays }
  */
 export const startHangmanSession = async (teamId, payload) => {
     const { data } = await apiClient.post(`${base(teamId)}/sessions`, payload)

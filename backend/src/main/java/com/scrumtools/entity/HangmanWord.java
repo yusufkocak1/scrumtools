@@ -32,6 +32,14 @@ public class HangmanWord {
     @Column(nullable = false)
     private String word;
 
+    /**
+     * Kelimenin kategorisi. Kategori özelliğinden ÖNCE eklenmiş kayıtlarda null olabilir;
+     * bunlar "Kategorisiz" sayılır ve yalnızca kategori seçilmeden oynanan oyunlarda çıkar.
+     */
+    @Enumerated(EnumType.STRING)
+    @Column(length = 32)
+    private HangmanCategory category;
+
     @Column(nullable = false)
     private String createdByEmail;
 

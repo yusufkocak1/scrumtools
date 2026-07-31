@@ -90,12 +90,16 @@ public class HangmanSessionService {
         List<String> customWords = normalizeCustomWords(request.customWords(), language);
         boolean custom = !customWords.isEmpty();
 
+        // Kategori yalnızca rastgele kelimelerde anlamlı; null = tüm kategoriler karışık.
+        HangmanCategory category = custom ? null : HangmanCategory.parse(request.category()).orElse(null);
+
         // Kelimeleri moderatör belirlediyse cevapları bildiği için oynayamaz.
         boolean moderatorPlays = !custom && !Boolean.FALSE.equals(request.moderatorPlays());
 
         List<String> words = custom
                 ? customWords
-                : drawRandomWords(language, request.roundCount() == null ? DEFAULT_ROUND_COUNT : request.roundCount());
+                : drawRandomWords(language, request.roundCount() == null ? DEFAULT_ROUND_COUNT : request.roundCount(),
+                        category);
 
         if (words.isEmpty()) {
             throw new RuntimeException("Oyun için kelime bulunamadı");
@@ -109,6 +113,7 @@ public class HangmanSessionService {
                 .hostName(displayName)
                 .language(language)
                 .wordSource(custom ? HangmanWordSource.CUSTOM : HangmanWordSource.RANDOM)
+                .category(category)
                 .moderatorPlays(moderatorPlays)
                 .build();
         sessionRepository.save(session);
@@ -532,11 +537,16 @@ public class HangmanSessionService {
 
     /**
      * DB havuzu + dahili havuzdan tekrarsız rastgele kelime çeker.
+     *
+     * @param category null ise tüm kategoriler karışık; doluysa sadece o kategori.
+     *                 Kategori seçilmediğinde DB'deki kategorisiz (eski) kelimeler de havuza girer.
      */
-    private List<String> drawRandomWords(String language, int count) {
-        Set<String> pool = new LinkedHashSet<>(HangmanWordPool.forLanguage(language));
-        wordRepository.findByLanguageOrderByCreatedAtDesc(language)
-                .forEach(w -> pool.add(w.getWord()));
+    private List<String> drawRandomWords(String language, int count, HangmanCategory category) {
+        Set<String> pool = new LinkedHashSet<>(HangmanWordPool.resolve(language, category));
+        List<HangmanWord> dbWords = category == null
+                ? wordRepository.findByLanguageOrderByCreatedAtDesc(language)
+                : wordRepository.findByLanguageAndCategoryOrderByCreatedAtDesc(language, category);
+        dbWords.forEach(w -> pool.add(w.getWord()));
 
         List<String> shuffled = new ArrayList<>(pool);
         Collections.shuffle(shuffled);

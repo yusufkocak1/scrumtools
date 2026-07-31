@@ -12,7 +12,7 @@
 
       <div class="p-6">
         <!-- Oyun bilgisi -->
-        <div class="grid grid-cols-3 gap-3 mb-6 text-center">
+        <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6 text-center">
           <div class="bg-gray-50 rounded-xl p-3">
             <p class="text-xs text-gray-500 mb-1">Dil</p>
             <p class="font-semibold text-gray-900">{{ session.language === 'tr' ? '🇹🇷 Türkçe' : '🇬🇧 English' }}</p>
@@ -26,6 +26,10 @@
             <p class="font-semibold text-gray-900">
               {{ session.wordSource === 'CUSTOM' ? '✍️ Moderatör' : '🎲 Rastgele' }}
             </p>
+          </div>
+          <div class="bg-gray-50 rounded-xl p-3">
+            <p class="text-xs text-gray-500 mb-1">Kategori</p>
+            <p class="font-semibold text-gray-900 text-sm">{{ categoryText }}</p>
           </div>
         </div>
 
@@ -99,6 +103,7 @@
 
 <script>
 import { joinHangmanSession } from '../../api/HangmanApi.js'
+import { hangmanCategoryLabel } from '../../data/hangmanWords.js'
 import { createToast } from 'mosha-vue-toastify'
 
 export default {
@@ -110,6 +115,11 @@ export default {
   },
   emits: ['begin', 'joined'],
   computed: {
+    /** Kategori seçilmediyse (ya da kelimeleri moderatör girdiyse) karışık gösterilir. */
+    categoryText() {
+      if (this.session?.wordSource === 'CUSTOM') return '—'
+      return hangmanCategoryLabel(this.session?.category, this.session?.language) || '🎲 Karışık'
+    },
     participants() {
       return this.session?.participants || []
     },

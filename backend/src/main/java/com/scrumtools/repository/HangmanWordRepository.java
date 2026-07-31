@@ -1,5 +1,6 @@
 package com.scrumtools.repository;
 
+import com.scrumtools.entity.HangmanCategory;
 import com.scrumtools.entity.HangmanWord;
 import org.springframework.data.jpa.repository.JpaRepository;
 
@@ -8,6 +9,8 @@ import java.util.UUID;
 
 public interface HangmanWordRepository extends JpaRepository<HangmanWord, UUID> {
     List<HangmanWord> findByLanguageOrderByCreatedAtDesc(String language);
+
+    List<HangmanWord> findByLanguageAndCategoryOrderByCreatedAtDesc(String language, HangmanCategory category);
 
     boolean existsByLanguageAndWordIgnoreCase(String language, String word);
 }

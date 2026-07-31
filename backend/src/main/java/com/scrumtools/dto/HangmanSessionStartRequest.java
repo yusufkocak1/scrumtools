@@ -18,6 +18,12 @@ public record HangmanSessionStartRequest(
         /** Kaç kelime oynanacak. customWords doluysa yok sayılır. */
         @Min(1) @Max(20) Integer roundCount,
 
+        /**
+         * Rastgele kelimelerin çekileceği kategori kodu (ör. ANIMALS).
+         * Boş/null ise tüm kategorilerden karışık çekilir. customWords doluysa yok sayılır.
+         */
+        String category,
+
         /** Moderatörün kendi belirlediği kelimeler. Boş/null ise rastgele çekilir. */
         List<String> customWords,
 

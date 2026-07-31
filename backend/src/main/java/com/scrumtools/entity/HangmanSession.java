@@ -56,6 +56,14 @@ public class HangmanSession {
     private HangmanWordSource wordSource = HangmanWordSource.RANDOM;
 
     /**
+     * Rastgele kelimelerin çekildiği kategori. null = tüm kategoriler karışık.
+     * wordSource = CUSTOM ise anlamsızdır ve her zaman null'dır.
+     */
+    @Enumerated(EnumType.STRING)
+    @Column(length = 32)
+    private HangmanCategory category;
+
+    /**
      * Moderatör de oyuncu olarak sıraya giriyor mu?
      * wordSource = CUSTOM ise adalet gereği her zaman false'tur.
      */
