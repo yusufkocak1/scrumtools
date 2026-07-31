@@ -19,14 +19,15 @@
     </div>
 
     <p class="text-xs text-gray-500 dark:text-gray-400">
-      Buraya eklenen kelimeler tüm takımlar için Adam Asmaca oyununda dahili kelime havuzuna eklenir.
-      Kelimeler bir kategoriye eklenir; oyuncular kategori seçerek ya da karışık oynayabilir.
-      Her satıra bir kelime, ya da virgülle ayırarak yapıştırabilirsin. Sadece harf, boşluksuz.
+      Liste, uygulamayla gelen <strong>dahili</strong> kelimeleri ve buradan <strong>eklenen</strong>
+      kelimeleri birlikte gösterir; oyunda ikisi de kullanılır. Dahili kelimeler kodda tanımlıdır,
+      silinemez. Kelimeler bir kategoriye eklenir; oyuncular kategori seçerek ya da karışık oynar.
     </p>
 
-    <div class="space-y-2">
-      <select v-model="category" class="input-field">
-        <option :value="null">Tüm kategoriler (yalnızca listeleme)</option>
+    <!-- Ekleme -->
+    <div class="space-y-2 bg-gray-50 dark:bg-gray-800/50 rounded-lg p-3">
+      <select v-model="addCategory" class="input-field w-full">
+        <option :value="null">Kategori seç…</option>
         <option v-for="opt in categoryOptions" :key="opt.code" :value="opt.code">
           {{ opt.emoji }} {{ opt.label }}
         </option>
@@ -34,41 +35,100 @@
 
       <textarea
         v-model="input"
-        rows="3"
-        class="input-field"
-        :disabled="!category"
+        rows="2"
+        class="input-field w-full"
+        :disabled="!addCategory"
         :placeholder="placeholder">
       </textarea>
-      <button @click="addWords" :disabled="adding || !category || !input.trim()" class="btn-primary text-sm">
+      <button @click="addWords" :disabled="adding || !addCategory || !input.trim()" class="btn-primary text-sm">
         {{ adding ? 'Ekleniyor...' : '+ Kelimeleri Ekle' }}
       </button>
-      <p v-if="!category" class="text-xs text-amber-600 dark:text-amber-400">
-        Kelime eklemek için önce bir kategori seç.
+      <p class="text-xs text-gray-500 dark:text-gray-400">
+        Her satıra bir kelime, ya da virgülle ayırarak yapıştır. Sadece harf, boşluksuz, 2-30 karakter.
       </p>
     </div>
 
+    <!-- Süzgeçler -->
+    <div class="flex flex-wrap items-center gap-2">
+      <select v-model="category" class="input-field flex-1 min-w-[200px]">
+        <option :value="null">Tüm kategoriler</option>
+        <option v-for="opt in categoryOptions" :key="opt.code" :value="opt.code">
+          {{ opt.emoji }} {{ opt.label }}
+        </option>
+      </select>
+      <input
+        v-model="search"
+        type="search"
+        placeholder="Kelime ara..."
+        class="input-field flex-1 min-w-[160px]" />
+      <select v-model.number="size" class="input-field">
+        <option :value="25">25</option>
+        <option :value="50">50</option>
+        <option :value="100">100</option>
+      </select>
+    </div>
+
+    <!-- Tablo -->
     <div>
       <div v-if="loading" class="text-center py-8 text-gray-500">Yükleniyor...</div>
 
-      <div v-else-if="!words.length" class="text-center py-8 text-sm text-gray-400">
-        {{ category ? 'Bu kategoride henüz eklenmiş kelime yok.' : 'Bu dil için henüz eklenmiş kelime yok.' }}
+      <div v-else-if="!items.length" class="text-center py-8 text-sm text-gray-400">
+        Bu süzgeçlerle eşleşen kelime yok.
       </div>
 
-      <div v-else class="space-y-4">
-        <div v-for="group in groups" :key="group.code">
-          <p class="text-xs font-semibold text-gray-500 dark:text-gray-400 mb-2">
-            {{ group.label }}
-            <span class="font-normal text-gray-400">({{ group.items.length }})</span>
-          </p>
-          <div class="flex flex-wrap gap-2">
-            <span
-              v-for="w in group.items"
-              :key="w.id"
-              class="inline-flex items-center gap-1.5 px-3 py-1 bg-indigo-50 dark:bg-indigo-500/10 text-indigo-700 dark:text-indigo-300 rounded-full text-xs font-medium">
-              {{ w.word }}
-              <button @click="removeWord(w.id)" class="text-indigo-400 hover:text-red-500" title="Kaldır">×</button>
-            </span>
-          </div>
+      <div v-else class="overflow-x-auto border border-gray-200 dark:border-gray-700 rounded-lg">
+        <table class="w-full text-sm">
+          <thead class="bg-gray-50 dark:bg-gray-700/50 text-gray-500 dark:text-gray-400">
+            <tr>
+              <th class="text-left font-medium px-3 py-2">Kelime</th>
+              <th class="text-left font-medium px-3 py-2">Kategori</th>
+              <th class="text-left font-medium px-3 py-2">Kaynak</th>
+              <th class="text-left font-medium px-3 py-2 hidden sm:table-cell">Ekleyen</th>
+              <th class="px-3 py-2 w-10"></th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-gray-100 dark:divide-gray-700">
+            <tr v-for="w in items" :key="w.id || `${w.category}-${w.word}`"
+                class="text-gray-800 dark:text-gray-200">
+              <td class="px-3 py-2 font-medium">{{ w.word }}</td>
+              <td class="px-3 py-2 text-gray-500 dark:text-gray-400">
+                {{ categoryText(w.category) }}
+              </td>
+              <td class="px-3 py-2">
+                <span
+                  :class="[
+                    'px-2 py-0.5 rounded-full text-xs font-medium',
+                    w.source === 'BUILT_IN'
+                      ? 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300'
+                      : 'bg-indigo-50 dark:bg-indigo-500/10 text-indigo-700 dark:text-indigo-300'
+                  ]">
+                  {{ w.source === 'BUILT_IN' ? 'Dahili' : 'Eklenen' }}
+                </span>
+              </td>
+              <td class="px-3 py-2 text-gray-500 dark:text-gray-400 hidden sm:table-cell">
+                {{ w.createdByEmail || '—' }}
+              </td>
+              <td class="px-3 py-2 text-right">
+                <button
+                  v-if="w.id"
+                  @click="removeWord(w)"
+                  class="text-gray-400 hover:text-red-500"
+                  title="Kaldır">×</button>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Sayfalama -->
+      <div v-if="!loading && totalElements > 0"
+           class="flex flex-wrap items-center justify-between gap-2 mt-3 text-sm text-gray-500 dark:text-gray-400">
+        <span>
+          {{ totalElements }} kelime — sayfa {{ page + 1 }} / {{ totalPages }}
+        </span>
+        <div class="flex items-center gap-2">
+          <button @click="page--" :disabled="page === 0" class="btn-page">← Önceki</button>
+          <button @click="page++" :disabled="page >= totalPages - 1" class="btn-page">Sonraki →</button>
         </div>
       </div>
     </div>
@@ -79,7 +139,7 @@
 import { ref, computed, watch, onMounted } from 'vue'
 import { createToast } from 'mosha-vue-toastify'
 import AdminHangmanApi from '../../api/AdminHangmanApi.js'
-import { HANGMAN_CATEGORIES, hangmanCategoryOptions, hangmanCategoryLabel } from '../../data/hangmanWords.js'
+import { hangmanCategoryOptions, hangmanCategoryLabel } from '../../data/hangmanWords.js'
 
 const languageOptions = [
   { value: 'tr', label: 'Türkçe', flag: '🇹🇷' },
@@ -87,9 +147,17 @@ const languageOptions = [
 ]
 
 const language = ref('tr')
-/** null = tüm kategorileri listele (bu durumda ekleme kapalı) */
+/** Listeyi süzen kategori — null = tümü */
 const category = ref(null)
-const words = ref([])
+/** Yeni kelimelerin ekleneceği kategori (süzgeçten bağımsız, zorunlu) */
+const addCategory = ref(null)
+const search = ref('')
+const page = ref(0)
+const size = ref(50)
+
+const items = ref([])
+const totalElements = ref(0)
+const totalPages = ref(1)
 const loading = ref(false)
 const adding = ref(false)
 const input = ref('')
@@ -97,40 +165,30 @@ const input = ref('')
 const categoryOptions = computed(() => hangmanCategoryOptions(language.value))
 
 const placeholder = computed(() => {
-  if (!category.value) return 'Önce bir kategori seç'
+  if (!addCategory.value) return 'Önce bir kategori seç'
   return language.value === 'tr' ? 'örnek: retrospektif, teslimat, moral' : 'e.g. teamwork, delivery, morale'
 })
 
-/**
- * Kelimeleri kategoriye göre gruplar. Kategori özelliğinden önce eklenmiş kayıtlar
- * (category = null) "Kategorisiz" grubunda en sonda gösterilir; oyunda yalnızca
- * karışık modda çıkarlar, temizlemek için buradan silinebilirler.
- */
-const groups = computed(() => {
-  const buckets = new Map()
-  for (const w of words.value) {
-    const code = w.category || 'UNCATEGORIZED'
-    if (!buckets.has(code)) buckets.set(code, [])
-    buckets.get(code).push(w)
-  }
-
-  const order = [...HANGMAN_CATEGORIES.map(c => c.code), 'UNCATEGORIZED']
-  return order
-    .filter(code => buckets.has(code))
-    .map(code => ({
-      code,
-      label: code === 'UNCATEGORIZED'
-        ? '❔ Kategorisiz (eski kayıtlar)'
-        : hangmanCategoryLabel(code, language.value) || code,
-      items: buckets.get(code)
-    }))
-})
+/** Kategori özelliğinden önce eklenmiş kayıtlarda kategori boştur. */
+function categoryText(code) {
+  return hangmanCategoryLabel(code, language.value) || '❔ Kategorisiz'
+}
 
 async function load() {
   loading.value = true
   try {
-    const res = await AdminHangmanApi.getWords(language.value, category.value)
-    words.value = res.data
+    const { data } = await AdminHangmanApi.getWords({
+      language: language.value,
+      category: category.value,
+      search: search.value.trim(),
+      page: page.value,
+      size: size.value
+    })
+    items.value = data.items
+    totalElements.value = data.totalElements
+    totalPages.value = data.totalPages
+    // Süzgeç daraldığında son sayfada kalınmışsa geri sar.
+    if (page.value > 0 && page.value >= data.totalPages) page.value = data.totalPages - 1
   } catch (e) {
     console.error('Kelimeler yüklenemedi:', e)
   } finally {
@@ -139,7 +197,7 @@ async function load() {
 }
 
 async function addWords() {
-  if (!category.value) return
+  if (!addCategory.value) return
 
   const parsed = input.value
     .split(/[\n,]+/)
@@ -149,18 +207,17 @@ async function addWords() {
 
   adding.value = true
   try {
-    const res = await AdminHangmanApi.addWords(language.value, category.value, parsed)
+    const { data } = await AdminHangmanApi.addWords(language.value, addCategory.value, parsed)
     input.value = ''
-    if (res.data.addedCount > 0) {
-      createToast(`${res.data.addedCount} kelime eklendi`, { type: 'success', position: 'top-center' })
+    if (data.addedCount > 0) {
+      createToast(`${data.addedCount} kelime eklendi`, { type: 'success', position: 'top-center' })
     }
-    if (res.data.duplicateCount > 0) {
-      createToast(`${res.data.duplicateCount} kelime zaten havuzda vardı`, { type: 'info', position: 'top-center' })
+    if (data.duplicateCount > 0) {
+      createToast(`${data.duplicateCount} kelime havuzda zaten vardı`, { type: 'info', position: 'top-center' })
     }
-    if (res.data.invalidWords?.length) {
-      createToast(`Geçersiz kelimeler atlandı: ${res.data.invalidWords.join(', ')}`, { type: 'warning', position: 'top-center' })
+    if (data.invalidWords?.length) {
+      createToast(`Geçersiz kelimeler atlandı: ${data.invalidWords.join(', ')}`, { type: 'warning', position: 'top-center' })
     }
-    // Yanıt tüm dili döner; seçili kategori filtresine sadık kalmak için yeniden yükle.
     await load()
   } catch (e) {
     console.error('Kelimeler eklenemedi:', e)
@@ -169,22 +226,39 @@ async function addWords() {
   }
 }
 
-async function removeWord(wordId) {
+async function removeWord(word) {
   try {
-    await AdminHangmanApi.deleteWord(wordId)
-    words.value = words.value.filter(w => w.id !== wordId)
+    await AdminHangmanApi.deleteWord(word.id)
+    await load()
   } catch (e) {
     console.error('Kelime silinemedi:', e)
   }
 }
 
-watch([language, category], load)
+// Süzgeç değişince ilk sayfaya dön; arama için yazmayı bırakmayı bekle.
+let searchTimer = null
+
+/** Sayfa değişimi zaten load'u tetiklediği için çift istek atmamaya dikkat. */
+function resetAndLoad() {
+  if (page.value !== 0) page.value = 0
+  else load()
+}
+
+watch([language, category, size], resetAndLoad)
+watch(search, () => {
+  clearTimeout(searchTimer)
+  searchTimer = setTimeout(resetAndLoad, 300)
+})
+watch(page, load)
 onMounted(load)
 </script>
 
 <style scoped>
 .input-field {
-  @apply w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:opacity-60;
+  @apply px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:opacity-60;
 }
 .btn-primary { @apply px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 transition-colors; }
+.btn-page {
+  @apply px-3 py-1.5 border border-gray-300 dark:border-gray-600 rounded-lg text-sm text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors;
+}
 </style>

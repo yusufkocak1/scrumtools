@@ -2,9 +2,16 @@ import api from './axios.js'
 
 /** Superadmin Adam Asmaca kelime havuzu yönetimi API'si (backend: /api/admin/hangman). */
 export const AdminHangmanApi = {
-  getWords: (language, category = null) => api.get('/api/admin/hangman/words', {
-    params: category ? { language, category } : { language }
-  }),
+  /**
+   * Dahili havuz + eklenen kelimeler, sayfalı.
+   * @param {object} opts { language, category, search, page, size }
+   */
+  getWords: ({ language, category = null, search = '', page = 0, size = 50 }) => {
+    const params = { language, page, size }
+    if (category) params.category = category
+    if (search) params.search = search
+    return api.get('/api/admin/hangman/words', { params })
+  },
   addWords: (language, category, words) => api.post('/api/admin/hangman/words', { language, category, words }),
   deleteWord: (wordId) => api.delete(`/api/admin/hangman/words/${wordId}`),
 }

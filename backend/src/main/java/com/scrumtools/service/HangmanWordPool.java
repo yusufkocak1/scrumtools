@@ -283,8 +283,4 @@ public final class HangmanWordPool {
     public static List<String> resolve(String language, HangmanCategory category) {
         return category == null ? forLanguage(language) : forCategory(language, category);
     }
-
-    public static Map<HangmanCategory, List<String>> byCategory(String language) {
-        return Map.copyOf(mapFor(language));
-    }
 }
