@@ -35,7 +35,13 @@ public enum FieldType {
     ENTITY_REF(Set.of(EQ, NEQ, IN, NOT_IN, IS_EMPTY, IS_NOT_EMPTY)),
 
     /** customFields JSONB içindeki dinamik alan — cf[anahtar]. */
-    CUSTOM_FIELD(Set.of(EQ, NEQ, CONTAINS, NOT_CONTAINS, IN, NOT_IN, IS_EMPTY, IS_NOT_EMPTY));
+    CUSTOM_FIELD(Set.of(EQ, NEQ, CONTAINS, NOT_CONTAINS, IN, NOT_IN, IS_EMPTY, IS_NOT_EMPTY)),
+
+    /**
+     * Bir zengin filtrenin akıllı filtre sınıflandırması — smart["zengin filtre adı"].
+     * Değerler akıllı filtre adlarıdır; IS EMPTY "hiçbirine uymayanlar" demektir.
+     */
+    SMART_FILTER(Set.of(EQ, NEQ, IN, NOT_IN, IS_EMPTY, IS_NOT_EMPTY));
 
     private final Set<QueryOperator> operators;
 
@@ -49,5 +55,25 @@ public enum FieldType {
 
     public boolean supports(QueryOperator op) {
         return operators.contains(op);
+    }
+
+    /**
+     * Alan bir grafiğin grup ekseni olabilir mi?
+     *
+     * Sınırlı sayıda ayrık değer üreten tipler gruplanabilir. Serbest metin
+     * (başlık, açıklama) neredeyse her görevde farklı bir değer taşır — grafiği
+     * anlamsız kılar; tarih alanları ise önce bir zaman kovasına indirilmelidir
+     * (gün/hafta/ay), o da ayrı bir işin konusudur.
+     */
+    public boolean groupable() {
+        return switch (this) {
+            case ENUM, USER, ENTITY_REF, COLLECTION, CUSTOM_FIELD, SMART_FILTER -> true;
+            case STRING, TEXT, NUMBER, DATE, DATETIME -> false;
+        };
+    }
+
+    /** Alan bir ölçü (metrik) olarak toplanabilir mi — "kaç story point" gibi. */
+    public boolean summable() {
+        return this == NUMBER;
     }
 }

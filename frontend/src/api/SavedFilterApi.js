@@ -59,3 +59,22 @@ export const runSavedFilter = async (teamId, filterId, { projectId = null, page 
     })
     return data
 }
+
+/** Kayıtlı filtrenin eşleşen kayıt sayısı — sayaç widget'ları için tek çağrı. */
+export const countSavedFilter = async (teamId, filterId, { projectId = null } = {}) => {
+    const { data } = await apiClient.post(`/api/teams/${teamId}/filters/${filterId}/count`, { projectId })
+    return data.count
+}
+
+/**
+ * Kayıtlı filtre sonucunu bir alana göre gruplar — grafik widget'ları için.
+ * @returns {Promise<Array<{key: string, label: string, value: number, color: string|null, filter: string|null}>>}
+ */
+export const aggregateSavedFilter = async (
+    teamId, filterId, { groupBy, metric = 'count', limit = null, projectId = null } = {}
+) => {
+    const { data } = await apiClient.post(`/api/teams/${teamId}/filters/${filterId}/aggregate`, {
+        groupBy, metric, limit, projectId
+    })
+    return data
+}

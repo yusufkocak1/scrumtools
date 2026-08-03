@@ -21,6 +21,9 @@ public final class QueryPredicateBuilder {
     /** Öncelik alanının mantıksal sırası — alfabetik sıralama anlamsız olduğu için. */
     private static final List<String> PRIORITY_ORDER = List.of("Critical", "High", "Medium", "Low");
 
+    /** Akıllı filtrelerin iç içe geçebileceği azami derinlik (RICH_FILTER_PLAN K19). */
+    private static final int MAX_SMART_DEPTH = 3;
+
     private final CriteriaBuilder cb;
     private final Root<Task> root;
     private final AbstractQuery<?> query;
@@ -28,6 +31,19 @@ public final class QueryPredicateBuilder {
 
     /** Aynı ilişkiye ikinci kez join atmamak için — tekrarlı join satır çoğaltır. */
     private final Map<String, Join<?, ?>> joins = new HashMap<>();
+
+    /**
+     * İşlenmekte olan akıllı filtre zinciri — döngü tespiti için.
+     * {@code smart[A] = "x"} kuralı içeride yine kendini çağırırsa sonsuz özyineleme
+     * olurdu; yol üzerindeki her kural burada tutulur.
+     */
+    private final Deque<String> smartPath = new ArrayDeque<>();
+
+    /**
+     * Üretilen koşul sayısı. Akıllı filtreler genişledikçe ağaç büyür; bu sayaç
+     * {@link QueryComposer#MAX_NODES} tavanını genişleme sonrasında da uygular.
+     */
+    private int builtConditions = 0;
 
     public QueryPredicateBuilder(CriteriaBuilder cb, Root<Task> root, AbstractQuery<?> query, QueryContext ctx) {
         this.cb = cb;
@@ -60,6 +76,8 @@ public final class QueryPredicateBuilder {
     // ─── Tek koşul ────────────────────────────────────────────────────────────
 
     private Predicate buildCondition(QueryNode.Condition c) {
+        guardNodeBudget(c);
+
         FieldDescriptor field = TaskFieldRegistry.resolve(c.field())
                 .orElseThrow(() -> unknownField(c));
 
@@ -78,7 +96,24 @@ public final class QueryPredicateBuilder {
             case DATE, DATETIME -> datePredicate(field, c);
             case COLLECTION -> collectionPredicate(field, c);
             case ENTITY_REF -> entityRefPredicate(field, c);
+            case SMART_FILTER -> smartPredicate(field, c);
         };
+    }
+
+    /**
+     * Genişleme sonrası koşul sayısını sınırlar.
+     *
+     * Yazılan sorgu 50 koşul sınırına tabidir ama {@code smart[…]} kuralları
+     * çözümlenirken ağaç katlanarak büyüyebilir; bu tavan o genişlemeyi de kapsar.
+     */
+    private void guardNodeBudget(QueryNode.Condition c) {
+        if (++builtConditions > QueryComposer.MAX_NODES) {
+            throw new QueryParseException(
+                    "Sorgu, akıllı filtreler çözümlenince çok karmaşık hâle geliyor "
+                            + "(sınır " + QueryComposer.MAX_NODES + " koşul). "
+                            + "İç içe geçmiş akıllı filtreleri sadeleştirin.",
+                    c.position(), c.length());
+        }
     }
 
     private QueryParseException unknownField(QueryNode.Condition c) {
@@ -291,6 +326,120 @@ public final class QueryPredicateBuilder {
     /** LEFT JOIN — ilişkisi olmayan görevlerin NEQ/IS EMPTY sorgularından düşmemesi için. */
     private Join<?, ?> join(String path) {
         return joins.computeIfAbsent(path, p -> root.join(p, JoinType.LEFT));
+    }
+
+    // ─── Akıllı filtreler (smart["zengin filtre"]) ────────────────────────────
+
+    /**
+     * Sınıflandırma alanı: bir görevin hangi akıllı filtreye düştüğü.
+     *
+     * Semantik, grafiklerdeki {@code CASE WHEN} ile <b>birebir aynı</b> olmak
+     * zorundadır: {@code smart[RF] = "Test"}, "Test kuralını sağlayan ve kendisinden
+     * önce gelen hiçbir kuralı sağlamayan" demektir. Aksi hâlde bir halka grafiğin
+     * dilimine tıklayıp açılan liste, dilimin sayısıyla uyuşmazdı
+     * (bkz. RICH_FILTER_PLAN.md — K4, K18).
+     */
+    private Predicate smartPredicate(FieldDescriptor field, QueryNode.Condition c) {
+        String richFilterName = field.path();
+        List<SmartClause> clauses = ctx.smartClauses(richFilterName);
+
+        if (clauses == null) {
+            throw new QueryParseException(
+                    "Zengin filtre bulunamadı: '" + richFilterName + "'.",
+                    c.position(), c.length());
+        }
+
+        return switch (c.operator()) {
+            // Hiç akıllı filtresi olmayan bir zengin filtrede her görev sınıflandırılmamıştır.
+            case IS_EMPTY -> clauses.isEmpty() ? cb.conjunction() : cb.not(anyClauseMatches(clauses));
+            case IS_NOT_EMPTY -> clauses.isEmpty() ? cb.disjunction() : anyClauseMatches(clauses);
+            case EQ -> bucketPredicate(clauses, single(field, c), richFilterName, c);
+            case NEQ -> cb.not(bucketPredicate(clauses, single(field, c), richFilterName, c));
+            case IN -> cb.or(bucketPredicates(clauses, field, c, richFilterName));
+            case NOT_IN -> cb.not(cb.or(bucketPredicates(clauses, field, c, richFilterName)));
+            default -> throw unsupported(field, c);
+        };
+    }
+
+    private Predicate[] bucketPredicates(List<SmartClause> clauses, FieldDescriptor field,
+                                         QueryNode.Condition c, String richFilterName) {
+        return values(field, c).stream()
+                .map(v -> bucketPredicate(clauses, v, richFilterName, c))
+                .toArray(Predicate[]::new);
+    }
+
+    /** Görevin, adı verilen akıllı filtrenin kovasına düşmesi. */
+    private Predicate bucketPredicate(List<SmartClause> clauses, String clauseName,
+                                      String richFilterName, QueryNode.Condition c) {
+        int index = -1;
+        for (int i = 0; i < clauses.size(); i++) {
+            if (clauses.get(i).name() != null && clauses.get(i).name().equalsIgnoreCase(clauseName.trim())) {
+                index = i;
+                break;
+            }
+        }
+        if (index < 0) {
+            String available = clauses.stream().map(SmartClause::name).reduce((a, b) -> a + ", " + b).orElse("—");
+            throw new QueryParseException(
+                    "'" + richFilterName + "' içinde '" + clauseName + "' adlı akıllı filtre yok. "
+                            + "Mevcutlar: " + available,
+                    c.position(), c.length());
+        }
+
+        Predicate match = clausePredicate(clauses.get(index));
+        if (index == 0) return match;
+
+        // "İlk eşleşen kazanır": önceki kuralların hiçbirine uymamalı.
+        Predicate[] earlier = clauses.subList(0, index).stream()
+                .map(this::clausePredicate)
+                .toArray(Predicate[]::new);
+        return cb.and(match, cb.not(cb.or(earlier)));
+    }
+
+    private Predicate anyClauseMatches(List<SmartClause> clauses) {
+        return cb.or(clauses.stream().map(this::clausePredicate).toArray(Predicate[]::new));
+    }
+
+    /**
+     * Tek bir akıllı filtre kuralının predicate'i — döngü ve derinlik korumasıyla.
+     * Kuralın sorgusu boşsa her görev eşleşir; koşulsuz kural "her şey" demektir.
+     */
+    private Predicate clausePredicate(SmartClause clause) {
+        String key = clause.pathKey();
+        if (smartPath.contains(key)) {
+            throw new QueryParseException(
+                    "Akıllı filtreler birbirini döngüsel olarak çağırıyor: '" + clause.name() + "'.", 0, 1);
+        }
+        if (smartPath.size() >= MAX_SMART_DEPTH) {
+            throw new QueryParseException(
+                    "Akıllı filtreler en fazla " + MAX_SMART_DEPTH + " seviye iç içe geçebilir.", 0, 1);
+        }
+
+        smartPath.push(key);
+        try {
+            QueryNode where = clause.query() == null ? null : clause.query().where();
+            return where == null ? cb.conjunction() : build(where);
+        } finally {
+            smartPath.pop();
+        }
+    }
+
+    /**
+     * Sınıflandırma ifadesi: her görevin düştüğü akıllı filtrenin id'si.
+     *
+     * {@code CASE WHEN} sırayla değerlendirildiği için "ilk eşleşen kazanır" kuralı
+     * doğrudan veri tabanı davranışıdır — grafik gruplaması N ayrı sayım sorgusu
+     * yerine tek sorguda çıkar (bkz. RICH_FILTER_PLAN.md — K5).
+     */
+    public Expression<String> smartBucketExpression(List<SmartClause> clauses, String unclassifiedKey) {
+        if (clauses == null || clauses.isEmpty()) {
+            return cb.literal(unclassifiedKey);
+        }
+        CriteriaBuilder.Case<String> bucket = cb.selectCase();
+        for (SmartClause clause : clauses) {
+            bucket = bucket.when(clausePredicate(clause), clause.id().toString());
+        }
+        return bucket.otherwise(unclassifiedKey);
     }
 
     // ─── Sıralama ─────────────────────────────────────────────────────────────

@@ -105,8 +105,34 @@ sıralama   := ORDER BY alan (ASC|DESC)? ("," alan (ASC|DESC)?)*
 | `updated` | `updatedAt` | zaman | |
 | `resolved` | `resolvedAt` | zaman | |
 | `cf[anahtar]` | — | özel alan | `customFields` içindeki dinamik alan |
+| `smart["zengin filtre"]` | — | sınıflandırma | Zengin filtrenin akıllı filtre kategorisi (bkz. §3.1) |
 
 İlişki alanlarında hem ad hem id yazılabilir: `sprint = "Sprint 12"` veya `sprint = <uuid>`.
+
+### 3.1 Akıllı filtreler — `smart["…"]`
+
+Bir zengin filtrede tanımlanan renkli kategoriler sorgu dilinden de kullanılabilir.
+Böylece "Test aşamasındaki işler" tanımı tek yerde durur; görev listesi, board ve
+grafikler aynı tanımı paylaşır.
+
+```sql
+smart["Durum Akışı"] = "Test"
+smart["Durum Akışı"] IN ("Test", "UAT")
+smart["Durum Akışı"] IS EMPTY          -- hiçbir kategoriye girmeyenler
+smart["Durum Akışı"] != "Tamamlandı"   -- sınıflandırılmamışlar da döner
+```
+
+**Ad her zaman tırnaklanır.** Zengin filtre adları boşluk ve Türkçe karakter içerebilir;
+tırnaksız yazım çözümlenemez. Sorgu editörünün otomatik tamamlaması bu biçimi kendisi yazar.
+
+**"İlk eşleşen kazanır."** `smart[RF] = "Test"`, *Test kuralını sağlayan ve kendisinden
+önce gelen hiçbir kuralı sağlamayan* görevler demektir. Kuralların sırası zengin filtre
+editöründen sürüklenerek değiştirilir; grafiklerdeki dilimlerle bu sorgunun sonucu her
+zaman birebir örtüşür.
+
+**Sınırlar.** Bir akıllı filtrenin sorgusu başka bir `smart[…]` içerebilir; iç içe geçme
+en fazla 3 seviyedir ve döngüler reddedilir. Çözümlenmiş sorgu 200 koşulu aşamaz.
+Erişemediğiniz bir zengin filtrenin adı, olmayan bir ad gibi hata verir.
 
 Alanların tam listesi çalışma zamanında `GET /api/teams/{teamId}/tasks/query/fields`
 ucundan alınır; sorgu editöründeki otomatik tamamlama da bu kaynaktan beslenir.
@@ -200,6 +226,7 @@ bkz. [DASHBOARD_WIDGET_ROADMAP.md](DASHBOARD_WIDGET_ROADMAP.md).
 | `POST /api/teams/{teamId}/tasks/query` | Sorguyu çalıştırır → sayfalı sonuç |
 | `POST /api/teams/{teamId}/tasks/query/validate` | Doğrular **ve sayar** → `{valid, count}` veya `{valid:false, error:{message, position, length}}` |
 | `POST /api/teams/{teamId}/tasks/query/count` | Yalnız eşleşen kayıt sayısı (program içi kullanım) |
+| `POST /api/teams/{teamId}/tasks/query/aggregate` | Sonucu bir alana göre gruplar → `[{key,label,value,color,filter}]` |
 | `GET /api/teams/{teamId}/tasks/query/fields` | Alan + operatör + fonksiyon kataloğu |
 | `GET /api/teams/{teamId}/tasks/query/suggest` | Bir alan için değer önerileri |
 | `GET/POST/PUT/DELETE /api/teams/{teamId}/filters` | Kayıtlı filtre CRUD |
@@ -233,8 +260,12 @@ ulaşılmadıysa ön ek süzmesi yerelde yapılır ve her tuşta istek atılmaz.
 | `QueryParser` / `QueryNode` / `ParsedQuery` | Token → soyut sözdizim ağacı |
 | `TaskFieldRegistry` / `FieldDescriptor` / `FieldType` | Alan kataloğu — **tek doğruluk kaynağı** |
 | `QueryFunctions` | `currentUser()`, tarih fonksiyonları, göreli tarihler |
-| `QueryPredicateBuilder` | AST → JPA Criteria `Predicate` |
+| `QueryPredicateBuilder` | AST → JPA Criteria `Predicate`; akıllı filtre sınıflandırması (`CASE WHEN`) |
+| `QueryComposer` | Birden çok sorgu parçasını ağaç düzeyinde birleştirir |
+| `StqlRenderer` | AST → STQL metni (grafikten görev listesine geçiş) |
+| `SmartFilterCatalog` | `smart["…"]` → zengin filtrenin sıralı kuralları |
 | `TaskQueryService` | Çözümleme + çalıştırma + sayfalama |
+| `TaskAggregationService` | Gruplama/sayma/toplama — grafik widget'larının kaynağı |
 | `QuerySuggestionService` | Otomatik tamamlama kaynakları |
 | `LegacyFilterTranslator` | Eski `filters[]` formatı ↔ STQL |
 

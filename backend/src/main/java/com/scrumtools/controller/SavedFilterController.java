@@ -99,4 +99,39 @@ public class SavedFilterController {
 
         return ResponseEntity.ok(savedFilterService.run(filterId, projectId, page, size));
     }
+
+    /** Kayıtlı filtrenin eşleşen kayıt sayısı — sayaç widget'ları için. */
+    @PostMapping("/{filterId}/count")
+    public ResponseEntity<Map<String, Object>> count(
+            @SuppressWarnings("unused") @PathVariable UUID teamId,
+            @PathVariable UUID filterId,
+            @RequestBody(required = false) Map<String, Object> body
+    ) {
+        Map<String, Object> params = body != null ? body : Map.of();
+        long total = savedFilterService.count(filterId, uuidOrNull(params.get("projectId")));
+        return ResponseEntity.ok(Map.of("count", total));
+    }
+
+    /** Kayıtlı filtre sonucunu bir alana göre gruplar — grafik widget'ları için. */
+    @PostMapping("/{filterId}/aggregate")
+    public ResponseEntity<List<Map<String, Object>>> aggregate(
+            @SuppressWarnings("unused") @PathVariable UUID teamId,
+            @PathVariable UUID filterId,
+            @RequestBody Map<String, Object> body
+    ) {
+        return ResponseEntity.ok(savedFilterService.aggregate(
+                filterId,
+                uuidOrNull(body.get("projectId")),
+                str(body.get("groupBy")),
+                str(body.get("metric")),
+                body.get("limit") != null ? Integer.valueOf(body.get("limit").toString()) : null));
+    }
+
+    private static UUID uuidOrNull(Object value) {
+        return value != null ? UUID.fromString(value.toString()) : null;
+    }
+
+    private static String str(Object value) {
+        return value != null ? value.toString() : null;
+    }
 }

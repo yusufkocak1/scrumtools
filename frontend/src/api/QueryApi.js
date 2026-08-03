@@ -54,7 +54,31 @@ export const countQuery = async (teamId, query, projectId = null) => {
 }
 
 /**
+ * Sorgu sonucunu bir alana göre gruplar — grafik widget'larının veri kaynağı.
+ *
+ * Dönen her kova, kendisine daraltan STQL parçasını `filter` alanında taşır;
+ * grafik diliminden görev listesine geçerken bu parça temel sorguya AND'lenir.
+ *
+ * @param {string} teamId
+ * @param {Object} params
+ * @param {string} params.query — STQL metni
+ * @param {string} params.groupBy — status, priority, assignee, labels, sprint…
+ * @param {string} [params.metric] — 'count' (varsayılan) ya da sayısal alan adı
+ * @param {number} [params.limit] — kova sayısı; aşanlar "Diğer" kovasında toplanır
+ * @param {string|null} [params.projectId]
+ * @returns {Promise<Array<{key: string, label: string, value: number, color: string|null, filter: string|null}>>}
+ */
+export const aggregateQuery = async (teamId, { query, groupBy, metric = 'count', limit = null, projectId = null }) => {
+    const { data } = await apiClient.post(`/api/teams/${teamId}/tasks/query/aggregate`, {
+        query, groupBy, metric, limit, projectId
+    }, SILENT)
+    return data
+}
+
+/**
  * Sorgulanabilir alanlar, operatörleri ve fonksiyon kataloğu.
+ * Her alan `groupable` / `summable` bayraklarını taşır — grafik yapılandırması
+ * grup ekseni ve ölçü listelerini bu bayraklarla süzer.
  * @returns {Promise<{fields: Array, functions: Array, keywords: Array, customFieldSyntax: string}>}
  */
 export const getQueryFields = async (teamId) => {

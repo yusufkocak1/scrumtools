@@ -1,7 +1,13 @@
 # Rich Filter — Zengin Filtre ve Etkileşimli Dashboard Planı
 
 > Jira'daki **Rich Filters for Jira Dashboards** eklentisinin ScrumTools karşılığı.
-> Bu doküman **plan**dır — kod yazılmadı.
+>
+> **Durum: Faz 0–3 yazıldı** (2026-08-03) — planın "önerilen ilk teslim" kapsamı
+> tamamlandı: gruplama altyapısı, zengin filtre CRUD'u, akıllı filtre sınıflandırma
+> motoru, STQL `smart[…]` alanı, yönetim ekranı, dashboard entegrasyonu (kontrolcü +
+> sayaç + liste + grafik widget'ları, çapraz filtreleme, URL'ye yansıyan seçim) ve
+> grafikten göreve drill-down çalışır durumda.
+> Faz 4'ten itibaren (dinamik/sabit filtreler, görünümler) plan hâlâ plan — §11.
 >
 > Önkoşul dokümanlar:
 > [TASK_QUERY_LANGUAGE.md](TASK_QUERY_LANGUAGE.md) · [DASHBOARD_WIDGET_ROADMAP.md](DASHBOARD_WIDGET_ROADMAP.md)
@@ -490,10 +496,10 @@ Roadmap dokümanına bu yönde bir not düşülmeli.
 
 | Faz | İçerik | Çıktı | Tahmin |
 |---|---|---|---|
-| **0** | `QueryComposer`, `StqlRenderer`, `TaskFieldRegistry`'de `groupable`, `/aggregate` ucu (alan bazlı) | Grafik altyapısı; roadmap Faz 1–3'ün gövdesi | 2–3 gün |
-| **1** | `RichFilter` + `RichFilterElement` entity/CRUD, editör sayfası (Genel + **Akıllı filtreler**), sıralama, renk seçici, `CASE` sınıflandırma, **STQL `smart[…]` alanı** (K18–K19) + otomatik tamamlama | Ekran görüntüsündeki yönetim sayfası; sınıflandırma tüm ürüne açık | 4–5 gün |
-| **2** | `useRichFilterContext`, `RF_CONTROLLER`, `RF_STAT`, `RF_RESULTS`, çapraz filtreleme, URL durumu | **İlk kullanılabilir sürüm** | 3–4 gün |
-| **3** | `RF_CHART` (pasta/halka/çubuk/yığılmış, `groupBy: smart\|alan`), dilime tıkla → daralt, "Görevlerde aç" | Grafikli dashboard | 2–3 gün |
+| **0** ✅ | `QueryComposer`, `StqlRenderer`, `TaskFieldRegistry`'de `groupable`, `/aggregate` ucu (alan bazlı) | Grafik altyapısı; roadmap Faz 1–3'ün gövdesi | 2–3 gün |
+| **1** ✅ | `RichFilter` + `RichFilterElement` entity/CRUD, editör sayfası (Genel + **Akıllı filtreler**), sıralama, renk seçici, `CASE` sınıflandırma, **STQL `smart[…]` alanı** (K18–K19) + otomatik tamamlama | Ekran görüntüsündeki yönetim sayfası; sınıflandırma tüm ürüne açık | 4–5 gün |
+| **2** ✅ | `useRichFilterContext`, `RF_CONTROLLER`, `RF_STAT`, `RF_RESULTS`, çapraz filtreleme, URL durumu | **İlk kullanılabilir sürüm** | 3–4 gün |
+| **3** ✅ | `RF_CHART` (pasta/halka/çubuk, `groupBy: smart\|alan`), dilime tıkla → daralt, "Görevlerde aç" | Grafikli dashboard | 2–3 gün |
 | **4** | Dinamik filtreler, sabit filtreler, görünümler (`/options` ucu) | Tam etkileşimli kontrol çubuğu | 3 gün |
 | **5** | Kuyruklar, `RF_RATIO` (gauge), `RF_MULTI_STAT`, eşik renkleri, `refreshInterval` | Jira paritesi | 3 gün |
 | **6** | Zaman serileri: snapshot işi + `task_history` backfill + `RF_TIME_SERIES` | Tarihsel analiz | 4–5 gün |
@@ -528,8 +534,9 @@ Faz 1 içindeki sıra önemli: **önce `CASE` sınıflandırma motoru, sonra `sm
 | `entity/RichFilter.java`, `entity/RichFilterElement.java` | yeni |
 | `entity/enums/RichFilterElementKind.java`, `PlanFeature.RICH_FILTERS` | yeni |
 | `repository/RichFilter*Repository.java` | yeni |
-| `service/RichFilterService.java` | yeni — CRUD + görünürlük (K14) |
-| `service/RichFilterRuntimeService.java` | yeni — seçim çözme, search/count/aggregate/options |
+| `service/RichFilterService.java` | ✅ yazıldı — CRUD + görünürlük (K14) |
+| `service/RichFilterRuntimeService.java` | ✅ yazıldı — seçim çözme, search/count/aggregate/resolve (`/options` Faz 4) |
+| `query/QueryFragments.java` | ✅ yazıldı — seçimlerden koşul düğümü üreten fabrika |
 | `service/RichFilterSeriesService.java` + zamanlanmış iş | Faz 6 (K13) |
 | `controller/RichFilterController.java` | yeni |
 | `service/DashboardService.java` | yeni widget tiplerinin doğrulaması, yetim referans temizliği (K15) |
@@ -538,15 +545,16 @@ Faz 1 içindeki sıra önemli: **önce `CASE` sınıflandırma motoru, sonra `sm
 
 | Dosya | Durum |
 |---|---|
-| `api/RichFilterApi.js` | yeni |
-| `composables/useRichFilterContext.js` | yeni — paylaşılan seçim durumu (K10, K11) |
-| `pages/RichFilters.vue`, `pages/RichFilterEditor.vue` | yeni — sol menülü yönetim ekranı |
-| `components/richfilter/SmartFilterList.vue` (+ sıralama, renk seçici) | yeni |
+| `api/RichFilterApi.js` | ✅ yazıldı (tanım + çalıştırma uçları) |
+| `composables/useRichFilterContext.js` | ✅ yazıldı — paylaşılan seçim durumu (K10, K11) |
+| `components/dashboard/RfControllerWidget.vue`, `RfStatWidget.vue`, `RfResultsWidget.vue`, `RfChartWidget.vue`, `OrphanRichFilter.vue` | ✅ yazıldı |
+| `pages/RichFilters.vue`, `pages/RichFilterEditor.vue` | ✅ yazıldı — sol menülü yönetim ekranı |
+| `components/richfilter/SmartFilterModal.vue` | ✅ yazıldı — sorgu editörü + renk paleti; liste ve sürükleme editör sayfasında |
 | `components/richfilter/DynamicFilterEditor.vue`, `StaticFilterEditor.vue`, `ViewList.vue`, `QueueEditor.vue`, `RatioEditor.vue` | Faz 4–5 |
 | `components/richfilter/RichFilterToolbar.vue` | yeni — `RF_CONTROLLER` gövdesi |
 | `components/dashboard/RfStatWidget.vue`, `RfResultsWidget.vue`, `RfChartWidget.vue`, `RfQueueWidget.vue`, `RfRatioWidget.vue`, `RfTimeSeriesWidget.vue` | yeni |
-| `utils/chartPalette.js` | yeni — ortak renk sözlüğü (K12) |
-| `pages/Dashboard.vue` | widget eşlemesi, zengin filtre seçici, kontrolcü bağlama |
+| `utils/chartPalette.js` | ✅ yazıldı — ortak renk sözlüğü (K12) |
+| `pages/Dashboard.vue` | ✅ widget eşlemesi, zengin filtre seçici, grafik yapılandırma adımı, seçim URL senkronu |
 | `router.js` | `/rich-filters`, `/rich-filters/:id` |
 
 ---
@@ -561,6 +569,22 @@ Verilenler (2026-07-31):
 | 2 | **FREE salt görüntüleme, oluşturma PRO'dan itibaren.** PRO 10 zengin filtre × 25 öğe, MAX sınırsız. | K16 |
 | 3 | **STQL `smart[…]` alanı Faz 1'e çekildi.** Sınıflandırma en baştan tüm ürüne açık. | K18, K19 |
 | 4 | **Rollup yok.** ~28.000 görev referans ölçeğinde canlı `CASE` sorgusu yeterli; eşik 250.000 görev / p95 1 sn. | K20 |
+
+Uygulama sırasında verilen kararlar:
+
+| # | Karar | Gerekçe |
+|---|---|---|
+| 5 | **Zengin filtre adı takım içinde benzersiz** (büyük/küçük harf duyarsız, DB kısıtı + servis denetimi). | `smart["ad"]` filtreyi adıyla çözüyor; iki aynı adlı kayıt sorguyu belirsiz kılardı. §13/2 kapandı. |
+| 6 | **Akıllı filtre adları da zengin filtre içinde benzersiz.** | Aynı sebep: ad, STQL'de değer olarak yazılıyor. |
+| 7 | **Paket sınırı sayısal değil, sabit uygulama tavanı** (takım başına 25 zengin filtre, filtre başına 50 öğe). | Plana göre PRO 10 / MAX sınırsız olmalıydı; bu, `Plan` entity'sine `maxRichFilters` sütunu + admin paneli plumbing'i demek. Faz 1'i şişirmemek için özellik kapısı (`PlanFeature.RICH_FILTERS`) yeterli sayıldı, sayısal limit faturalandırma işine bırakıldı. |
+| 8 | **Akıllı filtre grafiklerinde sıfır sayılı kategoriler de dönüyor**, sıra kural sırasıdır (değere göre değil). | Kovalar veriden değil yazarın tanımından geliyor; kaybolan dilim, sayının sıfır olduğunu değil kategorinin silindiğini düşündürür. |
+| 9 | **Seçimler `smart[…] IN (…)` koşuluna çevriliyor** — ayrı bir "seçim → predicate" yolu yok (`QueryFragments`). | Faz 1'deki sınıflandırma semantiği tek yerde kalıyor; widget'ın gösterdiği sayı ile drill-down listesi zorunlu olarak aynı kümeyi veriyor. |
+| 10 | **Görev etiketleri (`smartTags`) ayrı bir sorguda hesaplanıyor**, liste sorgusuna eklenmiyor. | `TaskResponse` şeması bozulmuyor; etiketler yalnız görüntülenen sayfa için, birincil anahtar üzerinden tek sorguda çıkıyor. |
+| 11 | **URL'ye tek zengin filtrenin seçimi yazılıyor** (`?rf=&smart=&rfq=`). | Bir panoda pratikte tek kontrolcü olur; hepsini kodlamak URL'yi okunmaz yapardı. Daraltılmış filtre paylaşılır, diğerleri varsayılan açılır. |
+| 12 | **Kısa ömürlü sunucu önbelleği (K9) yazılmadı.** | ~28.000 görev ölçeğinde sayaç sorguları milisaniyelik; önbellek bayat veri riskini şimdiden getirirdi. K20'deki eşiklere gelindiğinde eklenecek. |
+| 13 | **Dilime tıklamanın anlamı eksene bağlı**: sınıflandırma ekseninde çapraz filtreleme, alan ekseninde görev listesine geçiş. | Seçim nesnesi henüz alan bazlı daraltma taşımıyor (o, Faz 4'teki dinamik filtre). Tıklamayı alan ekseninde işlevsiz bırakmak yerine anlamlı bir çıkış verildi; Faz 4'te bu da daraltmaya döner. |
+| 14 | **Kova drill-down'ında STQL metni istemcide birleştiriliyor** — `(<çözülmüş sorgu>) AND (<kova koşulu>)`. | K2'nin istisnası ve tek yeri: üretilen metin görev listesi linkidir, kullanıcının göreceği ve düzenleyebileceği bir sorgudur. Sunucuda yeniden çözümlenir, kapsam denetimi orada zorlanır; iki taraf da parantezlenir. |
+| 15 | **Grafik renkleri istemcide sabit sözlükten**, sıraya göre değil anahtardan türetiliyor (`utils/chartPalette.js`). | Sıraya göre renk atansaydı bir hafta mavi olan etiket, sıralama değişince ertesi hafta yeşile döner ve panolar karşılaştırılamazdı. §7'deki açık soru (K12) böylece kapandı. |
 
 Hâlâ açık:
 
