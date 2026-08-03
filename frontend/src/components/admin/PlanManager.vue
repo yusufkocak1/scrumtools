@@ -116,6 +116,12 @@ import { ref, onMounted } from 'vue'
 import { createToast } from 'mosha-vue-toastify'
 import AdminBillingApi from '../../api/AdminBillingApi.js'
 
+/**
+ * Doğruluk kaynağı backend'deki PlanFeature enum'u; buradaki liste onun Türkçe
+ * karşılıklarını taşır. Enum'a yeni bir değer eklendiğinde buraya da eklenmezse
+ * o özellik panelde hiç görünmez ve hiçbir pakete verilemez — GIT/CI ve zengin
+ * filtreler bu yüzden bir süre görünmedi.
+ */
 const FEATURE_LABELS = {
   SCRUM_POKER: 'Scrum Poker',
   RETRO: 'Retrospektif',
@@ -126,6 +132,9 @@ const FEATURE_LABELS = {
   DASHBOARD_REPORTS: 'Raporlar',
   ATTACHMENTS: 'Dosya Ekleri',
   CUSTOM_ROLES: 'Özel Roller',
+  GIT_INTEGRATION: 'Git Entegrasyonu',
+  CI_CD_INTEGRATION: 'CI/CD Entegrasyonu',
+  RICH_FILTERS: 'Zengin Filtreler',
 }
 
 const allFeatures = Object.keys(FEATURE_LABELS)

@@ -51,24 +51,22 @@ public class DataInitializer implements ApplicationRunner {
     }
 
     /**
-     * Git entegrasyonu sonradan eklendiği için mevcut kurulumlardaki seed'li
-     * kayıtlara yeni hakları işler (seed metodları varlık kontrolüyle atladığından
-     * burada backfill gerekir). Idempotent — her boot'ta güvenle çalışır.
+     * Sonradan eklenen paket özelliklerini ve rol izinlerini mevcut kurulumlara işler.
+     *
+     * {@code seedDefaultPlans()} varlık kontrolüyle atladığı için, yeni bir
+     * {@link PlanFeature} eklendiğinde çalışan kurulumlardaki planlar onu hiç
+     * görmez ve özellik "paketinizde yok" diye reddedilir. Backfill bunu kapatır;
+     * idempotenttir, her boot'ta güvenle çalışır.
      */
     private void backfillScmGrants() {
-        for (String code : List.of("PRO", "MAX")) {
-            planRepository.findByCode(code).ifPresent(plan -> {
-                boolean changed = false;
-                for (PlanFeature feature : List.of(PlanFeature.GIT_INTEGRATION, PlanFeature.CI_CD_INTEGRATION)) {
-                    if (!plan.getFeatures().contains(feature)) {
-                        plan.getFeatures().add(feature);
-                        changed = true;
-                        log.info("{} planına {} özelliği eklendi.", code, feature);
-                    }
-                }
-                if (changed) planRepository.save(plan);
-            });
-        }
+        // Zengin filtreler PRO'dan itibaren oluşturulabilir. FREE'ye verilmez ama
+        // görüntüleme ve smart[…] sorguları orada da serbesttir — denetim yalnız
+        // yazma uçlarındadır (RICH_FILTER_PLAN.md — K16).
+        grantPlanFeatures(List.of("PRO", "MAX"), List.of(
+                PlanFeature.GIT_INTEGRATION,
+                PlanFeature.CI_CD_INTEGRATION,
+                PlanFeature.RICH_FILTERS));
+
         for (String roleName : List.of("Project Admin", "Developer")) {
             roleRepository.findByNameAndScope(roleName, RoleScope.PROJECT)
                     .filter(Role::getIsDefault)
@@ -84,6 +82,23 @@ public class DataInitializer implements ApplicationRunner {
                         }
                         if (changed) roleRepository.save(role);
                     });
+        }
+    }
+
+    /** Verilen paketlere eksik özellikleri ekler; zaten varsa dokunmaz. */
+    private void grantPlanFeatures(List<String> planCodes, List<PlanFeature> features) {
+        for (String code : planCodes) {
+            planRepository.findByCode(code).ifPresent(plan -> {
+                boolean changed = false;
+                for (PlanFeature feature : features) {
+                    if (!plan.getFeatures().contains(feature)) {
+                        plan.getFeatures().add(feature);
+                        changed = true;
+                        log.info("{} planına {} özelliği eklendi.", code, feature);
+                    }
+                }
+                if (changed) planRepository.save(plan);
+            });
         }
     }
 

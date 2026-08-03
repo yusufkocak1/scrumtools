@@ -155,6 +155,9 @@ const FEATURE_LABELS = {
   DASHBOARD_REPORTS: 'Raporlar',
   ATTACHMENTS: 'Dosya Ekleri',
   CUSTOM_ROLES: 'Özel Roller',
+  GIT_INTEGRATION: 'Git Entegrasyonu',
+  CI_CD_INTEGRATION: 'CI/CD Entegrasyonu',
+  RICH_FILTERS: 'Zengin Filtreler',
 }
 
 const props = defineProps({
