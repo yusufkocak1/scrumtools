@@ -17,6 +17,9 @@ public final class TaskFieldRegistry {
     /** cf[anahtar] söz diziminin ön eki. */
     public static final String CUSTOM_FIELD_PREFIX = "cf";
 
+    /** smart["zengin filtre adı"] söz diziminin ön eki. */
+    public static final String SMART_FILTER_PREFIX = "smart";
+
     private static final List<FieldDescriptor> FIELDS = List.of(
             FieldDescriptor.of("summary", "Başlık", FieldType.STRING, "title", "title"),
             FieldDescriptor.of("description", "Açıklama", FieldType.TEXT, "description", "desc"),
@@ -84,7 +87,8 @@ public final class TaskFieldRegistry {
     }
 
     /**
-     * Alan adını çözer. cf[anahtar] biçimi dinamik olarak CUSTOM_FIELD tanımına dönüştürülür.
+     * Alan adını çözer. Köşeli parantezli iki biçim dinamik olarak tanıma çevrilir:
+     * {@code cf[anahtar]} → CUSTOM_FIELD, {@code smart["zengin filtre"]} → SMART_FILTER.
      * Bulunamazsa boş döner — çağıran hatayı konumuyla birlikte üretir.
      */
     public static Optional<FieldDescriptor> resolve(String rawName) {
@@ -102,16 +106,52 @@ public final class TaskFieldRegistry {
                     List.of(),
                     null));
         }
+
+        // Akıllı filtre alanında "path", zengin filtrenin adıdır; entity üzerinde
+        // karşılığı olan bir sütun yoktur, predicate kurallardan üretilir.
+        String smartKey = smartFilterKey(name);
+        if (smartKey != null) {
+            return Optional.of(new FieldDescriptor(
+                    SMART_FILTER_PREFIX + "[" + smartKey + "]",
+                    Set.of(),
+                    smartKey,
+                    FieldType.SMART_FILTER,
+                    smartKey,
+                    List.of(),
+                    null));
+        }
         return Optional.ofNullable(LOOKUP.get(norm(name)));
     }
 
     /** cf[environment] → "environment"; eşleşmezse null. */
     public static String customFieldKey(String name) {
+        return bracketKey(name, CUSTOM_FIELD_PREFIX);
+    }
+
+    /** smart["Sprint Sağlığı"] → "Sprint Sağlığı"; eşleşmezse null. */
+    public static String smartFilterKey(String name) {
+        return bracketKey(name, SMART_FILTER_PREFIX);
+    }
+
+    /**
+     * {@code önek[anahtar]} yazımından anahtarı çıkarır.
+     *
+     * Çözümleyiciden gelen adlarda tırnaklar zaten ayıklanmıştır; ancak aynı yazım
+     * API parametresi olarak da geliyor ({@code groupBy: smart["Sprint Sağlığı"]}),
+     * orada tırnaklar metnin parçasıdır. İki yolun aynı anahtara varması için burada
+     * bir kez daha ayıklanır.
+     */
+    private static String bracketKey(String name, String prefix) {
         String n = name.trim();
         int open = n.indexOf('[');
         if (open <= 0 || !n.endsWith("]")) return null;
-        if (!CUSTOM_FIELD_PREFIX.equalsIgnoreCase(n.substring(0, open))) return null;
+        if (!prefix.equalsIgnoreCase(n.substring(0, open))) return null;
+
         String key = n.substring(open + 1, n.length() - 1).trim();
+        if (key.length() >= 2
+                && ((key.startsWith("\"") && key.endsWith("\"")) || (key.startsWith("'") && key.endsWith("'")))) {
+            key = key.substring(1, key.length() - 1).trim();
+        }
         return key.isEmpty() ? null : key;
     }
 

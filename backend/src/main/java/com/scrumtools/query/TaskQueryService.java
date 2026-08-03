@@ -36,6 +36,7 @@ public class TaskQueryService {
     private final EntityManager em;
     private final TeamRepository teamRepository;
     private final SprintRepository sprintRepository;
+    private final SmartFilterCatalog smartFilterCatalog;
 
     // ─── Genel giriş noktaları ────────────────────────────────────────────────
 
@@ -144,12 +145,19 @@ public class TaskQueryService {
     // ─── Bağlam ───────────────────────────────────────────────────────────────
 
     public QueryContext buildContext(UUID teamId, UUID projectId) {
+        // Aynı sorguda birden çok smart[…] koşulu aynı zengin filtreye bakabilir;
+        // çözüm bağlam ömrü boyunca hatırlanır, her koşul için tekrar sorulmaz.
+        Map<String, List<SmartClause>> smartCache = new HashMap<>();
+
         return new QueryContext(
                 teamId,
                 projectId,
                 currentUserEmail(),
                 (tid, status) -> sprintRepository.findByTeamIdAndStatus(tid, status)
                         .stream().map(Sprint::getId).toList(),
+                (tid, name) -> smartCache.computeIfAbsent(
+                        name == null ? "" : name.toLowerCase(Locale.ROOT),
+                        _ -> smartFilterCatalog.clausesOf(tid, name)),
                 LocalDateTime.now());
     }
 

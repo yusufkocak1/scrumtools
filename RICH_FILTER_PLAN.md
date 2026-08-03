@@ -1,7 +1,11 @@
 # Rich Filter — Zengin Filtre ve Etkileşimli Dashboard Planı
 
 > Jira'daki **Rich Filters for Jira Dashboards** eklentisinin ScrumTools karşılığı.
-> Bu doküman **plan**dır — kod yazılmadı.
+>
+> **Durum: Faz 0 ve Faz 1 yazıldı** (2026-08-03) — gruplama altyapısı, zengin filtre
+> CRUD'u, akıllı filtre sınıflandırma motoru, STQL `smart[…]` alanı ve yönetim ekranı
+> çalışır durumda. Faz 2'den itibaren (dashboard entegrasyonu) plan hâlâ plan.
+> Fazların içeriği için §11.
 >
 > Önkoşul dokümanlar:
 > [TASK_QUERY_LANGUAGE.md](TASK_QUERY_LANGUAGE.md) · [DASHBOARD_WIDGET_ROADMAP.md](DASHBOARD_WIDGET_ROADMAP.md)
@@ -490,8 +494,8 @@ Roadmap dokümanına bu yönde bir not düşülmeli.
 
 | Faz | İçerik | Çıktı | Tahmin |
 |---|---|---|---|
-| **0** | `QueryComposer`, `StqlRenderer`, `TaskFieldRegistry`'de `groupable`, `/aggregate` ucu (alan bazlı) | Grafik altyapısı; roadmap Faz 1–3'ün gövdesi | 2–3 gün |
-| **1** | `RichFilter` + `RichFilterElement` entity/CRUD, editör sayfası (Genel + **Akıllı filtreler**), sıralama, renk seçici, `CASE` sınıflandırma, **STQL `smart[…]` alanı** (K18–K19) + otomatik tamamlama | Ekran görüntüsündeki yönetim sayfası; sınıflandırma tüm ürüne açık | 4–5 gün |
+| **0** ✅ | `QueryComposer`, `StqlRenderer`, `TaskFieldRegistry`'de `groupable`, `/aggregate` ucu (alan bazlı) | Grafik altyapısı; roadmap Faz 1–3'ün gövdesi | 2–3 gün |
+| **1** ✅ | `RichFilter` + `RichFilterElement` entity/CRUD, editör sayfası (Genel + **Akıllı filtreler**), sıralama, renk seçici, `CASE` sınıflandırma, **STQL `smart[…]` alanı** (K18–K19) + otomatik tamamlama | Ekran görüntüsündeki yönetim sayfası; sınıflandırma tüm ürüne açık | 4–5 gün |
 | **2** | `useRichFilterContext`, `RF_CONTROLLER`, `RF_STAT`, `RF_RESULTS`, çapraz filtreleme, URL durumu | **İlk kullanılabilir sürüm** | 3–4 gün |
 | **3** | `RF_CHART` (pasta/halka/çubuk/yığılmış, `groupBy: smart\|alan`), dilime tıkla → daralt, "Görevlerde aç" | Grafikli dashboard | 2–3 gün |
 | **4** | Dinamik filtreler, sabit filtreler, görünümler (`/options` ucu) | Tam etkileşimli kontrol çubuğu | 3 gün |
@@ -538,10 +542,10 @@ Faz 1 içindeki sıra önemli: **önce `CASE` sınıflandırma motoru, sonra `sm
 
 | Dosya | Durum |
 |---|---|
-| `api/RichFilterApi.js` | yeni |
-| `composables/useRichFilterContext.js` | yeni — paylaşılan seçim durumu (K10, K11) |
-| `pages/RichFilters.vue`, `pages/RichFilterEditor.vue` | yeni — sol menülü yönetim ekranı |
-| `components/richfilter/SmartFilterList.vue` (+ sıralama, renk seçici) | yeni |
+| `api/RichFilterApi.js` | ✅ yazıldı |
+| `composables/useRichFilterContext.js` | Faz 2 — paylaşılan seçim durumu (K10, K11) |
+| `pages/RichFilters.vue`, `pages/RichFilterEditor.vue` | ✅ yazıldı — sol menülü yönetim ekranı |
+| `components/richfilter/SmartFilterModal.vue` | ✅ yazıldı — sorgu editörü + renk paleti; liste ve sürükleme editör sayfasında |
 | `components/richfilter/DynamicFilterEditor.vue`, `StaticFilterEditor.vue`, `ViewList.vue`, `QueueEditor.vue`, `RatioEditor.vue` | Faz 4–5 |
 | `components/richfilter/RichFilterToolbar.vue` | yeni — `RF_CONTROLLER` gövdesi |
 | `components/dashboard/RfStatWidget.vue`, `RfResultsWidget.vue`, `RfChartWidget.vue`, `RfQueueWidget.vue`, `RfRatioWidget.vue`, `RfTimeSeriesWidget.vue` | yeni |
@@ -561,6 +565,15 @@ Verilenler (2026-07-31):
 | 2 | **FREE salt görüntüleme, oluşturma PRO'dan itibaren.** PRO 10 zengin filtre × 25 öğe, MAX sınırsız. | K16 |
 | 3 | **STQL `smart[…]` alanı Faz 1'e çekildi.** Sınıflandırma en baştan tüm ürüne açık. | K18, K19 |
 | 4 | **Rollup yok.** ~28.000 görev referans ölçeğinde canlı `CASE` sorgusu yeterli; eşik 250.000 görev / p95 1 sn. | K20 |
+
+Uygulama sırasında verilen kararlar:
+
+| # | Karar | Gerekçe |
+|---|---|---|
+| 5 | **Zengin filtre adı takım içinde benzersiz** (büyük/küçük harf duyarsız, DB kısıtı + servis denetimi). | `smart["ad"]` filtreyi adıyla çözüyor; iki aynı adlı kayıt sorguyu belirsiz kılardı. §13/2 kapandı. |
+| 6 | **Akıllı filtre adları da zengin filtre içinde benzersiz.** | Aynı sebep: ad, STQL'de değer olarak yazılıyor. |
+| 7 | **Paket sınırı sayısal değil, sabit uygulama tavanı** (takım başına 25 zengin filtre, filtre başına 50 öğe). | Plana göre PRO 10 / MAX sınırsız olmalıydı; bu, `Plan` entity'sine `maxRichFilters` sütunu + admin paneli plumbing'i demek. Faz 1'i şişirmemek için özellik kapısı (`PlanFeature.RICH_FILTERS`) yeterli sayıldı, sayısal limit faturalandırma işine bırakıldı. |
+| 8 | **Akıllı filtre grafiklerinde sıfır sayılı kategoriler de dönüyor**, sıra kural sırasıdır (değere göre değil). | Kovalar veriden değil yazarın tanımından geliyor; kaybolan dilim, sayının sıfır olduğunu değil kategorinin silindiğini düşündürür. |
 
 Hâlâ açık:
 

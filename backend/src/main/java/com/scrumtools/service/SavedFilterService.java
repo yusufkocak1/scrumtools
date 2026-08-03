@@ -8,6 +8,7 @@ import com.scrumtools.entity.Team;
 import com.scrumtools.entity.User;
 import com.scrumtools.entity.enums.FilterVisibility;
 import com.scrumtools.query.QueryParser;
+import com.scrumtools.query.TaskAggregationService;
 import com.scrumtools.query.TaskQueryService;
 import com.scrumtools.repository.*;
 import lombok.RequiredArgsConstructor;
@@ -41,6 +42,7 @@ public class SavedFilterService {
     private final ProjectRepository projectRepository;
     private final UserRepository userRepository;
     private final TaskQueryService taskQueryService;
+    private final TaskAggregationService aggregationService;
 
     // ─── Listeleme ────────────────────────────────────────────────────────────
 
@@ -159,11 +161,34 @@ public class SavedFilterService {
         User user = currentUser();
         SavedFilter filter = findAccessible(filterId, user);
 
-        UUID scope = projectId != null
-                ? projectId
-                : (filter.getProject() != null ? filter.getProject().getId() : null);
+        return taskQueryService.search(filter.getTeam().getId(), scopeOf(filter, projectId),
+                filter.getQuery(), page, size);
+    }
 
-        return taskQueryService.search(filter.getTeam().getId(), scope, filter.getQuery(), page, size);
+    /** Eşleşen kayıt sayısı — sayaç widget'ları için tek çağrı yeter. */
+    @Transactional(readOnly = true)
+    public long count(UUID filterId, UUID projectId) {
+        User user = currentUser();
+        SavedFilter filter = findAccessible(filterId, user);
+
+        return taskQueryService.count(filter.getTeam().getId(), scopeOf(filter, projectId), filter.getQuery());
+    }
+
+    /** Filtre sonucunu bir alana göre gruplar — grafik widget'ları için. */
+    @Transactional(readOnly = true)
+    public List<Map<String, Object>> aggregate(UUID filterId, UUID projectId,
+                                               String groupBy, String metric, Integer limit) {
+        User user = currentUser();
+        SavedFilter filter = findAccessible(filterId, user);
+
+        return aggregationService.aggregate(filter.getTeam().getId(), scopeOf(filter, projectId),
+                filter.getQuery(), groupBy, metric, limit);
+    }
+
+    /** Proje kapsamı istekle gelmezse filtrenin kendi projesi geçerlidir. */
+    private static UUID scopeOf(SavedFilter filter, UUID projectId) {
+        if (projectId != null) return projectId;
+        return filter.getProject() != null ? filter.getProject().getId() : null;
     }
 
     // ─── Yetki ve doğrulama ───────────────────────────────────────────────────
