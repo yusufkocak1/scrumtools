@@ -138,8 +138,17 @@ public class TaskQueryService {
     /** Bir sorgunun eşleşen kayıt sayısı — dashboard sayaç widget'ları için de kullanılabilir. */
     @Transactional(readOnly = true)
     public long count(UUID teamId, UUID projectId, String stql) {
-        QueryContext ctx = buildContext(teamId, projectId);
-        return countMatching(em.getCriteriaBuilder(), ctx, QueryParser.parse(stql));
+        return count(teamId, projectId, QueryParser.parse(stql));
+    }
+
+    /**
+     * Çözümlenmiş sorgunun eşleşen kayıt sayısı.
+     * Zengin filtre çalışma zamanı sorguyu ağaç olarak kurduğu için metne çevirip
+     * yeniden çözümlemeye gerek kalmaz.
+     */
+    @Transactional(readOnly = true)
+    public long count(UUID teamId, UUID projectId, ParsedQuery parsed) {
+        return countMatching(em.getCriteriaBuilder(), buildContext(teamId, projectId), parsed);
     }
 
     // ─── Bağlam ───────────────────────────────────────────────────────────────

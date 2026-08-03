@@ -54,6 +54,43 @@ export const duplicateRichFilter = async (teamId, richFilterId) => {
     return data
 }
 
+// ─── Çalıştırma ──────────────────────────────────────────────────────────────
+//
+// Hepsi aynı **seçim nesnesini** alır — istemci ham sorgu göndermez:
+//   { projectId, smart: [elementId], text }
+// Sunucu id'leri kendi kayıtlarından çözer.
+
+/** Sayfalı görev listesi + `smartTags`: { taskId: {id,name,color} }. */
+export const searchRichFilter = async (teamId, richFilterId, selection = {}, { page = 0, size = 25 } = {}) => {
+    const { data } = await apiClient.post(`${base(teamId)}/${richFilterId}/search`, {
+        ...selection, page, size
+    })
+    return data
+}
+
+/** Eşleşen kayıt sayısı — sayaç widget'ı için tek çağrı. */
+export const countRichFilter = async (teamId, richFilterId, selection = {}) => {
+    const { data } = await apiClient.post(`${base(teamId)}/${richFilterId}/count`, selection)
+    return data.count
+}
+
+/**
+ * Gruplama. `groupBy` verilmezse zengin filtrenin kendi akıllı filtreleri eksen olur.
+ * @returns {Promise<Array<{key: string, label: string, value: number, color: string|null, filter: string|null}>>}
+ */
+export const aggregateRichFilter = async (teamId, richFilterId, selection = {}, { groupBy = null, metric = 'count', limit = null } = {}) => {
+    const { data } = await apiClient.post(`${base(teamId)}/${richFilterId}/aggregate`, {
+        ...selection, groupBy, metric, limit
+    })
+    return data
+}
+
+/** Seçimlerin STQL karşılığı + sayısı — görev listesine geçiş linki için. */
+export const resolveRichFilter = async (teamId, richFilterId, selection = {}) => {
+    const { data } = await apiClient.post(`${base(teamId)}/${richFilterId}/resolve`, selection)
+    return data
+}
+
 // ─── Öğeler ──────────────────────────────────────────────────────────────────
 
 /**

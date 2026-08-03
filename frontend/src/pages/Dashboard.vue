@@ -63,9 +63,10 @@
               <!-- Widget içeriği -->
               <component
                 :is="widgetComponent(widget.type)"
-                :team-id="widget.teamId || selectedTeamId"
+                v-bind="widgetProps(widget)"
                 class="h-full"
                 @task-click="goToTask"
+                @config-change="updateWidgetConfig(widget.id, $event)"
               />
             </div>
           </template>
@@ -86,19 +87,129 @@
     <!-- Add Widget Modal -->
     <div v-if="showAddWidget"
          class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
-         @click.self="showAddWidget = false">
+         @click.self="closeAddWidget">
       <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6">
-        <h2 class="text-base font-semibold text-gray-800 mb-4">Widget Ekle</h2>
-        <div class="grid grid-cols-2 gap-3">
-          <button v-for="wt in availableWidgetTypes" :key="wt.type"
-                  @click="addWidget(wt.type)"
-                  class="flex flex-col items-center gap-2 p-4 rounded-xl border border-gray-200 hover:border-purple-400 hover:bg-purple-50 text-sm text-gray-700 transition-colors">
-            <span class="text-2xl">{{ wt.icon }}</span>
-            <span class="font-medium text-xs text-center leading-tight">{{ wt.label }}</span>
+        <!-- 1. adım: widget tipi -->
+        <template v-if="!pendingType">
+          <h2 class="text-base font-semibold text-gray-800 mb-4">Widget Ekle</h2>
+
+          <p class="text-[11px] font-semibold tracking-wider text-gray-400 uppercase mb-2">Hazır raporlar</p>
+          <div class="grid grid-cols-2 gap-3">
+            <button v-for="wt in availableWidgetTypes" :key="wt.type"
+                    @click="chooseType(wt)"
+                    class="flex flex-col items-center gap-2 p-4 rounded-xl border border-gray-200 hover:border-purple-400 hover:bg-purple-50 text-sm text-gray-700 transition-colors">
+              <span class="text-2xl">{{ wt.icon }}</span>
+              <span class="font-medium text-xs text-center leading-tight">{{ wt.label }}</span>
+            </button>
+          </div>
+
+          <p class="text-[11px] font-semibold tracking-wider text-gray-400 uppercase mt-5 mb-2">
+            Zengin filtre widget'ları
+          </p>
+          <div class="grid grid-cols-2 gap-3">
+            <button v-for="wt in richFilterWidgetTypes" :key="wt.type"
+                    @click="chooseType(wt)"
+                    class="flex flex-col items-center gap-2 p-4 rounded-xl border border-gray-200 hover:border-purple-400 hover:bg-purple-50 text-sm text-gray-700 transition-colors">
+              <span class="text-2xl">{{ wt.icon }}</span>
+              <span class="font-medium text-xs text-center leading-tight">{{ wt.label }}</span>
+            </button>
+          </div>
+        </template>
+
+        <!-- 3. adım: grafik yapılandırması -->
+        <template v-else-if="chartDraft">
+          <h2 class="text-base font-semibold text-gray-800">Grafiği yapılandır</h2>
+          <p class="text-xs text-gray-500 mt-1 mb-4">
+            {{ chartDraft.richFilterName }} — hangi eksende, hangi ölçüyle?
+          </p>
+
+          <div class="space-y-4">
+            <div>
+              <label class="block text-xs font-medium text-gray-600 mb-1.5">Grup ekseni</label>
+              <select v-model="chartDraft.groupBy"
+                      class="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:border-purple-400">
+                <option value="">Akıllı filtreler (varsayılan)</option>
+                <option v-for="field in groupableFields" :key="field.name" :value="field.name">
+                  {{ field.label }}
+                </option>
+              </select>
+              <p class="mt-1 text-[11px] text-gray-400">
+                Akıllı filtre ekseninde dilime tıklamak panodaki tüm widget'ları daraltır.
+              </p>
+            </div>
+
+            <div>
+              <label class="block text-xs font-medium text-gray-600 mb-1.5">Ölçü</label>
+              <select v-model="chartDraft.metric"
+                      class="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:border-purple-400">
+                <option value="count">Görev sayısı</option>
+                <option v-for="field in summableFields" :key="field.name" :value="field.name">
+                  {{ field.label }} toplamı
+                </option>
+              </select>
+            </div>
+
+            <div>
+              <label class="block text-xs font-medium text-gray-600 mb-1.5">Görünüm</label>
+              <div class="flex gap-2">
+                <button v-for="option in CHART_TYPES" :key="option.value"
+                        class="flex-1 py-2 rounded-lg border text-sm transition-colors"
+                        :class="chartDraft.chart === option.value
+                          ? 'border-purple-400 bg-purple-50 text-purple-700'
+                          : 'border-gray-200 text-gray-600 hover:border-gray-300'"
+                        @click="chartDraft.chart = option.value">
+                  {{ option.icon }} {{ option.label }}
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <button class="mt-5 w-full text-sm bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg transition-colors"
+                  @click="addChartWidget">
+            Ekle
           </button>
-        </div>
-        <button @click="showAddWidget = false"
-                class="mt-4 w-full text-sm text-gray-500 hover:text-gray-700">
+          <button @click="chartDraft = null" class="mt-2 w-full text-sm text-gray-500 hover:text-gray-700">
+            Geri
+          </button>
+        </template>
+
+        <!-- 2. adım: zengin filtre seçimi -->
+        <template v-else>
+          <h2 class="text-base font-semibold text-gray-800">Zengin filtre seç</h2>
+          <p class="text-xs text-gray-500 mt-1 mb-4">
+            Widget bu filtreye bağlanır; aynı filtreye bağlı widget'lar seçimleri paylaşır.
+          </p>
+
+          <div v-if="richFilters.length" class="space-y-2 max-h-72 overflow-y-auto">
+            <button v-for="rf in richFilters" :key="rf.id"
+                    @click="addRichFilterWidget(rf)"
+                    class="w-full flex items-center gap-3 p-3 rounded-xl border border-gray-200 hover:border-purple-400 hover:bg-purple-50 text-left transition-colors">
+              <div class="flex items-center gap-1 shrink-0">
+                <span v-for="element in smartOf(rf).slice(0, 4)" :key="element.id"
+                      class="w-3 h-3 rounded"
+                      :style="{ backgroundColor: element.color || '#94A3B8' }"></span>
+              </div>
+              <div class="min-w-0">
+                <p class="text-sm text-gray-800 truncate">{{ rf.name }}</p>
+                <p class="text-[11px] text-gray-400">{{ smartOf(rf).length }} akıllı filtre</p>
+              </div>
+            </button>
+          </div>
+
+          <div v-else class="py-8 text-center">
+            <p class="text-sm text-gray-500">Bu takımda zengin filtre yok.</p>
+            <router-link to="/rich-filters" class="text-xs text-purple-600 hover:underline">
+              Zengin filtre oluştur
+            </router-link>
+          </div>
+
+          <button @click="pendingType = null" class="mt-4 w-full text-sm text-gray-500 hover:text-gray-700">
+            Geri
+          </button>
+        </template>
+
+        <button @click="closeAddWidget"
+                class="mt-2 w-full text-sm text-gray-500 hover:text-gray-700">
           İptal
         </button>
       </div>
@@ -108,16 +219,24 @@
 
 <script setup>
 import { ref, watch, onMounted } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import SummaryWidget from '../components/dashboard/SummaryWidget.vue'
 import BurndownWidget from '../components/dashboard/BurndownWidget.vue'
 import VelocityWidget from '../components/dashboard/VelocityWidget.vue'
 import WorkloadWidget from '../components/dashboard/WorkloadWidget.vue'
 import CreatedVsResolvedWidget from '../components/dashboard/CreatedVsResolvedWidget.vue'
 import OverdueWidget from '../components/dashboard/OverdueWidget.vue'
+import RfControllerWidget from '../components/dashboard/RfControllerWidget.vue'
+import RfStatWidget from '../components/dashboard/RfStatWidget.vue'
+import RfResultsWidget from '../components/dashboard/RfResultsWidget.vue'
+import RfChartWidget from '../components/dashboard/RfChartWidget.vue'
 import { getDashboardLayout, saveDashboardLayout } from '../api/DashboardApi.js'
+import { getRichFilters } from '../api/RichFilterApi.js'
+import { getQueryFields } from '../api/QueryApi.js'
 import { useTeamContext } from '../composables/useTeamContext.js'
+import { applySelectionFromQuery, selectionToQuery } from '../composables/useRichFilterContext.js'
 
+const route = useRoute()
 const router = useRouter()
 
 // Takım seçimi merkezi context'ten okunur (Ayarlar > Çalışma Alanı)
@@ -136,6 +255,24 @@ const availableWidgetTypes = [
   { type: 'OVERDUE', label: 'Vadesi Geçmiş', icon: '⏰' },
 ]
 
+/**
+ * Zengin filtreye bağlanan widget'lar. Bunlar bir `richFilterId` taşır ve aynı
+ * filtreye bağlı olanlar seçim durumunu paylaşır — birinde daraltma yapmak
+ * diğerlerini de daraltır (bkz. RICH_FILTER_PLAN.md — K10).
+ */
+const richFilterWidgetTypes = [
+  { type: 'RF_CONTROLLER', label: 'Filtre Kontrolcüsü', icon: '🎛', richFilter: true },
+  { type: 'RF_STAT', label: 'Zengin Filtre Sayacı', icon: '🔢', richFilter: true },
+  { type: 'RF_RESULTS', label: 'Zengin Filtre Listesi', icon: '📋', richFilter: true },
+  { type: 'RF_CHART', label: 'Zengin Filtre Grafiği', icon: '🍩', richFilter: true, configurable: true },
+]
+
+const CHART_TYPES = [
+  { value: 'donut', label: 'Halka', icon: '◍' },
+  { value: 'pie', label: 'Pasta', icon: '◕' },
+  { value: 'bar', label: 'Çubuk', icon: '▥' },
+]
+
 const WIDGET_COMPONENT_MAP = {
   SUMMARY: SummaryWidget,
   BURNDOWN: BurndownWidget,
@@ -143,10 +280,48 @@ const WIDGET_COMPONENT_MAP = {
   WORKLOAD: WorkloadWidget,
   CREATED_VS_RESOLVED: CreatedVsResolvedWidget,
   OVERDUE: OverdueWidget,
+  RF_CONTROLLER: RfControllerWidget,
+  RF_STAT: RfStatWidget,
+  RF_RESULTS: RfResultsWidget,
+  RF_CHART: RfChartWidget,
 }
 
 function widgetComponent(type) {
   return WIDGET_COMPONENT_MAP[type] || SummaryWidget
+}
+
+const isRichFilterWidget = (type) => String(type || '').startsWith('RF_')
+
+/**
+ * Widget'a geçilecek özellikler. Hazır rapor widget'ları yalnız takımı bilir;
+ * zengin filtre widget'ları ayrıca bağlı oldukları filtreyi ve kendi ayarlarını alır.
+ */
+function widgetProps(widget) {
+  const teamId = widget.teamId || selectedTeamId.value
+  if (!isRichFilterWidget(widget.type)) return { teamId }
+
+  return {
+    teamId,
+    richFilterId: widget.richFilterId,
+    title: widget.title || '',
+    ...(widget.type === 'RF_STAT' ? { threshold: widget.threshold || {} } : {}),
+    ...(widget.type === 'RF_RESULTS' ? { limit: widget.limit || 8 } : {}),
+    ...(widget.type === 'RF_CHART' ? {
+      groupBy: widget.groupBy || '',
+      metric: widget.metric || 'count',
+      chart: widget.chart || 'donut',
+    } : {}),
+  }
+}
+
+/**
+ * Widget'ın kendi başlığından değiştirdiği ayarlar (grafik türü gibi).
+ * Düzen kaydedilene kadar yereldedir — "Düzeni Kaydet" ile kalıcı olur.
+ */
+function updateWidgetConfig(widgetId, changes) {
+  activeWidgets.value = activeWidgets.value.map(w =>
+    w.id === widgetId ? { ...w, ...changes } : w
+  )
 }
 
 onMounted(async () => {
@@ -188,10 +363,99 @@ watch(selectedTeamId, (teamId) => {
   }))
 })
 
+// ─── Widget ekleme ────────────────────────────────────────────────────────
+
+/** Zengin filtre widget'ı seçildiğinde ikinci adımda hangi tip bekliyor. */
+const pendingType = ref(null)
+const richFilters = ref([])
+/** Grafik widget'ının üçüncü adımdaki taslağı (eksen, ölçü, görünüm). */
+const chartDraft = ref(null)
+
+const smartOf = (rf) => (rf.elements || []).filter(e => e.kind === 'SMART_FILTER')
+
+async function chooseType(widgetType) {
+  if (!widgetType.richFilter) {
+    addWidget(widgetType.type)
+    return
+  }
+  pendingType.value = widgetType.type
+  try {
+    richFilters.value = await getRichFilters(selectedTeamId.value)
+  } catch (e) {
+    console.error('Zengin filtreler yüklenemedi', e)
+    richFilters.value = []
+  }
+}
+
 function addWidget(type) {
   const id = `${type}-${Date.now()}`
   activeWidgets.value.push({ id, type, teamId: selectedTeamId.value })
+  closeAddWidget()
+}
+
+async function addRichFilterWidget(richFilter) {
+  const type = pendingType.value
+
+  // Grafik bir adım daha ister: eksen ve ölçü seçilmeden eklenen grafik,
+  // kullanıcının silip yeniden eklemesi gereken bir tahmin olurdu.
+  if (type === 'RF_CHART') {
+    chartDraft.value = {
+      richFilterId: richFilter.id,
+      richFilterName: richFilter.name,
+      groupBy: '',
+      metric: 'count',
+      chart: 'donut',
+    }
+    await loadFieldCatalog()
+    return
+  }
+
+  activeWidgets.value.push({
+    id: `${type}-${Date.now()}`,
+    type,
+    teamId: selectedTeamId.value,
+    richFilterId: richFilter.id,
+    title: richFilter.name,
+  })
+  closeAddWidget()
+}
+
+function addChartWidget() {
+  const draft = chartDraft.value
+  activeWidgets.value.push({
+    id: `RF_CHART-${Date.now()}`,
+    type: 'RF_CHART',
+    teamId: selectedTeamId.value,
+    richFilterId: draft.richFilterId,
+    title: draft.richFilterName,
+    groupBy: draft.groupBy,
+    metric: draft.metric,
+    chart: draft.chart,
+  })
+  closeAddWidget()
+}
+
+// ─── Alan kataloğu (grafik ekseni ve ölçüsü) ──────────────────────────────
+
+const groupableFields = ref([])
+const summableFields = ref([])
+
+/** Katalog bir kez çekilir; alan listesi sorgu diliyle aynı kaynaktan gelir. */
+async function loadFieldCatalog() {
+  if (groupableFields.value.length || !selectedTeamId.value) return
+  try {
+    const catalog = await getQueryFields(selectedTeamId.value)
+    groupableFields.value = (catalog.fields || []).filter(f => f.groupable)
+    summableFields.value = (catalog.fields || []).filter(f => f.summable)
+  } catch (e) {
+    console.error('Alan kataloğu alınamadı', e)
+  }
+}
+
+function closeAddWidget() {
   showAddWidget.value = false
+  pendingType.value = null
+  chartDraft.value = null
 }
 
 function removeWidget(widgetId) {
@@ -212,5 +476,23 @@ async function saveLayout() {
 function goToTask(task) {
   if (task?.customId || task?.id) router.push(`/task/${task.customId || task.id}`)
 }
+
+// ─── Zengin filtre seçiminin URL senkronu ─────────────────────────────────
+//
+// Daraltılmış bir dashboard olduğu gibi paylaşılabilsin diye seçim URL'ye
+// yazılır (K11) — sorgu çubuğunun mevcut `?q=` davranışının devamı.
+
+/** Açılışta linkteki seçimi geri yükle. */
+applySelectionFromQuery(route.query)
+
+watch(() => JSON.stringify(selectionToQuery()), (encoded) => {
+  const selection = JSON.parse(encoded)
+  const query = { ...route.query }
+  delete query.rf
+  delete query.smart
+  delete query.rfq
+
+  router.replace({ query: { ...query, ...selection } }).catch(() => {})
+})
 </script>
 

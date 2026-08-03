@@ -4,6 +4,8 @@ import com.scrumtools.dto.RichFilterElementRequest;
 import com.scrumtools.dto.RichFilterElementResponse;
 import com.scrumtools.dto.RichFilterRequest;
 import com.scrumtools.dto.RichFilterResponse;
+import com.scrumtools.dto.RichFilterRuntimeRequest;
+import com.scrumtools.service.RichFilterRuntimeService;
 import com.scrumtools.service.RichFilterService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -28,6 +30,7 @@ import java.util.UUID;
 public class RichFilterController {
 
     private final RichFilterService richFilterService;
+    private final RichFilterRuntimeService runtimeService;
 
     @GetMapping
     public ResponseEntity<List<RichFilterResponse>> list(
@@ -78,6 +81,55 @@ public class RichFilterController {
             @PathVariable UUID richFilterId
     ) {
         return ResponseEntity.ok(richFilterService.duplicate(richFilterId));
+    }
+
+    // ─── Çalıştırma ───────────────────────────────────────────────────────────
+    // Hepsi aynı seçim nesnesini alır; istemci ham sorgu göndermez (K2).
+    // Paket denetimi yoktur: paylaşılan bir filtreyi görüntülemek her pakette serbest (K16).
+
+    /** Sayfalı görev listesi + görev başına akıllı filtre etiketi (`smartTags`). */
+    @PostMapping("/{richFilterId}/search")
+    public ResponseEntity<Map<String, Object>> search(
+            @SuppressWarnings("unused") @PathVariable UUID teamId,
+            @PathVariable UUID richFilterId,
+            @RequestBody(required = false) RichFilterRuntimeRequest request
+    ) {
+        return ResponseEntity.ok(runtimeService.search(richFilterId, orEmpty(request)));
+    }
+
+    /** Eşleşen kayıt sayısı — sayaç widget'ı. */
+    @PostMapping("/{richFilterId}/count")
+    public ResponseEntity<Map<String, Object>> count(
+            @SuppressWarnings("unused") @PathVariable UUID teamId,
+            @PathVariable UUID richFilterId,
+            @RequestBody(required = false) RichFilterRuntimeRequest request
+    ) {
+        return ResponseEntity.ok(Map.of("count", runtimeService.count(richFilterId, orEmpty(request))));
+    }
+
+    /** Gruplama; `groupBy` verilmezse zengin filtrenin kendi akıllı filtreleri eksen olur. */
+    @PostMapping("/{richFilterId}/aggregate")
+    public ResponseEntity<List<Map<String, Object>>> aggregate(
+            @SuppressWarnings("unused") @PathVariable UUID teamId,
+            @PathVariable UUID richFilterId,
+            @RequestBody(required = false) RichFilterRuntimeRequest request
+    ) {
+        return ResponseEntity.ok(runtimeService.aggregate(richFilterId, orEmpty(request)));
+    }
+
+    /** Seçimlerin STQL karşılığı + sayısı — görev listesine geçiş linki için. */
+    @PostMapping("/{richFilterId}/resolve")
+    public ResponseEntity<Map<String, Object>> resolve(
+            @SuppressWarnings("unused") @PathVariable UUID teamId,
+            @PathVariable UUID richFilterId,
+            @RequestBody(required = false) RichFilterRuntimeRequest request
+    ) {
+        return ResponseEntity.ok(runtimeService.resolve(richFilterId, orEmpty(request)));
+    }
+
+    /** Gövdesiz istek "seçim yok" demektir — her uç boş seçimle de çalışır. */
+    private static RichFilterRuntimeRequest orEmpty(RichFilterRuntimeRequest request) {
+        return request != null ? request : new RichFilterRuntimeRequest();
     }
 
     // ─── Öğeler ───────────────────────────────────────────────────────────────
