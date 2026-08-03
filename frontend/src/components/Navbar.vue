@@ -335,13 +335,6 @@ export default {
           paths: '<path d="M3 4a1 1 0 011-1h12a1 1 0 011 1v2a1 1 0 01-1 1H4a1 1 0 01-1-1V4zM3 10a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H4a1 1 0 01-1-1v-6zM14 9a1 1 0 00-1 1v6a1 1 0 001 1h2a1 1 0 001-1v-6a1 1 0 00-1-1h-2z"></path>'
         },
         {
-          label: 'Zengin Filtreler',
-          action: this.gotoRichFilters,
-          active: path.startsWith('/rich-filters'),
-          viewBox: '0 0 20 20',
-          paths: '<path fill-rule="evenodd" d="M3 3a1 1 0 011-1h12a1 1 0 011 1v2a1 1 0 01-.293.707L12 10.414V16a1 1 0 01-.553.894l-3 1.5A1 1 0 017 17.5v-7.086L3.293 5.707A1 1 0 013 5V3z" clip-rule="evenodd"/>'
-        },
-        {
           label: 'Docs',
           action: this.gotoDocs,
           active: path.includes('/docs'),
@@ -403,7 +396,6 @@ export default {
       this.$router.push(`${path}/${this.activeTeamId}`);
     },
     gotoDashboard() { this.$router.push('/dashboard'); this.closeAllMenus(); },
-    gotoRichFilters() { this.$router.push('/rich-filters'); this.closeAllMenus(); },
     gotoWorkList() { this.pushWithTeam('/workList'); },
     gotoScrumPoker() { this.pushWithTeam('/scrumPoker'); },
     gotoShare() { this.pushWithTeam('/codeShare'); },
