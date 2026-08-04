@@ -13,6 +13,7 @@ import java.util.UUID;
  * @param projectId        aktif proje kapsamı; null ise takımın tüm projeleri
  * @param currentUserEmail oturumdaki kullanıcı — currentUser() bunu döndürür
  * @param sprintResolver   sprint durumundan UUID listesi çözen kaynak (repository köprüsü)
+ * @param smartResolver    zengin filtre adından akıllı filtre kurallarını çözen kaynak
  * @param now              "şimdi" — testlerde sabitlenebilsin diye dışarıdan verilir
  */
 public record QueryContext(
@@ -20,6 +21,7 @@ public record QueryContext(
         UUID projectId,
         String currentUserEmail,
         SprintResolver sprintResolver,
+        SmartFilterResolver smartResolver,
         LocalDateTime now
 ) {
 
@@ -29,11 +31,29 @@ public record QueryContext(
         List<UUID> sprintIdsByStatus(UUID teamId, String status);
     }
 
+    /**
+     * {@code smart["ad"]} yazımının çözüm kaynağı — {@link SprintResolver} ile aynı
+     * köprü deseni: sorgu paketi repository'lere doğrudan bağlanmaz.
+     *
+     * Zengin filtre yoksa ya da kullanıcının erişimi yoksa {@code null} döner; ikisi
+     * ayırt edilmez, "var ama senin değil" bilgisi kendi başına bir sızıntıdır.
+     * Zengin filtre var ama akıllı filtresi yoksa boş liste döner.
+     */
+    @FunctionalInterface
+    public interface SmartFilterResolver {
+        List<SmartClause> clausesOf(UUID teamId, String richFilterName);
+    }
+
     public LocalDate today() {
         return now.toLocalDate();
     }
 
     public List<UUID> sprintIds(String status) {
         return sprintResolver == null ? List.of() : sprintResolver.sprintIdsByStatus(teamId, status);
+    }
+
+    /** Bir zengin filtrenin sıralı akıllı filtreleri; çözülemezse null. */
+    public List<SmartClause> smartClauses(String richFilterName) {
+        return smartResolver == null ? null : smartResolver.clausesOf(teamId, richFilterName);
     }
 }

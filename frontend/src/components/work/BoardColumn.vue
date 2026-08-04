@@ -52,8 +52,13 @@
         @dragstart="onDragStart(task)"
         @click="$emit('task-click', task)"
       >
-        <!-- Sol kenar priority renk çubuğu -->
-        <div class="absolute left-0 top-0 bottom-0 w-[3px] rounded-l-xl" :class="priorityBarClass(task.priority)"></div>
+        <!-- Sol kenar renk çubuğu: akıllı filtre seçiliyse onun rengi, yoksa öncelik -->
+        <div
+          v-if="tagOf(task)"
+          class="absolute left-0 top-0 bottom-0 w-[3px] rounded-l-xl"
+          :style="{ backgroundColor: tagOf(task).color || '#94A3B8' }"
+        ></div>
+        <div v-else class="absolute left-0 top-0 bottom-0 w-[3px] rounded-l-xl" :class="priorityBarClass(task.priority)"></div>
 
         <!-- customId + issueType icon + priority -->
         <div class="flex items-center justify-between mb-2 pl-1.5">
@@ -79,6 +84,14 @@
             class="text-[10px] px-2 py-0.5 rounded-full font-semibold tracking-wide uppercase"
             :class="priorityClass(task.priority)"
           >{{ task.priority }}</span>
+        </div>
+
+        <!-- Akıllı filtre etiketi — renklendirme açıkken kategori adı da yazılır -->
+        <div v-if="tagOf(task)" class="mb-1.5 pl-1.5">
+          <span
+            class="inline-block text-[10px] px-1.5 py-0.5 rounded-full text-white font-medium"
+            :style="{ backgroundColor: tagOf(task).color || '#94A3B8' }"
+          >{{ tagOf(task).name }}</span>
         </div>
 
         <!-- Başlık -->
@@ -171,7 +184,14 @@ const props = defineProps({
   column: { type: Object, required: true },
   tasks:  { type: Array,  default: () => [] },
   swimlaneKey: { type: String, default: null },
+  /**
+   * Görev id → { id, name, color }. Akıllı filtre renklendirmesi açıkken dolu olur;
+   * boşken kartlar bugünkü gibi önceliğe göre renklenir (bkz. Ö2).
+   */
+  smartTags: { type: Object, default: () => ({}) },
 })
+
+const tagOf = (task) => props.smartTags?.[task.id] ?? null
 
 const emit = defineEmits(['task-click', 'task-drop'])
 

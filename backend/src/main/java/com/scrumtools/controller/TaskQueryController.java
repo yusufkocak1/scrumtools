@@ -1,7 +1,9 @@
 package com.scrumtools.controller;
 
+import com.scrumtools.dto.TaskAggregateRequest;
 import com.scrumtools.dto.TaskQueryRequest;
 import com.scrumtools.query.QuerySuggestionService;
+import com.scrumtools.query.TaskAggregationService;
 import com.scrumtools.query.TaskQueryService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -23,6 +25,7 @@ import java.util.UUID;
 public class TaskQueryController {
 
     private final TaskQueryService taskQueryService;
+    private final TaskAggregationService aggregationService;
     private final QuerySuggestionService suggestionService;
 
     /** Sorguyu çalıştırır ve sayfalı sonuç döner. */
@@ -61,6 +64,21 @@ public class TaskQueryController {
     ) {
         long total = taskQueryService.count(teamId, request.getProjectId(), request.getQuery());
         return ResponseEntity.ok(Map.of("count", total));
+    }
+
+    /**
+     * Sonucu bir alana göre gruplayıp sayar veya toplar — grafik widget'ları için.
+     * Dönen her kova, kendisine daraltan STQL parçasını da taşır ({@code filter});
+     * arayüz grafik diliminden görev listesine bu parçayla geçer.
+     */
+    @PostMapping("/aggregate")
+    public ResponseEntity<List<Map<String, Object>>> aggregate(
+            @PathVariable UUID teamId,
+            @RequestBody TaskAggregateRequest request
+    ) {
+        return ResponseEntity.ok(aggregationService.aggregate(
+                teamId, request.getProjectId(), request.getQuery(),
+                request.getGroupBy(), request.getMetric(), request.getLimit()));
     }
 
     /** Sorgulanabilir alanlar, operatörleri ve fonksiyon kataloğu. */

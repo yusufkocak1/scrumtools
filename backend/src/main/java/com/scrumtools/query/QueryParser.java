@@ -130,7 +130,10 @@ public final class QueryParser {
                 fieldToken.position(), fieldToken.length());
     }
 
-    /** Alan adı: düz tanımlayıcı ya da özel alan söz dizimi cf[fieldKey]. */
+    /**
+     * Alan adı: düz tanımlayıcı ya da köşeli parantezli biçim —
+     * {@code cf[alanAnahtari]} (özel alan), {@code smart["zengin filtre"]} (sınıflandırma).
+     */
     private String parseFieldName() {
         QueryToken t = peek();
         if (!t.is(QueryTokenType.IDENT)) {
@@ -144,7 +147,8 @@ public final class QueryParser {
             advance();
             QueryToken key = peek();
             if (!key.is(QueryTokenType.IDENT) && !key.is(QueryTokenType.STRING)) {
-                throw new QueryParseException("Özel alan anahtarı bekleniyor: cf[alanAdi]", key);
+                throw new QueryParseException(
+                        "Köşeli parantez içinde anahtar bekleniyor: cf[alanAdi] veya smart[\"zengin filtre\"]", key);
             }
             advance();
             expect(QueryTokenType.RBRACKET, "Özel alan için kapanış ']' bekleniyor.");

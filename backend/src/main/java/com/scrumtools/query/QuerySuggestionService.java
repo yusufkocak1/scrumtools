@@ -36,6 +36,7 @@ public class QuerySuggestionService {
     private final SprintRepository sprintRepository;
     private final ReleaseRepository releaseRepository;
     private final TaskStatusService taskStatusService;
+    private final SmartFilterCatalog smartFilterCatalog;
 
     /** Alan kataloğu — arayüz bunu alan ve operatör listesi olarak gösterir. */
     public Map<String, Object> fieldCatalog() {
@@ -48,6 +49,10 @@ public class QuerySuggestionService {
                     m.put("aliases", f.aliases().stream().sorted().toList());
                     m.put("operators", f.type().operators().stream().map(QueryOperator::symbol).sorted().toList());
                     m.put("hasSuggestions", f.suggestSource() != null);
+                    // Grafik yapılandırması alan listesini buradan süzer: grup ekseni
+                    // ve ölçü açılır listeleri ayrı bir katalog tutmaz.
+                    m.put("groupable", f.type().groupable());
+                    m.put("summable", f.type().summable());
                     return m;
                 })
                 .toList();
@@ -61,6 +66,7 @@ public class QuerySuggestionService {
         out.put("functions", functions);
         out.put("keywords", List.of("AND", "OR", "NOT", "IN", "IS EMPTY", "IS NOT EMPTY", "ORDER BY", "ASC", "DESC"));
         out.put("customFieldSyntax", "cf[alanAnahtari]");
+        out.put("smartFilterSyntax", "smart[\"zengin filtre adı\"]");
         return out;
     }
 
@@ -73,9 +79,16 @@ public class QuerySuggestionService {
     @Transactional(readOnly = true)
     public List<Map<String, String>> suggestValues(UUID teamId, UUID projectId, String field, String prefix) {
         FieldDescriptor descriptor = TaskFieldRegistry.resolve(field).orElse(null);
-        if (descriptor == null || descriptor.suggestSource() == null) return List.of();
+        if (descriptor == null) return List.of();
 
         String q = prefix == null ? "" : prefix.trim().toLowerCase(Locale.ROOT);
+
+        // smart["zengin filtre"] alanında öneriler o filtrenin akıllı filtre adlarıdır;
+        // katalog kaynağı sabit bir liste değil, kullanıcının kurduğu sınıflandırmadır.
+        if (descriptor.type() == FieldType.SMART_FILTER) {
+            return filterByPrefix(smartFilterSuggestions(teamId, descriptor.path()), q);
+        }
+        if (descriptor.suggestSource() == null) return List.of();
 
         List<Map<String, String>> raw = switch (descriptor.suggestSource()) {
             case "users" -> userSuggestions(teamId);
@@ -94,6 +107,10 @@ public class QuerySuggestionService {
             default -> List.of();
         };
 
+        return filterByPrefix(raw, q);
+    }
+
+    private static List<Map<String, String>> filterByPrefix(List<Map<String, String>> raw, String q) {
         return raw.stream()
                 .filter(m -> q.isEmpty()
                         || m.get("value").toLowerCase(Locale.ROOT).contains(q)
@@ -103,6 +120,13 @@ public class QuerySuggestionService {
     }
 
     // ─── Kaynaklar ────────────────────────────────────────────────────────────
+
+    /** Zengin filtrenin akıllı filtre adları — sırası sınıflandırma önceliğidir. */
+    private List<Map<String, String>> smartFilterSuggestions(UUID teamId, String richFilterName) {
+        List<SmartClause> clauses = smartFilterCatalog.clausesOf(teamId, richFilterName);
+        if (clauses == null) return List.of();
+        return clauses.stream().map(c -> entry(c.name(), c.name())).toList();
+    }
 
     private List<Map<String, String>> userSuggestions(UUID teamId) {
         return teamMemberRepository.findByTeamId(teamId).stream()

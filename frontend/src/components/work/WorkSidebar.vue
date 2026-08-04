@@ -68,6 +68,20 @@
         <component :is="v.icon" class="w-4 h-4 shrink-0" />
         {{ v.label }}
       </button>
+
+      <!-- Zengin filtreler ayrı bir sayfadır (görünüm sekmesi değil): görevleri
+           renkli kategorilere ayıran tanımlar burada kurulur, dashboard grafikleri
+           oradan beslenir. Çalışma alanının parçası olduğu için menüsü burada. -->
+      <router-link
+        to="/rich-filters"
+        class="flex items-center gap-2.5 w-full px-2.5 py-2 text-sm font-medium rounded-lg transition-colors text-left"
+        :class="$route.path.startsWith('/rich-filters')
+          ? 'bg-blue-50 text-blue-700'
+          : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'"
+      >
+        <component :is="FilterIcon" class="w-4 h-4 shrink-0" />
+        Zengin Filtreler
+      </router-link>
     </nav>
 
     <!-- ── Board görünüm kontrolleri (sadece Board görünümünde) ──────────
@@ -198,6 +212,13 @@ const ReleaseIcon = () => h('svg', {
 }, [
   h('path', { d: 'M20.59 13.41l-7.17 7.17a2 2 0 01-2.83 0L2 12V2h10l8.59 8.59a2 2 0 010 2.82z' }),
   h('line', { x1: 7, y1: 7, x2: 7.01, y2: 7 }),
+])
+
+const FilterIcon = () => h('svg', {
+  fill: 'none', stroke: 'currentColor', viewBox: '0 0 24 24',
+  strokeWidth: 2, strokeLinecap: 'round', strokeLinejoin: 'round'
+}, [
+  h('path', { d: 'M22 3H2l8 9.46V19l4 2v-8.54L22 3z' }),
 ])
 
 const views = [

@@ -36,6 +36,7 @@ public class TaskQueryService {
     private final EntityManager em;
     private final TeamRepository teamRepository;
     private final SprintRepository sprintRepository;
+    private final SmartFilterCatalog smartFilterCatalog;
 
     // ─── Genel giriş noktaları ────────────────────────────────────────────────
 
@@ -137,19 +138,65 @@ public class TaskQueryService {
     /** Bir sorgunun eşleşen kayıt sayısı — dashboard sayaç widget'ları için de kullanılabilir. */
     @Transactional(readOnly = true)
     public long count(UUID teamId, UUID projectId, String stql) {
-        QueryContext ctx = buildContext(teamId, projectId);
-        return countMatching(em.getCriteriaBuilder(), ctx, QueryParser.parse(stql));
+        return count(teamId, projectId, QueryParser.parse(stql));
+    }
+
+    /**
+     * Çözümlenmiş sorgunun eşleşen kayıt sayısı.
+     * Zengin filtre çalışma zamanı sorguyu ağaç olarak kurduğu için metne çevirip
+     * yeniden çözümlemeye gerek kalmaz.
+     */
+    @Transactional(readOnly = true)
+    public long count(UUID teamId, UUID projectId, ParsedQuery parsed) {
+        return countMatching(em.getCriteriaBuilder(), buildContext(teamId, projectId), parsed);
+    }
+
+    /**
+     * Bağlamı çağıranın kurduğu sayım.
+     *
+     * Zamanlanmış işler oturum taşımaz: {@code currentUser()} ve zengin filtre
+     * görünürlüğü {@link SecurityContextHolder} üzerinden çözülemez, bağlamın
+     * dışarıdan verilmesi gerekir (bkz. RICH_FILTER_PLAN.md — K13).
+     */
+    @Transactional(readOnly = true)
+    public long count(QueryContext ctx, ParsedQuery parsed) {
+        return countMatching(em.getCriteriaBuilder(), ctx, parsed);
     }
 
     // ─── Bağlam ───────────────────────────────────────────────────────────────
 
     public QueryContext buildContext(UUID teamId, UUID projectId) {
+        return buildContext(teamId, projectId, currentUserEmail(), null);
+    }
+
+    /**
+     * @param userEmail     {@code currentUser()} bunu döndürür; oturum yoksa çağıran verir
+     * @param smartOverride belirli zengin filtreleri kayıt aramadan çözen kaynak;
+     *                      null döndürdüğü adlar normal katalogdan çözülür
+     */
+    public QueryContext buildContext(UUID teamId, UUID projectId, String userEmail,
+                                     QueryContext.SmartFilterResolver smartOverride) {
+        // Aynı sorguda birden çok smart[…] koşulu aynı zengin filtreye bakabilir;
+        // çözüm bağlam ömrü boyunca hatırlanır, her koşul için tekrar sorulmaz.
+        Map<String, List<SmartClause>> smartCache = new HashMap<>();
+
+        QueryContext.SmartFilterResolver resolver = (tid, name) -> {
+            if (smartOverride != null) {
+                List<SmartClause> forced = smartOverride.clausesOf(tid, name);
+                if (forced != null) return forced;
+            }
+            return smartCache.computeIfAbsent(
+                    name == null ? "" : name.toLowerCase(Locale.ROOT),
+                    _ -> smartFilterCatalog.clausesOf(tid, name));
+        };
+
         return new QueryContext(
                 teamId,
                 projectId,
-                currentUserEmail(),
+                userEmail,
                 (tid, status) -> sprintRepository.findByTeamIdAndStatus(tid, status)
                         .stream().map(Sprint::getId).toList(),
+                resolver,
                 LocalDateTime.now());
     }
 

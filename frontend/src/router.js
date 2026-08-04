@@ -160,6 +160,19 @@ const routes = [{
     component: Dashboard,
     meta: {requiresAuth: true}
 }, {
+    // Zengin filtreler — akıllı filtreler ve dashboard grafiklerinin kaynağı
+    // (bkz. RICH_FILTER_PLAN.md)
+    path: '/rich-filters',
+    name: 'RichFilters',
+    component: () => import('./pages/RichFilters.vue'),
+    meta: {requiresAuth: true}
+}, {
+    path: '/rich-filters/:id',
+    name: 'RichFilterEditor',
+    component: () => import('./pages/RichFilterEditor.vue'),
+    props: true,
+    meta: {requiresAuth: true}
+}, {
     // Faz 7 - Docs modülü (projectId olmadan — proje seçim ekranı)
     path: '/docs',
     name: 'DocsHome',
