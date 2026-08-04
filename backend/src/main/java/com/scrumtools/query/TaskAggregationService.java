@@ -13,6 +13,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.util.*;
+import java.util.stream.Collectors;
 
 /**
  * Bir STQL sorgusunun sonucunu bir alana göre gruplayıp sayar veya toplar —
@@ -120,6 +121,204 @@ public class TaskAggregationService {
             return smartBuckets(rows, group, clauses);
         }
         return trim(toBuckets(rows, group, grouping.label() != null, teamId, projectId), limit);
+    }
+
+    // ─── İki boyutlu gruplama (ısı haritası) ──────────────────────────────────
+
+    /** Isı haritasında bir eksende gösterilecek azami kategori. */
+    private static final int MAX_AXIS_ROWS = 25;
+    private static final int MAX_AXIS_COLUMNS = 15;
+
+    /**
+     * İki alana göre gruplama — {@code atanan × öncelik} gibi bir matris.
+     *
+     * Tek sorguda çıkar: iki gruplama ifadesi yan yana konur, hücreler sonuçtan
+     * toplanır. N×M ayrı sayım sorgusu atmak, 10×5'lik bir matriste 50 gidiş-dönüş
+     * demek olurdu.
+     *
+     * Eksenler kırpılır (satırda {@value #MAX_AXIS_ROWS}, sütunda
+     * {@value #MAX_AXIS_COLUMNS}); kırpma olduysa {@code truncated} ile bildirilir.
+     * Burada "Diğer" kovası yok: matriste artıkları tek bir satırda toplamak,
+     * kesişimleri anlamsız kılardı.
+     *
+     * @return {@code {rows, columns, cells, max, truncated}}
+     */
+    @Transactional(readOnly = true)
+    public Map<String, Object> matrix(UUID teamId, UUID projectId, ParsedQuery parsed,
+                                      String rowField, String columnField, String metric) {
+        FieldDescriptor rowDescriptor = resolveGroupField(rowField);
+        FieldDescriptor columnDescriptor = resolveGroupField(columnField);
+        FieldDescriptor measure = resolveMetricField(metric);
+
+        QueryContext ctx = taskQueryService.buildContext(teamId, projectId);
+        CriteriaBuilder cb = em.getCriteriaBuilder();
+        CriteriaQuery<Tuple> query = cb.createTupleQuery();
+        Root<Task> root = query.from(Task.class);
+
+        QueryPredicateBuilder builder = new QueryPredicateBuilder(cb, root, query, ctx);
+        List<Predicate> predicates = new ArrayList<>(builder.scopePredicates());
+        if (parsed.hasWhere()) predicates.add(builder.build(parsed.where()));
+        query.where(cb.and(predicates.toArray(new Predicate[0])));
+
+        Axis rowAxis = axis(cb, root, builder, ctx, rowDescriptor);
+        Axis columnAxis = axis(cb, root, builder, ctx, columnDescriptor);
+
+        Expression<? extends Number> value = measure == null
+                ? cb.count(root.get("id"))
+                : cb.sum(root.get(measure.path()).as(BigDecimal.class));
+
+        List<Selection<?>> selections = new ArrayList<>();
+        List<Expression<?>> groupings = new ArrayList<>();
+        int columnKeyIndex = addAxis(selections, groupings, rowAxis);
+        int valueIndex = addAxis(selections, groupings, columnAxis);
+        selections.add(value);
+
+        query.multiselect(selections);
+        query.groupBy(groupings);
+
+        TypedQuery<Tuple> typed = em.createQuery(query);
+        typed.setMaxResults(MAX_RAW_GROUPS);
+        return assemble(typed.getResultList(), rowAxis, columnAxis, columnKeyIndex, valueIndex);
+    }
+
+    /**
+     * Bir eksenin gruplama ifadesi ve kategori sırası.
+     *
+     * @param clauses akıllı filtre ekseninde kural listesi; alan ekseninde null
+     */
+    private record Axis(FieldDescriptor field, GroupExpression expression, List<SmartClause> clauses) {
+
+        boolean hasLabel() {
+            return expression.label() != null;
+        }
+    }
+
+    /** Matris hücresinin adresi. */
+    private record CellKey(String row, String column) {
+    }
+
+    private Axis axis(CriteriaBuilder cb, Root<Task> root, QueryPredicateBuilder builder,
+                      QueryContext ctx, FieldDescriptor field) {
+        if (field.type() == FieldType.SMART_FILTER) {
+            List<SmartClause> clauses = requireClauses(ctx, field);
+            return new Axis(field, new GroupExpression(
+                    builder.smartBucketExpression(clauses, EMPTY_KEY), null), clauses);
+        }
+        return new Axis(field, groupExpression(cb, root, field), null);
+    }
+
+    /** @return eklenen son seçimin bir sonraki indeksi */
+    private static int addAxis(List<Selection<?>> selections, List<Expression<?>> groupings, Axis axis) {
+        selections.add(axis.expression().key());
+        groupings.add(axis.expression().key());
+        if (axis.hasLabel()) {
+            selections.add(axis.expression().label());
+            groupings.add(axis.expression().label());
+        }
+        return selections.size();
+    }
+
+    private Map<String, Object> assemble(List<Tuple> rows, Axis rowAxis, Axis columnAxis,
+                                         int columnKeyIndex, int valueIndex) {
+        Map<String, String> rowLabels = new LinkedHashMap<>();
+        Map<String, String> columnLabels = new LinkedHashMap<>();
+        Map<String, BigDecimal> rowTotals = new HashMap<>();
+        Map<String, BigDecimal> columnTotals = new HashMap<>();
+        // Anahtarlar kullanıcı verisi (durum adı, e-posta, etiket); ikisini bir
+        // ayraçla birleştirmek "To Do" gibi değerlerde çakışırdı.
+        Map<CellKey, BigDecimal> cells = new LinkedHashMap<>();
+
+        for (Tuple row : rows) {
+            String rowKey = keyOf(row.get(0));
+            String columnKey = keyOf(row.get(columnKeyIndex));
+            BigDecimal value = decimal(row.get(valueIndex));
+
+            rowLabels.putIfAbsent(rowKey, labelOf(row, rowAxis, 1, rowKey));
+            columnLabels.putIfAbsent(columnKey, labelOf(row, columnAxis, columnKeyIndex + 1, columnKey));
+
+            rowTotals.merge(rowKey, value, BigDecimal::add);
+            columnTotals.merge(columnKey, value, BigDecimal::add);
+            cells.merge(new CellKey(rowKey, columnKey), value, BigDecimal::add);
+        }
+
+        List<Map<String, Object>> orderedRows = orderAxis(rowAxis, rowLabels, rowTotals, MAX_AXIS_ROWS);
+        List<Map<String, Object>> orderedColumns = orderAxis(columnAxis, columnLabels, columnTotals, MAX_AXIS_COLUMNS);
+
+        Set<String> keptRows = orderedRows.stream().map(r -> (String) r.get("key")).collect(Collectors.toSet());
+        Set<String> keptColumns = orderedColumns.stream().map(c -> (String) c.get("key")).collect(Collectors.toSet());
+
+        List<Map<String, Object>> cellList = new ArrayList<>();
+        BigDecimal max = BigDecimal.ZERO;
+        for (Map.Entry<CellKey, BigDecimal> entry : cells.entrySet()) {
+            CellKey key = entry.getKey();
+            if (!keptRows.contains(key.row()) || !keptColumns.contains(key.column())) continue;
+
+            Map<String, Object> cell = new LinkedHashMap<>();
+            cell.put("row", key.row());
+            cell.put("column", key.column());
+            cell.put("value", entry.getValue());
+            cellList.add(cell);
+            if (entry.getValue().compareTo(max) > 0) max = entry.getValue();
+        }
+
+        Map<String, Object> out = new LinkedHashMap<>();
+        out.put("rows", orderedRows);
+        out.put("columns", orderedColumns);
+        out.put("cells", cellList);
+        out.put("max", max);
+        out.put("truncated", rowLabels.size() > orderedRows.size() || columnLabels.size() > orderedColumns.size());
+        return out;
+    }
+
+    /**
+     * Eksenin kategori sırası.
+     *
+     * Akıllı filtre ekseninde sıra yazarın kararıdır ve boş kategoriler de kalır;
+     * alan ekseninde en kalabalık kategoriler öne alınır (bkz. §13/8).
+     */
+    private List<Map<String, Object>> orderAxis(Axis axis, Map<String, String> labels,
+                                                Map<String, BigDecimal> totals, int limit) {
+        List<Map<String, Object>> out = new ArrayList<>();
+
+        if (axis.clauses() != null) {
+            for (SmartClause clause : axis.clauses()) {
+                out.add(axisEntry(clause.id().toString(), clause.name(), clause.color()));
+            }
+            if (totals.containsKey(EMPTY_KEY)) {
+                out.add(axisEntry(EMPTY_KEY, "Sınıflandırılmamış", null));
+            }
+            return out;
+        }
+
+        labels.entrySet().stream()
+                .sorted(Comparator.comparing(
+                        (Map.Entry<String, String> e) -> totals.getOrDefault(e.getKey(), BigDecimal.ZERO)).reversed())
+                .limit(limit)
+                .forEach(e -> out.add(axisEntry(e.getKey(), e.getValue(), null)));
+        return out;
+    }
+
+    private static Map<String, Object> axisEntry(String key, String label, String color) {
+        Map<String, Object> entry = new LinkedHashMap<>();
+        entry.put("key", key);
+        entry.put("label", label == null || label.isBlank() ? "(Boş)" : label);
+        entry.put("color", color);
+        return entry;
+    }
+
+    private static String keyOf(Object raw) {
+        return raw == null ? EMPTY_KEY : raw.toString();
+    }
+
+    private static String labelOf(Tuple row, Axis axis, int labelIndex, String fallback) {
+        if (!axis.hasLabel()) return fallback;
+        Object label = row.get(labelIndex);
+        return label == null ? fallback : label.toString();
+    }
+
+    private static BigDecimal decimal(Object raw) {
+        if (raw == null) return BigDecimal.ZERO;
+        return raw instanceof BigDecimal big ? big : new BigDecimal(raw.toString());
     }
 
     /** {@code groupBy: smart[…]} — zengin filtre çözülemezse sorgu reddedilir. */

@@ -102,6 +102,48 @@ export const resolveRichFilter = async (teamId, richFilterId, selection = {}) =>
     return data
 }
 
+/**
+ * İki eksenli gruplama — ısı haritası. `splitBy` zorunlu; `groupBy` boşsa
+ * zengin filtrenin kendi akıllı filtreleri satır ekseni olur.
+ * @returns {Promise<{rows: Array, columns: Array, cells: Array, max: number, truncated: boolean}>}
+ */
+export const matrixRichFilter = async (teamId, richFilterId, selection = {}, { groupBy = null, splitBy, metric = 'count' } = {}) => {
+    const { data } = await apiClient.post(`${base(teamId)}/${richFilterId}/matrix`, {
+        ...selection, groupBy, splitBy, metric
+    })
+    return data
+}
+
+/**
+ * Verilen görevlerin akıllı filtre etiketleri — board/liste renklendirmesi.
+ * Filtrelemez, yalnız sınıflandırır: görevleri çağıran taraf kendi getirir.
+ * @returns {Promise<Record<string, {id: string, name: string, color: string}>>}
+ */
+export const classifyTasks = async (teamId, richFilterId, taskIds, projectId = null) => {
+    const { data } = await apiClient.post(`${base(teamId)}/${richFilterId}/classify`, {
+        taskIds, projectId
+    })
+    return data
+}
+
+/**
+ * Sınıflandırma denetimi: kural başına sahiplenme/gölgeleme ve sınıflandırılmayanlar.
+ * @returns {Promise<{total, clauses: Array, unclassified: {count, stql, samples}}>}
+ */
+export const auditRichFilter = async (teamId, richFilterId, projectId = null) => {
+    const { data } = await apiClient.get(`${base(teamId)}/${richFilterId}/audit`, {
+        params: projectId ? { projectId } : {}
+    })
+    return data
+}
+
+/** Uyarı kuralını şimdi hesaplar — bildirim göndermez, durumu değiştirmez. */
+export const previewRichFilterAlert = async (teamId, richFilterId, elementId) => {
+    const { data } = await apiClient.post(
+        `${base(teamId)}/${richFilterId}/alerts/${elementId}/preview`)
+    return data
+}
+
 // ─── Zaman serileri ──────────────────────────────────────────────────────────
 //
 // Seriler seçim nesnesi almaz: noktalar öğe başına önceden ölçülmüştür, geçmiş

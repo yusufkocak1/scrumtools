@@ -2,13 +2,16 @@
 
 > Jira'daki **Rich Filters for Jira Dashboards** eklentisinin ScrumTools karşılığı.
 >
-> **Durum: Faz 0–6 yazıldı** (2026-08-04) — gruplama altyapısı, zengin filtre CRUD'u,
-> akıllı filtre sınıflandırma motoru, STQL `smart[…]` alanı, yönetim ekranı, dashboard
-> entegrasyonu (kontrolcü + sayaç + çoklu ölçü + liste + grafik + kuyruk + oran +
-> zaman serisi widget'ları, çapraz filtreleme, URL'ye yansıyan seçim), grafikten göreve
-> drill-down, sabit/dinamik filtreler, görünümler, kendiliğinden tazeleme ve
-> `task_history`'den geriye dönük kurgulanan zaman serileri çalışır durumda.
-> Faz 7 (ısı haritası, board renklendirme, bildirimler, dışa aktarma) hâlâ plan — §11.
+> **Durum: Faz 0–7 yazıldı** (2026-08-04) — planın tamamı teslim edildi: gruplama
+> altyapısı, zengin filtre CRUD'u, akıllı filtre sınıflandırma motoru, STQL `smart[…]`
+> alanı, yönetim ekranı, dokuz dashboard widget'ı (kontrolcü, sayaç, çoklu ölçü, liste,
+> grafik, kuyruk, oran, zaman serisi, ısı haritası), çapraz filtreleme, URL'ye yansıyan
+> seçim, grafikten göreve drill-down, sabit/dinamik filtreler, görünümler,
+> kendiliğinden tazeleme, `task_history`'den kurgulanan zaman serileri, sınıflandırma
+> denetimi, board renklendirmesi, oran eşiği bildirimleri ve CSV/PNG dışa aktarma.
+>
+> Uygulanmayan tek öneri: **Ö4** (tam sayfa rapor görünümü) ve **Ö6** (görünüme
+> sabitlenmiş widget) — ikisi de ayrı iş olarak değerlendirilecek (§9).
 >
 > Önkoşul dokümanlar:
 > [TASK_QUERY_LANGUAGE.md](TASK_QUERY_LANGUAGE.md) · [DASHBOARD_WIDGET_ROADMAP.md](DASHBOARD_WIDGET_ROADMAP.md)
@@ -298,6 +301,10 @@ Tanım uçları — `/api/teams/{teamId}/rich-filters`:
 | `GET /{id}/series?days=&interval=` | Tüm zaman serileri: `[{elementId, name, color, points:[{date,value,source}]}]` — bkz. K23 |
 | `POST /{id}/series/{eid}/backfill` | Geçmişi `task_history`'den kurgular: `{status, reason, written}` |
 | `POST /{id}/resolve` | `{ stql, count }` — drill-down linki ve önizleme için |
+| `POST /{id}/matrix` | İki eksenli gruplama: `{rows, columns, cells, max, truncated}` — ısı haritası |
+| `POST /{id}/classify` | Verilen görevlerin kategori etiketleri — board renklendirmesi (Ö2) |
+| `GET /{id}/audit` | Sınıflandırma denetimi: kural başına `owned`/`matched`/`takenBy` (Ö5) |
+| `POST /{id}/alerts/{eid}/preview` | Uyarı kuralını şimdi hesaplar; bildirim göndermez (Ö3) |
 
 ### K8 — `resolve` ucu: grafikten göreve giden köprü
 
@@ -367,7 +374,7 @@ anda olmasında.
 | `RF_CHART` ✅ | Pasta / halka / çubuk — `groupBy` alan veya `smart` (yığılmış çubuk Faz 7'ye kaldı) |
 | `RF_QUEUE` ✅ | Kuyruk paneli — akıllı filtre başına sayaç, pay şeridi ve açılır görev listesi |
 | `RF_RATIO` ✅ | Gösterge (gauge) + hedef çizgisi — pay/payda akıllı filtrelerden (K21) |
-| `RF_HEATMAP` | İki boyutlu matris (`groupBy` × `splitBy`) — ör. atanan × öncelik |
+| `RF_HEATMAP` ✅ | İki boyutlu matris (`groupBy` × `splitBy`) — ör. atanan × öncelik |
 | `RF_TIME_SERIES` ✅ | Zaman serisi çizgisi — kurgulanan geçmiş kesikli (K13, K23) |
 
 Widget kaydı yine `UserDashboard.layout` JSONB'sinde durur (roadmap K6 kararı korunur):
@@ -472,17 +479,41 @@ ve ürünü ayrıştıran fikirler.
 Tasarımı §4'e taşındı: bkz. **K18** (söz dizimi, çözümleme, semantik, görünürlük) ve
 **K19** (döngü koruması). Artık öneri değil, çekirdek kapsamın parçası.
 
-### Ö2 — Board ve liste renklendirmesi aynı akıllı filtrelerden beslensin
+### Ö2 — Board renklendirmesi aynı akıllı filtrelerden beslensin → **yazıldı, Faz 7**
 
-Mevcut `BoardView` / `ListView` için "renklendirme kaynağı: akıllı filtre" seçeneği.
-Dashboard'da tanımlanan kategoriler günlük çalışma ekranlarına taşınır; ek veri modeli
-gerekmez, K5'teki `CASE` ifadesi aynen kullanılır.
+`BoardView` üzerinde "Renklendirme" seçicisi: varsayılan öncelik, seçilirse bir zengin
+filtrenin akıllı filtreleri. Kartın sol şeridi ve etiketi o kategorinin rengini alır.
 
-### Ö3 — Oran widget'ında eşik → bildirim
+Zengin filtre burada **filtrelemez, yalnız sınıflandırır**: board kendi görevlerini kendi
+sorgusuyla getirir, sunucuya `POST /{id}/classify` ile sadece "bu görevler hangi kategoriye
+düşüyor" sorulur. Filtreleme de yapsaydı, board'un sorgu çubuğu ile renklendirme seçimi
+birbiriyle yarışan iki filtre olurdu. Sınıflandırma sunucuda, panodakiyle aynı `CASE WHEN`
+ifadesiyle yapılır — karttaki renk ile grafikteki dilim aynı kuraldan gelir.
 
-`RATIO` öğesinin hedefi aşıldığında/altına düştüğünde mevcut `Notification` altyapısıyla
-uyarı ("Test aşamasındaki iş oranı %40'ı geçti"). Dashboard'a bakmayı gerektirmeyen tek
-özellik budur ve pasif raporu aktif sinyale çevirir.
+Seçim takım bazında `localStorage`'da hatırlanır; kayıtlı filtre silinmişse sessizce
+kapanır. Varsayılanın öncelik kalması bilinçli: yıllardır önceliğe göre renk okuyan
+kullanıcıyı sessizce başka bir şemaya geçirmek yanıltıcı olurdu.
+
+### Ö3 — Oran widget'ında eşik → bildirim → **yazıldı, Faz 7**
+
+`RATIO` öğesi **uyarı kuralı** olarak kullanılıyor: pay/payda akıllı filtreler, hedef ve
+yön. `RichFilterAlertService` her sabah 09:00'da değerlendirir ve `NotificationService`
+üzerinden `RICH_FILTER_ALERT` bildirimi gönderir.
+
+**Neden bu, widget yapılandırmasında değil de tanımda?** Kuyruk ve oranın *gösterimi*
+panoya ait (K21) — ama uyarı kimse bakmasa da çalışmak zorunda, dolayısıyla sunucuda
+saklanan bir kurala ihtiyacı var. Bu, K21'in çeliştiği değil sınırının belli olduğu yer:
+gösterim panonun, tetikleme tanımın kararı.
+
+**Yalnız geçişlerde konuşur.** Eşik aşılı kaldığı sürece her gün bildirim göndermek onu
+gürültüye çevirir ve okunmaz kılar; kural eşiğin dışına çıkınca bir kez, normale dönünce
+bir kez haber verir. Durum öğenin config'inde `_breached` altında taşınır — bu kadarlık
+bir bilgi için ayrı tablo fazlaydı. Payda sıfırken oran tanımsızdır ve **uyarı gönderilmez**:
+belirsizlik alarm sebebi değildir.
+
+Alıcı filtrenin sahibidir. Takımın tamamına göndermek ilk bakışta cömert görünüyor ama
+uyarıyı kimin kurduğunu bilmeyen kişilere gürültü olarak ulaşırdı; alıcı kümesini
+genişletmek kural başına alıcı listesi tutmayı gerektirir.
 
 ### Ö4 — Zengin filtre = tam sayfa rapor görünümü
 
@@ -490,12 +521,22 @@ Widget'lara ek olarak `/rich-filters/:id/board` — kuyruklar solda, grafikler s
 ekran. Toplantıda ekrana yansıtılan "takım sağlık panosu". Dashboard'a widget dizmek
 istemeyen kullanıcı için tek tıkla hazır düzen.
 
-### Ö5 — Sınıflandırma denetimi
+### Ö5 — Sınıflandırma denetimi → **yazıldı, Faz 7**
 
-Zengin filtre editöründe "Denetle" düğmesi: hangi görevlerin hiçbir akıllı filtreye
-uymadığını, hangi ikisinin çakıştığını ve sıralamanın hangi görevleri hangi kategoriye
-düşürdüğünü gösterir. Yedi JQL parçasını doğru sıralamak gözle zor; bu ekran onu görünür
-kılar (K4 kararının kullanıcı tarafındaki tamamlayıcısı).
+Editördeki "Denetle" düğmesi her kural için iki sayı gösterir: **sahiplendiği** (`owned`)
+ve **kendi başına uyduğu** (`matched`). Aradaki fark, önce gelen kuralların aldığı
+görevlerdir ve kimin aldığı tek tek yazılır ("18 görev önce gelen kurallara gidiyor:
+Geliştirme (12), Analiz (6)"). Hiç görev sahiplenmeyen kural sarı işaretlenir — sorgusu
+hiçbir şeye uymuyor ya da tamamen gölgede kalmıştır; ikisi ayrı cümleyle söylenir.
+
+Sınıflandırılmayanlar sayıyla değil **örnekle** gösterilir: "12 görev sınıflandırılmamış"
+tek başına eyleme dönüşmez, hangi görevler olduğunu görmek eksik kuralı çoğu zaman anında
+anlatır. Yanında da tam listeyi açan bir STQL linki durur.
+
+Hepsi **tek sorguda** çıkar: sınıflandırma ifadesine göre gruplanır ve kural başına bir
+`SUM(CASE WHEN kural THEN 1 ELSE 0 END)` sütunu seçilir. Satır = görevi sahiplenen kural,
+sütun = göreve uyan kural; kesişim doğrudan "kim kimden aldı" matrisidir. Kural başına ayrı
+sayım atmak yedi kuralda 1 + 7 + 49 gidiş-dönüş demek olurdu.
 
 ### Ö6 — Görünüm (view) bazlı widget sabitleme
 
@@ -503,9 +544,17 @@ Bir widget belirli bir görünüme sabitlenebilsin (`viewId`), böylece aynı da
 "Bu sprint" ve "Bu çeyrek" panelleri yan yana durabilsin — kontrolcüdeki seçimden
 etkilenmezler.
 
-### Ö7 — Dışa aktarma
+### Ö7 — Dışa aktarma → **yazıldı, Faz 7**
 
-Her widget'ta "CSV indir" ve "PNG indir". Ucuz; rapor paylaşımında en sık gelen istek.
+Grafik, kuyruk ve ısı haritası widget'larında "CSV" (üçünde) ve "PNG" (grafikte).
+`utils/widgetExport.js`, tamamı istemcide: veri zaten ekranda, sunucuya ikinci tur atıp
+aynı sorguyu yeniden çalıştırmak hem gereksiz hem de indirilen dosyanın ekrandakinden
+farklı çıkma ihtimali demek. İndirilen şey, o an **görülen** şeydir.
+
+İki küçük ayrıntı gerçek kullanımdan doğuyor: CSV ayracı noktalı virgül (Türkçe yerelde
+Excel virgülü ondalık ayracı sayar ve dosya tek sütuna yapışır) ve başına BOM ekleniyor
+(yoksa Türkçe karakterler bozuluyor). PNG ise beyaz zemine kopyalanıp indiriliyor —
+Chart.js şeffaf çiziyor, koyu bir belgeye yapıştırılınca yazılar okunmaz oluyordu.
 
 ### Ö8 — Özel değerler için ifade motoru **yazmayalım**
 
@@ -574,7 +623,7 @@ Roadmap dokümanına bu yönde bir not düşülmeli.
 | **4** ✅ | Dinamik filtreler, sabit filtreler, görünümler (`/options` ucu) | Tam etkileşimli kontrol çubuğu | 3 gün |
 | **5** ✅ | Kuyruklar, `RF_RATIO` (gauge), `RF_MULTI_STAT`, eşik renkleri, `refreshInterval`, ortak yapılandırma adımı (K21) | Jira paritesi | 3 gün |
 | **6** ✅ | Zaman serileri: gecelik snapshot işi + `task_history` backfill (`SeriesReplay`) + `RF_TIME_SERIES` | Tarihsel analiz | 4–5 gün |
-| **7** | Ö2 (board renklendirme), Ö3 (oran → bildirim), Ö5 (denetim ekranı), `RF_HEATMAP`, dışa aktarma | Ayrıştırıcı özellikler | ayrı değerlendirme |
+| **7** ✅ | Ö2 (board renklendirme), Ö3 (oran → bildirim), Ö5 (denetim ekranı), `RF_HEATMAP`, Ö7 (CSV/PNG dışa aktarma) | Ayrıştırıcı özellikler | ayrı değerlendirme |
 
 **Önerilen ilk teslim: Faz 0–3 (~12–15 gün).** Bu dört faz sonunda kullanıcı ekran
 görüntüsündeki gibi renkli akıllı filtreler tanımlayıp bunlardan beslenen, birbirine bağlı
@@ -610,6 +659,10 @@ Faz 1 içindeki sıra önemli: **önce `CASE` sınıflandırma motoru, sonra `sm
 | `query/QueryFragments.java` | ✅ yazıldı — seçimlerden koşul düğümü üreten fabrika |
 | `service/RichFilterSeriesService.java` | ✅ yazıldı — gecelik snapshot (`@Scheduled`), backfill, okuma (K13) |
 | `query/SeriesReplay.java` | ✅ yazıldı — geçmişi kurgulayan dar değerlendirici (§13/25) |
+| `service/RichFilterAuditService.java` | ✅ yazıldı — sınıflandırma denetimi, tek sorgulu matris (Ö5) |
+| `service/RichFilterAlertService.java` | ✅ yazıldı — oran eşiği → bildirim, geçiş bazlı (Ö3) |
+| `service/RichFilterQueryFactory.java` | ✅ yazıldı — zamanlanmış işlerin oturumsuz sorgu kurulumu (seri + uyarı ortak) |
+| `query/TaskAggregationService.matrix()` | ✅ yazıldı — iki eksenli gruplama, tek sorgu (`RF_HEATMAP`) |
 | `entity/RichFilterSeriesPoint.java`, `enums/SeriesPointSource.java`, `repository/RichFilterSeriesPointRepository.java` | ✅ yazıldı |
 | `repository/TaskHistoryRepository.java` | takım/proje kapsamlı, alan filtreli değişiklik akışı (yeniden eskiye) |
 | `query/TaskQueryService.java` | oturumsuz bağlam kurulumu — zamanlanmış iş `SecurityContext` taşımaz |
@@ -631,6 +684,10 @@ Faz 1 içindeki sıra önemli: **önce `CASE` sınıflandırma motoru, sonra `sm
 | `components/richfilter/DynamicFilterModal.vue`, `StaticFilterModal.vue` | ✅ yazıldı; görünüm listesi editör sayfasında |
 | `components/richfilter/TimeSeriesModal.vue` | ✅ yazıldı — seri bir akıllı filtreye bağlanır, kendi sorgusunu taşımaz |
 | `components/dashboard/RfTimeSeriesWidget.vue` | ✅ yazıldı — çok çizgili, kurgulanan bölüm kesikli (K13, K23) |
+| `components/dashboard/RfHeatmapWidget.vue` | ✅ yazıldı — matris; yoğunluk tüm matrise göre normalize |
+| `components/richfilter/RatioAlertModal.vue` | ✅ yazıldı — uyarı kuralı editörü (Ö3) |
+| `composables/useSmartColoring.js`, `components/work/SmartColorPicker.vue` | ✅ yazıldı — board renklendirmesi (Ö2) |
+| `utils/widgetExport.js` | ✅ yazıldı — CSV/PNG indirme (Ö7) |
 | `components/richfilter/RichFilterToolbar.vue` | yeni — `RF_CONTROLLER` gövdesi |
 | `components/dashboard/RfStatWidget.vue`, `RfResultsWidget.vue`, `RfChartWidget.vue`, `RfQueueWidget.vue`, `RfRatioWidget.vue`, `RfTimeSeriesWidget.vue` | yeni |
 | `utils/chartPalette.js` | ✅ yazıldı — ortak renk sözlüğü (K12) |
@@ -676,6 +733,12 @@ Uygulama sırasında verilen kararlar:
 | 24 | **`QUEUE` / `RATIO` öğe türleri kullanılmadı**; kuyruk ve oran, zengin filtrenin tanımında değil panodaki widget'ın yapılandırmasında duruyor. Editördeki "Kuyruklar" ve "Özel oranlar" bölümleri kaldırıldı. | Aynı sınıflandırmayı iki panoda farklı kuyruk düzeniyle göstermek isteyen kullanıcı, paylaşılan tanımı değiştirmek zorunda kalmamalı. Enum değerleri yerinde bırakıldı: ileride tanıma taşınırsa şema değişmeden geri gelir. |
 | 25 | **Geçmiş kurgusu ayrı ve dar bir değerlendiriciyle** (`SeriesReplay`), yazmadan önce bugünü SQL'e doğrulatarak yapılıyor (K13). | "Tek semantik" ilkesinin (§13/9) kaçınılmaz istisnası: geçmişteki satır veri tabanında yok, SQL'e sorulamaz. İkinci semantiğin riski iki şeyle sınırlandı — kapsam bilinçli olarak küçük (4 kurgulanabilir alan, metin operatörleri) ve öz denetim tutmuyorsa hiçbir nokta yazılmıyor. |
 | 26 | **Seri, tarihçede izlenmeyen alana dayanıyorsa kurgu yapılmıyor** (`status: "unsupported"`), sebebiyle birlikte kullanıcıya söyleniyor. | `resolution`, `type` gibi alanlar değişebiliyor ama tarihçeye yazılmıyor; "değişmemiş" saymak dün çözülmüş bir görevi 180 gün çözülmüş göstermek olurdu. Eksik geçmiş, yanlış geçmişten iyidir — ve kullanıcı neyi düzeltmesi gerektiğini görür. |
+| 27 | **Denetim tek sorguda**: sınıflandırmaya göre gruplanır, kural başına bir `SUM(CASE WHEN …)` sütunu seçilir; kesişim "kim kimden aldı" matrisidir. | Kural başına ayrı sayım yedi kuralda 1 + 7 + 49 gidiş-dönüş demekti. Aynı `CASE` ifadesi kullanıldığı için denetimdeki sayılar grafiklerdekiyle zorunlu olarak tutuyor. |
+| 28 | **`RATIO` yalnız uyarı kuralı olarak tanımda duruyor**; gösterim yine widget yapılandırmasında (§13/24 ile birlikte okunmalı). | Uyarı kimse panoya bakmasa da çalışmak zorunda, dolayısıyla sunucuda saklanan bir kurala ihtiyacı var. Sınır şurada: *gösterim* panonun, *tetikleme* tanımın kararı. |
+| 29 | **Bildirim yalnız durum geçişlerinde**, alıcı filtrenin sahibi; payda sıfırken hiç gönderilmiyor. | Her gün tekrarlanan uyarı okunmaz hâle gelir. Payda sıfırken oran tanımsızdır; belirsizliği alarma çevirmek yanlış pozitif üretirdi. Takıma yayın yapmak, uyarıyı kurmayan kişilere gürültü olarak ulaşırdı. |
+| 30 | **Board'da zengin filtre filtrelemiyor, yalnız sınıflandırıyor** (`/classify`); varsayılan renklendirme öncelik olarak kalıyor. | Filtreleme de yapsaydı sorgu çubuğu ile renklendirme seçimi yarışan iki filtre olurdu. Varsayılanı sessizce değiştirmek, yıllardır önceliğe göre renk okuyan kullanıcıyı yanıltırdı. |
+| 31 | **Isı haritasında "Diğer" kovası yok**; eksenler kırpılıyor ve kırpma `truncated` ile bildiriliyor. | Tek boyutlu grafikte artıkları toplamak toplamı korur (§13'teki `trim`), matriste ise "Diğer × Kritik" hücresi anlamsızdır — neyin kesiştiği belirsizleşir. |
+| 32 | **Dışa aktarma tamamen istemcide**; CSV noktalı virgülle ve BOM'la, PNG beyaz zemine kopyalanarak. | Sunucuya ikinci tur atmak, indirilen dosyanın ekrandakinden farklı çıkma ihtimalini açardı. Ayraç ve BOM Türkçe Excel'in gerçek davranışı; şeffaf PNG koyu belgede okunmuyordu. |
 
 Hâlâ açık:
 

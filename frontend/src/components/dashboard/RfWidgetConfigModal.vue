@@ -197,6 +197,41 @@
         </div>
       </template>
 
+      <!-- ── Isı haritası ─────────────────────────────────────────────── -->
+      <template v-else-if="type === 'RF_HEATMAP'">
+        <div>
+          <label class="block text-xs font-medium text-gray-600 mb-1.5">Satır ekseni</label>
+          <select v-model="draft.groupBy" class="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:border-purple-400">
+            <option value="">Akıllı filtreler (varsayılan)</option>
+            <option v-for="field in groupableFields" :key="field.name" :value="field.name">
+              {{ field.label }}
+            </option>
+          </select>
+        </div>
+
+        <div>
+          <label class="block text-xs font-medium text-gray-600 mb-1.5">Sütun ekseni</label>
+          <select v-model="draft.splitBy" class="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:border-purple-400">
+            <option v-for="field in groupableFields" :key="field.name" :value="field.name">
+              {{ field.label }}
+            </option>
+          </select>
+          <p class="mt-1 text-[11px] text-gray-400">
+            Kesişim tek eksende görünmeyeni gösterir: "kimin üzerinde kaç kritik iş var".
+          </p>
+        </div>
+
+        <div>
+          <label class="block text-xs font-medium text-gray-600 mb-1.5">Ölçü</label>
+          <select v-model="draft.metric" class="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:border-purple-400">
+            <option value="count">Görev sayısı</option>
+            <option v-for="field in summableFields" :key="field.name" :value="field.name">
+              {{ field.label }} toplamı
+            </option>
+          </select>
+        </div>
+      </template>
+
       <!-- ── Zaman serisi ─────────────────────────────────────────────── -->
       <template v-else-if="type === 'RF_TIME_SERIES'">
         <div>
@@ -311,8 +346,9 @@ const timeSeries = computed(() =>
 const draft = ref({
   title: props.richFilter?.name || '',
   refreshInterval: 0,
-  // grafik
+  // grafik / ısı haritası
   groupBy: '',
+  splitBy: 'priority',
   metric: 'count',
   chart: 'donut',
   // sayaç
@@ -369,6 +405,11 @@ function submit() {
       measureIds: [...d.measureIds],
       showTotal: !!d.showTotal,
       showShare: !!d.showShare,
+    }),
+    RF_HEATMAP: () => ({
+      groupBy: d.groupBy,
+      splitBy: d.splitBy || 'priority',
+      metric: d.metric,
     }),
     RF_TIME_SERIES: () => ({
       elementIds: [...d.elementIds],

@@ -265,7 +265,7 @@ ulaşılmadıysa ön ek süzmesi yerelde yapılır ve her tuşta istek atılmaz.
 | `StqlRenderer` | AST → STQL metni (grafikten görev listesine geçiş) |
 | `SmartFilterCatalog` | `smart["…"]` → zengin filtrenin sıralı kuralları |
 | `TaskQueryService` | Çözümleme + çalıştırma + sayfalama |
-| `TaskAggregationService` | Gruplama/sayma/toplama — grafik widget'larının kaynağı |
+| `TaskAggregationService` | Gruplama/sayma/toplama + iki eksenli matris — grafik ve ısı haritası widget'larının kaynağı |
 | `SeriesReplay` | Geçmişi `task_history`'den kurgulayan **dar** değerlendirici — yalnız zaman serisi backfill'i için, kapsamı bilinçli olarak küçük (bkz. RICH_FILTER_PLAN.md — K13) |
 | `QuerySuggestionService` | Otomatik tamamlama kaynakları |
 | `LegacyFilterTranslator` | Eski `filters[]` formatı ↔ STQL |

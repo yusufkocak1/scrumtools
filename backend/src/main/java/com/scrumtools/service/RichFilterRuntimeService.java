@@ -38,6 +38,13 @@ public class RichFilterRuntimeService {
     /** Bir dinamik filtrenin açılır listesinde gösterilecek azami seçenek. */
     private static final int DEFAULT_OPTION_LIMIT = 25;
 
+    /**
+     * Tek istekte sınıflandırılabilecek azami görev.
+     * Board bir sayfada bundan fazlasını göstermiyor; tavan, listeyi elle şişiren
+     * bir isteğin tek sorguda binlerce id taşımasını engeller.
+     */
+    private static final int MAX_CLASSIFY_TASKS = 500;
+
     private final RichFilterService richFilterService;
     private final TaskQueryService taskQueryService;
     private final TaskAggregationService aggregationService;
@@ -113,6 +120,48 @@ public class RichFilterRuntimeService {
             out.add(control);
         }
         return out;
+    }
+
+    /**
+     * İki eksenli gruplama — ısı haritası widget'ı.
+     *
+     * Satır ekseni verilmezse zengin filtrenin kendi akıllı filtreleri kullanılır;
+     * grafikte olduğu gibi burada da varsayılan soru "bu sınıflandırma nasıl dağılıyor".
+     */
+    @Transactional(readOnly = true)
+    public Map<String, Object> matrix(UUID richFilterId, RichFilterRuntimeRequest request) {
+        RichFilter filter = accessible(richFilterId);
+        String rows = request.getGroupBy() != null && !request.getGroupBy().isBlank()
+                ? request.getGroupBy()
+                : TaskFieldRegistry.SMART_FILTER_PREFIX + "[" + filter.getName() + "]";
+
+        if (request.getSplitBy() == null || request.getSplitBy().isBlank()) {
+            throw new IllegalArgumentException("Isı haritasında ikinci eksen (splitBy) zorunludur.");
+        }
+
+        return aggregationService.matrix(filter.getTeam().getId(), scopeOf(filter, request),
+                resolveQuery(filter, request), rows, request.getSplitBy(), request.getMetric());
+    }
+
+    /**
+     * Verilen görevlerin akıllı filtre etiketleri — board ve liste renklendirmesi (Ö2).
+     *
+     * Board kendi görevlerini kendi sorgusuyla çekiyor; zengin filtre burada
+     * filtrelemez, yalnız <b>sınıflandırır</b>. Aynı {@code CASE WHEN} ifadesi
+     * kullanıldığı için karttaki renk, panodaki dilimle aynı kuraldan gelir.
+     */
+    @Transactional(readOnly = true)
+    public Map<String, Object> classifyTasks(UUID richFilterId, List<UUID> taskIds, UUID projectId) {
+        RichFilter filter = accessible(richFilterId);
+        if (taskIds == null || taskIds.isEmpty()) return Map.of();
+
+        List<UUID> limited = taskIds.size() > MAX_CLASSIFY_TASKS
+                ? taskIds.subList(0, MAX_CLASSIFY_TASKS)
+                : taskIds;
+
+        UUID scope = projectId != null ? projectId
+                : (filter.effectiveProject() != null ? filter.effectiveProject().getId() : null);
+        return classify(filter, filter.getTeam().getId(), scope, limited);
     }
 
     private static int intConfig(RichFilterElement element, String key, int fallback) {

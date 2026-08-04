@@ -84,6 +84,7 @@
               :column="col"
               :tasks="getTasksForLaneColumn(lane.key, col.name)"
               :swimlane-key="lane.key"
+              :smart-tags="smartTags"
               @task-click="$emit('task-click', $event)"
               @task-drop="handleSwimlanceDrop($event, lane.key)"
             />
@@ -103,6 +104,8 @@ const props = defineProps({
   columns:  { type: Array, required: true },
   tasks:    { type: Array, default: () => [] },
   groupBy:  { type: String, default: 'assignee' }, // assignee | priority
+  /** Görev id → akıllı filtre etiketi; sütunlara olduğu gibi geçilir (Ö2). */
+  smartTags: { type: Object, default: () => ({}) },
 })
 
 const emit = defineEmits(['task-click', 'task-drop'])

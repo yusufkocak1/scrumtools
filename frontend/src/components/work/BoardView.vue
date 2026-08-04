@@ -18,6 +18,15 @@
       @apply-filters="onApplyFilters"
     />
 
+    <!-- Renklendirme kaynağı: öncelik (varsayılan) ya da bir zengin filtre -->
+    <SmartColorPicker
+      :model-value="coloringId"
+      :rich-filters="coloringFilters"
+      :legend="coloringLegend"
+      :loading="coloringLoading"
+      @update:model-value="selectColoring"
+    />
+
     <!-- Board içeriği -->
     <div v-if="isLoading" class="flex-1 flex items-center justify-center">
       <div class="text-gray-400 text-sm">Yükleniyor…</div>
@@ -29,6 +38,7 @@
         :columns="columns"
         :tasks="allTasks"
         :group-by="groupBy"
+        :smart-tags="smartTags"
         @task-click="openTask"
         @task-drop="handleDrop"
       />
@@ -42,6 +52,7 @@
           :key="col.name"
           :column="col"
           :tasks="tasksByColumn[col.name] || []"
+          :smart-tags="smartTags"
           @task-click="openTask"
           @task-drop="handleDrop"
         />
@@ -57,8 +68,10 @@ import { useRouter } from 'vue-router'
 import BoardColumn   from './BoardColumn.vue'
 import BoardSwimlane from './BoardSwimlane.vue'
 import QueryBar      from './QueryBar.vue'
+import SmartColorPicker from './SmartColorPicker.vue'
 import { getTasks, updateTask } from '../../api/WorkApi.js'
 import { useTaskQuery } from '../../composables/useTaskQuery.js'
+import { useSmartColoring } from '../../composables/useSmartColoring.js'
 import { distributeTasks, targetStatusFor } from '../../utils/boardColumns.js'
 
 const props = defineProps({
@@ -110,10 +123,31 @@ async function loadTasks() {
   }
 }
 
-onMounted(() => {
+// ─── Akıllı filtre renklendirmesi ─────────────────────────────────────────────
+// Zengin filtre burada filtrelemez, yalnız sınıflandırır: board kendi görevlerini
+// kendi sorgusuyla getirir, sunucuya sadece "bunlar hangi kategoriye düşüyor"
+// sorulur (bkz. RICH_FILTER_PLAN.md — Ö2).
+const {
+  richFilters: coloringFilters,
+  selectedId: coloringId,
+  legend: coloringLegend,
+  tags: smartTags,
+  loading: coloringLoading,
+  loadFilters: loadColoringFilters,
+  select: selectColoring,
+  refresh: refreshColoring,
+} = useSmartColoring(
+  computed(() => props.teamId),
+  allTasks,
+  computed(() => props.projectId),
+)
+
+onMounted(async () => {
   // Paylaşılan linkteki sorgu (?q=) varsa onunla açılır.
   restoreFromUrl()
-  loadTasks()
+  await loadTasks()
+  await loadColoringFilters()
+  refreshColoring()
 })
 watch(() => [props.teamId, props.projectId], loadTasks)
 

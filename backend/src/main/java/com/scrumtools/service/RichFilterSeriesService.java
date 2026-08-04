@@ -72,6 +72,7 @@ public class RichFilterSeriesService {
     private static final Map<String, String> HISTORY_TO_FIELD = invert(SeriesReplay.REPLAYABLE_FIELDS);
 
     private final RichFilterService richFilterService;
+    private final RichFilterQueryFactory queryFactory;
     private final RichFilterElementRepository elementRepository;
     private final RichFilterSeriesPointRepository pointRepository;
     private final TaskHistoryRepository taskHistoryRepository;
@@ -434,13 +435,7 @@ public class RichFilterSeriesService {
 
     /** Öğenin canlı sorgusu: temel sorgu AND bağlı akıllı filtrenin kovası. */
     private ParsedQuery seriesQuery(RichFilter filter, RichFilterElement element) {
-        ParsedQuery base = QueryParser.parse(filter.effectiveBaseQuery());
-
-        Optional<RichFilterElement> smart = boundSmartFilter(filter, element);
-        if (smart.isEmpty()) return base;
-
-        return QueryComposer.compose(base, List.of(List.of(
-                QueryFragments.smartIn(filter.getName(), List.of(smart.get().getName())))));
+        return queryFactory.boundedBy(filter, boundSmartFilter(filter, element).orElse(null));
     }
 
     /**
@@ -502,17 +497,7 @@ public class RichFilterSeriesService {
      * tanımın parçası.
      */
     private QueryContext contextOf(RichFilter filter) {
-        List<SmartClause> clauses = elementsOf(filter, RichFilterElementKind.SMART_FILTER).stream()
-                .map(e -> new SmartClause(filter.getId(), e.getId(), e.getName(), e.getColor(),
-                        QueryParser.parse(e.getQuery())))
-                .toList();
-
-        Project project = filter.effectiveProject();
-        return taskQueryService.buildContext(
-                filter.getTeam().getId(),
-                project != null ? project.getId() : null,
-                filter.getOwner().getEmail(),
-                (_, name) -> name != null && name.equalsIgnoreCase(filter.getName()) ? clauses : null);
+        return queryFactory.contextOf(filter);
     }
 
     // ─── Yardımcılar ──────────────────────────────────────────────────────────

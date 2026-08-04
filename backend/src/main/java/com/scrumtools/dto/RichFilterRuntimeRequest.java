@@ -39,6 +39,13 @@ public class RichFilterRuntimeRequest {
 
     /** Gruplama alanı; verilmezse zengin filtrenin kendi akıllı filtreleri. */
     private String groupBy;
+
+    /** İkinci gruplama ekseni — yalnız ısı haritasında, zorunlu (Faz 7). */
+    private String splitBy;
+
     private String metric;
     private Integer limit;
+
+    /** Sınıflandırılacak görev id'leri — board renklendirmesi (Faz 7). */
+    private List<UUID> taskIds;
 }

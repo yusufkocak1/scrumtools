@@ -189,6 +189,7 @@ import RfQueueWidget from '../components/dashboard/RfQueueWidget.vue'
 import RfRatioWidget from '../components/dashboard/RfRatioWidget.vue'
 import RfMultiStatWidget from '../components/dashboard/RfMultiStatWidget.vue'
 import RfTimeSeriesWidget from '../components/dashboard/RfTimeSeriesWidget.vue'
+import RfHeatmapWidget from '../components/dashboard/RfHeatmapWidget.vue'
 import RfWidgetConfigModal from '../components/dashboard/RfWidgetConfigModal.vue'
 import { getDashboardLayout, saveDashboardLayout } from '../api/DashboardApi.js'
 import { getRichFilters } from '../api/RichFilterApi.js'
@@ -229,6 +230,7 @@ const richFilterWidgetTypes = [
   { type: 'RF_QUEUE', label: 'Kuyruk Paneli', icon: '📥', richFilter: true },
   { type: 'RF_RATIO', label: 'Oran Göstergesi', icon: '🎯', richFilter: true },
   { type: 'RF_TIME_SERIES', label: 'Zaman Serisi', icon: '📈', richFilter: true },
+  { type: 'RF_HEATMAP', label: 'Isı Haritası', icon: '▩', richFilter: true },
 ]
 
 const WIDGET_COMPONENT_MAP = {
@@ -246,6 +248,7 @@ const WIDGET_COMPONENT_MAP = {
   RF_QUEUE: RfQueueWidget,
   RF_RATIO: RfRatioWidget,
   RF_TIME_SERIES: RfTimeSeriesWidget,
+  RF_HEATMAP: RfHeatmapWidget,
 }
 
 function widgetComponent(type) {
@@ -300,6 +303,11 @@ const RF_WIDGET_PROPS = {
     elementIds: w.elementIds || [],
     days: w.days || 90,
     interval: w.interval || 'day',
+  }),
+  RF_HEATMAP: (w) => ({
+    groupBy: w.groupBy || '',
+    splitBy: w.splitBy || 'priority',
+    metric: w.metric || 'count',
   }),
 }
 

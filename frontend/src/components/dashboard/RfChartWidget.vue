@@ -21,6 +21,12 @@
             :title="option.label"
             @click="emit('config-change', { chart: option.value })"
           >{{ option.icon }}</button>
+
+          <span class="w-px h-4 bg-gray-200 mx-0.5"></span>
+          <button class="px-1 h-6 rounded text-[10px] text-gray-400 hover:bg-gray-100 hover:text-purple-600"
+                  title="CSV indir" @click="exportCsv">CSV</button>
+          <button class="px-1 h-6 rounded text-[10px] text-gray-400 hover:bg-gray-100 hover:text-purple-600"
+                  title="PNG indir" @click="exportPng">PNG</button>
         </div>
       </div>
 
@@ -34,9 +40,9 @@
 
       <template v-else>
         <div class="relative h-48">
-          <Doughnut v-if="chart === 'donut'" :data="chartData" :options="doughnutOptions" />
-          <Pie v-else-if="chart === 'pie'" :data="chartData" :options="doughnutOptions" />
-          <Bar v-else :data="chartData" :options="barOptions" />
+          <Doughnut v-if="chart === 'donut'" ref="chartRef" :data="chartData" :options="doughnutOptions" />
+          <Pie v-else-if="chart === 'pie'" ref="chartRef" :data="chartData" :options="doughnutOptions" />
+          <Bar v-else ref="chartRef" :data="chartData" :options="barOptions" />
         </div>
 
         <!-- Efsane: tıklanabilir; sınıflandırma ekseninde seçim, diğerlerinde drill-down -->
@@ -84,6 +90,7 @@ import { useRichFilterContext } from '../../composables/useRichFilterContext.js'
 import { useAutoRefresh } from '../../composables/useAutoRefresh.js'
 import { aggregateRichFilter, resolveRichFilter, smartField } from '../../api/RichFilterApi.js'
 import { colorFor, fade } from '../../utils/chartPalette.js'
+import { downloadCsv, downloadChartPng } from '../../utils/widgetExport.js'
 
 ChartJS.register(ArcElement, CategoryScale, LinearScale, BarElement, Tooltip, Legend)
 
@@ -113,6 +120,18 @@ const CHART_TYPES = [
 
 const buckets = ref([])
 const loading = ref(false)
+const chartRef = ref(null)
+
+/** Dosya adı: widget başlığı ya da zengin filtrenin adı. */
+const exportName = () => props.title || definition.value?.name || 'dagilim'
+
+function exportCsv() {
+  downloadCsv(exportName(), ['Kategori', metricLabel.value], buckets.value.map(b => [b.label, b.value]))
+}
+
+function exportPng() {
+  downloadChartPng(chartRef, exportName())
+}
 
 /** Eksen, zengin filtrenin kendi sınıflandırması mı? */
 const isSmartAxis = computed(() =>
