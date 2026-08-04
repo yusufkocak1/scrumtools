@@ -546,6 +546,16 @@ function markDirty() {
 onMounted(() => { loadTeams() })
 
 /**
+ * Eskimiş yanıtın yeni takımın listesini ezmesini engelleyen sıra numarası.
+ *
+ * İzleyiciden ÖNCE tanımlı olmalı: aşağıdaki `immediate` izleyici setup içinde
+ * senkron çalışıp `reloadDashboards`'a giriyor, o da ilk satırında bu sayacı
+ * artırıyor. Bildirim izleyicinin altında kalırsa değişken TDZ'de olur ve sayfa
+ * "Cannot access 'reloadToken' before initialization" ile açılmaz.
+ */
+let reloadToken = 0
+
+/**
  * Panolar takıma bağlıdır; tek yükleme kaynağı bu izleyicidir.
  *
  * `immediate` ile açılışta da çalışır — ayrıca onMounted'da çağırmak takım
@@ -557,9 +567,6 @@ watch(selectedTeamId, (teamId, previous) => {
   activeId.value = ''
   reloadDashboards()
 }, { immediate: true })
-
-/** Eskimiş yanıtın yeni takımın listesini ezmesini engelleyen sıra numarası. */
-let reloadToken = 0
 
 async function reloadDashboards() {
   const token = ++reloadToken
