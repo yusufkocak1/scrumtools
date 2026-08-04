@@ -2,13 +2,15 @@
 
 > Jira'daki **Rich Filters for Jira Dashboards** eklentisinin ScrumTools karşılığı.
 >
-> **Durum: Faz 0–7 yazıldı** (2026-08-04) — planın tamamı teslim edildi: gruplama
+> **Durum: Faz 0–8 yazıldı** (2026-08-04) — planın tamamı teslim edildi: gruplama
 > altyapısı, zengin filtre CRUD'u, akıllı filtre sınıflandırma motoru, STQL `smart[…]`
 > alanı, yönetim ekranı, dokuz dashboard widget'ı (kontrolcü, sayaç, çoklu ölçü, liste,
 > grafik, kuyruk, oran, zaman serisi, ısı haritası), çapraz filtreleme, URL'ye yansıyan
 > seçim, grafikten göreve drill-down, sabit/dinamik filtreler, görünümler,
 > kendiliğinden tazeleme, `task_history`'den kurgulanan zaman serileri, sınıflandırma
 > denetimi, board renklendirmesi, oran eşiği bildirimleri ve CSV/PNG dışa aktarma.
+> **Faz 8** (plan dışı istek): takım altında çoklu pano, düzenlenebilir yerleşim ve
+> mevcut widget'ta ayar düzenleme — §14.
 >
 > Uygulanmayan tek öneri: **Ö4** (tam sayfa rapor görünümü) ve **Ö6** (görünüme
 > sabitlenmiş widget) — ikisi de ayrı iş olarak değerlendirilecek (§9).
@@ -377,13 +379,17 @@ anda olmasında.
 | `RF_HEATMAP` ✅ | İki boyutlu matris (`groupBy` × `splitBy`) — ör. atanan × öncelik |
 | `RF_TIME_SERIES` ✅ | Zaman serisi çizgisi — kurgulanan geçmiş kesikli (K13, K23) |
 
-Widget kaydı yine `UserDashboard.layout` JSONB'sinde durur (roadmap K6 kararı korunur):
+Widget kaydı panonun `layout` JSONB'sinde durur (roadmap K6 kararı korunur).
+Faz 8'de kap değişti — `UserDashboard` yerine `Dashboard` (bkz. §14) — ama şema aynı:
 
 ```json
 { "id":"w7", "type":"RF_CHART", "richFilterId":"…", "groupBy":"smart",
   "chart":"donut", "mode":"exclusive", "viewId":null, "refreshInterval":0,
-  "x":0,"y":0,"w":4,"h":3 }
+  "w":4, "h":320 }
 ```
+
+`w` 12'lik ızgarada sütun sayısı, `h` piksel yüksekliğidir (yoksa doğal boy).
+Sıra dizinin kendi sırasıdır; `x`/`y` yazılmaz — gerekçe §14.
 
 ### K10 — Etkileşim durumu istemcide, kontrolcü widget'a bağlı değil
 
@@ -624,6 +630,7 @@ Roadmap dokümanına bu yönde bir not düşülmeli.
 | **5** ✅ | Kuyruklar, `RF_RATIO` (gauge), `RF_MULTI_STAT`, eşik renkleri, `refreshInterval`, ortak yapılandırma adımı (K21) | Jira paritesi | 3 gün |
 | **6** ✅ | Zaman serileri: gecelik snapshot işi + `task_history` backfill (`SeriesReplay`) + `RF_TIME_SERIES` | Tarihsel analiz | 4–5 gün |
 | **7** ✅ | Ö2 (board renklendirme), Ö3 (oran → bildirim), Ö5 (denetim ekranı), `RF_HEATMAP`, Ö7 (CSV/PNG dışa aktarma) | Ayrıştırıcı özellikler | ayrı değerlendirme |
+| **8** ✅ | Çoklu pano (`Dashboard` entity, PRIVATE/TEAM), düzenlenebilir yerleşim (sürükle-sırala + boyutlandırma), mevcut widget'ta ayar düzenleme | Panolar tek satır olmaktan çıktı; §14 | plan dışı istek |
 
 **Önerilen ilk teslim: Faz 0–3 (~12–15 gün).** Bu dört faz sonunda kullanıcı ekran
 görüntüsündeki gibi renkli akıllı filtreler tanımlayıp bunlardan beslenen, birbirine bağlı
@@ -667,7 +674,11 @@ Faz 1 içindeki sıra önemli: **önce `CASE` sınıflandırma motoru, sonra `sm
 | `repository/TaskHistoryRepository.java` | takım/proje kapsamlı, alan filtreli değişiklik akışı (yeniden eskiye) |
 | `query/TaskQueryService.java` | oturumsuz bağlam kurulumu — zamanlanmış iş `SecurityContext` taşımaz |
 | `controller/RichFilterController.java` | yeni |
-| `service/DashboardService.java` | yeni widget tiplerinin doğrulaması, yetim referans temizliği (K15) |
+| `entity/Dashboard.java`, `enums/DashboardVisibility.java`, `repository/DashboardRepository.java` | ✅ yazıldı (Faz 8) — `UserDashboard`'ın yerine takım altında çoklu pano |
+| `dto/DashboardRequest.java`, `dto/DashboardResponse.java` | ✅ yazıldı (Faz 8) — `canEdit` sunucunun kararı |
+| `service/DashboardService.java` | ✅ yeniden yazıldı (Faz 8) — CRUD, görünürlük, düzen doğrulaması, ilk açılışta varsayılan pano |
+| `controller/DashboardController.java` | ✅ yeniden yazıldı (Faz 8) — liste/CRUD + `/layout` + `/duplicate` |
+| `config/DashboardMigrationRunner.java` | ✅ yazıldı (Faz 8) — `user_dashboards` → `dashboards`, idempotent |
 
 **Frontend** — `frontend/src`
 
@@ -691,7 +702,10 @@ Faz 1 içindeki sıra önemli: **önce `CASE` sınıflandırma motoru, sonra `sm
 | `components/richfilter/RichFilterToolbar.vue` | yeni — `RF_CONTROLLER` gövdesi |
 | `components/dashboard/RfStatWidget.vue`, `RfResultsWidget.vue`, `RfChartWidget.vue`, `RfQueueWidget.vue`, `RfRatioWidget.vue`, `RfTimeSeriesWidget.vue` | yeni |
 | `utils/chartPalette.js` | ✅ yazıldı — ortak renk sözlüğü (K12) |
-| `pages/Dashboard.vue` | ✅ widget eşlemesi, zengin filtre seçici, ortak yapılandırma adımı, seçim URL senkronu |
+| `pages/Dashboard.vue` | ✅ widget eşlemesi, zengin filtre seçici, ortak yapılandırma adımı, seçim URL senkronu; Faz 8'de pano sekmeleri + düzen kipi |
+| `api/DashboardApi.js` | ✅ yeniden yazıldı (Faz 8) — pano CRUD; düzen panoyla birlikte gelir |
+| `composables/useDashboardGrid.js` | ✅ yazıldı (Faz 8) — 12 sütunluk akış ızgarası, sürükle-sırala, boyutlandırma (§14) |
+| `components/dashboard/DashboardTabs.vue`, `DashboardFormModal.vue` | ✅ yazıldı (Faz 8) — pano şeridi ve oluştur/yeniden adlandır/kopyala formu |
 | `router.js` | `/rich-filters`, `/rich-filters/:id` |
 
 ---
@@ -740,14 +754,100 @@ Uygulama sırasında verilen kararlar:
 | 31 | **Isı haritasında "Diğer" kovası yok**; eksenler kırpılıyor ve kırpma `truncated` ile bildiriliyor. | Tek boyutlu grafikte artıkları toplamak toplamı korur (§13'teki `trim`), matriste ise "Diğer × Kritik" hücresi anlamsızdır — neyin kesiştiği belirsizleşir. |
 | 32 | **Dışa aktarma tamamen istemcide**; CSV noktalı virgülle ve BOM'la, PNG beyaz zemine kopyalanarak. | Sunucuya ikinci tur atmak, indirilen dosyanın ekrandakinden farklı çıkma ihtimalini açardı. Ayraç ve BOM Türkçe Excel'in gerçek davranışı; şeffaf PNG koyu belgede okunmuyordu. |
 
+Faz 8 (2026-08-04):
+
+| # | Karar | Gerekçe |
+|---|---|---|
+| 33 | **Pano takıma bağlı ve zorunlu**; `Dashboard.team` nullable değil, listeleme `?teamId=` ile. | Widget'ların hemen hepsi takım kapsamlı veri gösteriyor ve panonun listelendiği yer aktif takım. Takımsız bir pano, açıldığı takıma göre içeriği değişen ama adı sabit kalan bir kabuk olurdu. |
+| 34 | **`FilterVisibility` yeniden kullanılmadı**; ayrı `DashboardVisibility { PRIVATE, TEAM }`. | Oradaki `PROJECT` değerinin panoda karşılığı yok. Anlamsız bir enum değeri taşımak, hem serviste hem arayüzde her dalda "bu durumda ne olacak" sorusunu doğururdu. |
+| 35 | **Paylaşılan panoyu organizasyon yöneticisi de düzenleyebilir**; zengin filtrede bu hak yalnız sahibinde (bkz. `RichFilterService`). | Zengin filtre bir *tanım*: başkasının altından değiştirilirse ona bağlı bütün panolar bozulur. Pano bir *görüntü*: takıma açılmış bir panonun bakımının tek kişiye kilitli kalması, o kişi ayrıldığında panoyu ölü bırakırdı. Özel panolar yönetime de kapalı — "özel" sözü yoksa anlamsız. |
+| 36 | **Serbest x/y yerine 12 sütunluk akış ızgarası**; sıra dizinin sırası, genişlik `w` (sütun), yükseklik `h` (piksel, isteğe bağlı). | Serbest yerleşim çakışma çözümü getirir; bedeli kartların birbirini itmesi ve "kaydırdım, başka yere oturdu" hissidir. Akış ızgarası dar ve tahmin edilebilir. Yükseklik varsayılan olarak yazılmaz: sabit yükseklik dayatmak mevcut widget'ların içeriğini kırpardı, kullanıcı dikey sürüklediği an açık değer yazılır. |
+| 37 | **Düzenleme ayrı bir kip** ("Düzeni düzenle"); o kipte widget içerikleri `pointer-events: none`. | Widget'ların içi tıklanabilir (grafik diliminde daraltma, kuyrukta açma). Sürükleme aynı tıklamayı yakalasaydı çapraz filtreleme (K10) kullanılamaz hâle gelirdi. |
+| 38 | **Kaydetme ikiye ayrıldı**: widget ekleme/ayar/kaldırma hemen yazılır; sürükleme ve boyutlandırma kirli işaretlenip "Düzenlemeyi bitir" ile tek seferde yazılır. | Birinciler modalla onaylanmış kesikli işlemler — kullanıcı "Kaydet"e bastıktan sonra ayrıca "düzeni de kaydet" demek zorunda kalmamalı. İkinciler sürekli hareket; her piksel için istek atmak anlamsız. |
+| 39 | **İlk açılışta varsayılan panoyu sunucu kurar** (`list()` yazabilen bir okuma yolu). | Alternatifi "önce bir pano oluşturun" boş ekranıydı; eskiden panoyu açan herkes doğrudan widget'larını görüyordu. Bedeli: iki sekme aynı anda ilk kez açılırsa benzersizlik kısıtı birini reddeder (yenilemede düzelir, çift kayıt oluşmaz). |
+
 Hâlâ açık:
 
-1. **Takım dashboard'u:** zengin filtre paylaşılabiliyor ama `UserDashboard` hâlâ kullanıcı
-   başına tek satır — paylaşılan bir zengin filtreyi herkes kendi dashboard'una elle
-   dizmek zorunda. *Öneri:* ayrı iş olarak kalsın; bu plan onu engellemiyor, `visibility`
-   deseni oraya doğal genişliyor. Faz 2 sonunda ihtiyacın gerçekten hissedilip
-   hissedilmediğine bakılarak karar verilebilir.
+1. ~~**Takım dashboard'u**~~ — **kapandı (Faz 8, bkz. §14).** `UserDashboard` yerini
+   takım altında çoğaltılabilen, PRIVATE/TEAM görünürlüklü `Dashboard`'a bıraktı.
 2. **Zengin filtre adı benzersiz mi?** `smart["Sprint Sağlığı"]` sorgusu adla çözüldüğü için
    (K18) aynı takımda iki aynı adlı zengin filtre sorguyu belirsiz kılar. *Öneri:* takım
    içinde ad benzersizliği zorlansın — id ile yazım (`smart[<uuid>]`) kullanıcıya sorgu
    yazdırılabilir bir şey değil. Faz 1'de karara bağlanmalı.
+
+---
+
+## 14. Faz 8 — Çoklu Pano ve Düzenlenebilir Yerleşim
+
+Plan dışı gelen istek (2026-08-04): *"birden fazla dashboard yapabilmeliyim, layout
+düzenlenebilir olmalı, önceki eklenen widget'larda edit butonu olmalı."*
+
+### 14.1 Veri modeli
+
+`user_dashboards` (kullanıcı başına **tek** satır, takım bilgisi yalnız widget'ların
+içinde) → `dashboards`:
+
+```
+Dashboard { id, owner, team, name, layout jsonb, visibility, position, createdAt, updatedAt }
+  unique (owner_id, team_id, name)
+```
+
+Ad **kişinin kendi panoları içinde** benzersizdir, takım genelinde değil: iki kişinin
+ayrı ayrı "Sürüm takibi" panosu olması doğaldır. Sekme şeridinde paylaşılan panonun
+yanında sahibinin adı yazar.
+
+**Göç** (`DashboardMigrationRunner`): eski satırın takımı düzendeki ilk widget'ın
+`teamId` alanından, yoksa kullanıcının ilk takımından çözülür; ikisi de yoksa satır
+atlanır (ilk girişte varsayılan pano zaten kurulur). Widget'lara `w: 4` yazılır — eski
+ekranın `xl:grid-cols-3` görünümünün 12'lik ızgaradaki birebir karşılığı, böylece göç
+sonrası pano kullanıcının bıraktığı gibi açılır. Idempotent; eski tablo silinmez.
+
+### 14.2 Yerleşim
+
+12 sütunluk **akış** ızgarası (§13/36). Genişlik CSS değişkeniyle verilir:
+
+```css
+.dash-cell { grid-column: span 12 / span 12; }
+@media (min-width: 768px) { .dash-cell { grid-column: span var(--w) / span var(--w); } }
+```
+
+Tailwind'in `col-span-*` sınıfları kullanılamazdı: değer çalışma anında belli oluyor,
+Tailwind ise sınıfları derleme anında tarıyor. Dar ekranda her kart tam genişliğe düşer.
+
+Sürükleme HTML5 DnD ile (board'un görev sürüklemesiyle aynı desen), boyutlandırma
+pointer olaylarıyla + `setPointerCapture` (imleç kartın dışına çıkınca da olaylar
+tutamağa gelmeye devam etsin). Yükseklik sıfırlanabilir — kart doğal boyuna döner.
+
+### 14.3 Widget ayarlarını düzenleme
+
+`RfWidgetConfigModal` `initial` alarak ekleme ve düzenleme için ortak kullanılıyor.
+Ayrı bir düzenleme paneli iki formun zamanla ayrışması demekti: yeni bir ayar
+eklendiğinde biri güncellenip diğeri unutulur, kullanıcı ayarı yalnız *eklerken*
+görürdü. Depolanan biçimle form biçiminin ayrıştığı iki yer (`threshold` nesnesi,
+0–1 arası `target`) `initialDraft()` içinde tersine çevriliyor.
+
+Düzenle düğmesi yalnız **yapılandırılabilir** widget'larda görünür: hazır raporlar
+(Takım Özeti, Burndown…) yalnız takımı bilir; onlarda ayar kutusu açmak boş bir form
+göstermek olurdu — konumu ve boyutu düzen kipinden ayarlanır.
+
+### 14.4 API
+
+| Uç | İşlev |
+|---|---|
+| `GET /api/dashboards?teamId=` | Görülebilen panolar (kendininkiler + takıma açılanlar); yoksa varsayılan kurulur |
+| `GET /api/dashboards/{id}` | Tek pano (düzenle birlikte) |
+| `POST /api/dashboards?teamId=` | Oluştur |
+| `PUT /api/dashboards/{id}` | Ad / görünürlük / sıra — `layout` gönderilmezse dokunulmaz |
+| `PUT /api/dashboards/{id}/layout` | Yalnız düzen |
+| `POST /api/dashboards/{id}/duplicate` | Kendi adına kopyala (kopya PRIVATE başlar) |
+| `DELETE /api/dashboards/{id}` | Sil |
+
+Düzen ayrı bir GET'te tutulmadı: pano sayısı birkaç taneyle sınırlı ve her sekme
+değişiminde ikinci istek, sekmeler arası gezinmeyi gözle görülür biçimde yavaşlatırdı.
+
+### 14.5 Sınırlar
+
+- Kişi başına takımda **20 pano**, pano başına **40 widget** (uygulama tavanı).
+- Sekme sırası (`position`) sunucuda tutuluyor ama arayüzde sürüklenerek
+  değiştirilemiyor — oluşturma sırası geçerli.
+- Pano paylaşımı takım sınırında duruyor; `PROJECT` karşılığı yok (§13/34).
