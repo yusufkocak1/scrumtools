@@ -26,6 +26,9 @@ public enum NotificationType {
     CI_BUILD_SUCCEEDED,     // Tetiklenen build başarıyla tamamlandı
     CI_BUILD_FAILED,        // Tetiklenen build başarısız/kararsız bitti
 
+    // Zengin filtre ile ilgili
+    RICH_FILTER_ALERT,      // Oran eşiği aşıldı / normale döndü
+
     // Genel
     MENTION,                // @mention ile bahsedildin
     SYSTEM                  // Sistem bildirimi

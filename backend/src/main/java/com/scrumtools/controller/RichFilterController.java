@@ -5,6 +5,8 @@ import com.scrumtools.dto.RichFilterElementResponse;
 import com.scrumtools.dto.RichFilterRequest;
 import com.scrumtools.dto.RichFilterResponse;
 import com.scrumtools.dto.RichFilterRuntimeRequest;
+import com.scrumtools.service.RichFilterAlertService;
+import com.scrumtools.service.RichFilterAuditService;
 import com.scrumtools.service.RichFilterRuntimeService;
 import com.scrumtools.service.RichFilterSeriesService;
 import com.scrumtools.service.RichFilterService;
@@ -33,6 +35,8 @@ public class RichFilterController {
     private final RichFilterService richFilterService;
     private final RichFilterRuntimeService runtimeService;
     private final RichFilterSeriesService seriesService;
+    private final RichFilterAuditService auditService;
+    private final RichFilterAlertService alertService;
 
     @GetMapping
     public ResponseEntity<List<RichFilterResponse>> list(
@@ -140,6 +144,60 @@ public class RichFilterController {
             @RequestBody(required = false) RichFilterRuntimeRequest request
     ) {
         return ResponseEntity.ok(runtimeService.resolve(richFilterId, orEmpty(request)));
+    }
+
+    /**
+     * İki eksenli gruplama — ısı haritası. {@code splitBy} zorunlu, {@code groupBy}
+     * verilmezse zengin filtrenin kendi akıllı filtreleri satır ekseni olur.
+     */
+    @PostMapping("/{richFilterId}/matrix")
+    public ResponseEntity<Map<String, Object>> matrix(
+            @SuppressWarnings("unused") @PathVariable UUID teamId,
+            @PathVariable UUID richFilterId,
+            @RequestBody(required = false) RichFilterRuntimeRequest request
+    ) {
+        return ResponseEntity.ok(runtimeService.matrix(richFilterId, orEmpty(request)));
+    }
+
+    /**
+     * Verilen görevlerin akıllı filtre etiketleri — board/liste renklendirmesi.
+     * Filtrelemez, yalnız sınıflandırır: görevleri çağıran taraf kendi getirir.
+     */
+    @PostMapping("/{richFilterId}/classify")
+    public ResponseEntity<Map<String, Object>> classify(
+            @SuppressWarnings("unused") @PathVariable UUID teamId,
+            @PathVariable UUID richFilterId,
+            @RequestBody(required = false) RichFilterRuntimeRequest request
+    ) {
+        RichFilterRuntimeRequest body = orEmpty(request);
+        return ResponseEntity.ok(
+                runtimeService.classifyTasks(richFilterId, body.getTaskIds(), body.getProjectId()));
+    }
+
+    /**
+     * Sınıflandırma denetimi: hangi kural neyi sahipleniyor, kim kimin görevini
+     * alıyor, ne sınıflandırılmadan kalıyor (bkz. RICH_FILTER_PLAN.md — Ö5).
+     */
+    @GetMapping("/{richFilterId}/audit")
+    public ResponseEntity<Map<String, Object>> audit(
+            @SuppressWarnings("unused") @PathVariable UUID teamId,
+            @PathVariable UUID richFilterId,
+            @RequestParam(required = false) UUID projectId
+    ) {
+        return ResponseEntity.ok(auditService.audit(richFilterId, projectId));
+    }
+
+    /**
+     * Uyarı kuralını şimdi hesaplar — bildirim göndermez, durumu değiştirmez.
+     * Kuralı kurarken sayıyı görmek için bildirim tetiklemek doğru olmazdı.
+     */
+    @PostMapping("/{richFilterId}/alerts/{elementId}/preview")
+    public ResponseEntity<Map<String, Object>> previewAlert(
+            @SuppressWarnings("unused") @PathVariable UUID teamId,
+            @PathVariable UUID richFilterId,
+            @PathVariable UUID elementId
+    ) {
+        return ResponseEntity.ok(alertService.preview(richFilterId, elementId));
     }
 
     /** Gövdesiz istek "seçim yok" demektir — her uç boş seçimle de çalışır. */

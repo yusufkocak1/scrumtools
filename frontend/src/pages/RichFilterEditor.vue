@@ -268,10 +268,102 @@
               Dağılımı görmek için "Yenile"ye basın.
             </p>
           </div>
+
+          <!-- Denetim: sıranın gerçekte ne yaptığı -->
+          <div v-if="smartFilters.length" class="mt-6 bg-white rounded-xl border border-gray-100 p-5">
+            <div class="flex items-center justify-between">
+              <div>
+                <h2 class="text-sm font-semibold text-gray-700">Sınıflandırma denetimi</h2>
+                <p class="text-xs text-gray-400 mt-0.5 max-w-2xl">
+                  Bir kural kendi başına 60 göreve uyuyor olabilir ama önce gelen kurallar
+                  yüzünden yalnız 12'sini alıyor olabilir. Ekranda görünen tek sayı 12'dir;
+                  bu tablo aradaki farkı gösterir.
+                </p>
+              </div>
+              <button
+                class="text-xs text-purple-600 hover:text-purple-700 shrink-0"
+                :disabled="loadingAudit"
+                @click="loadAudit"
+              >
+                {{ loadingAudit ? 'Denetleniyor…' : 'Denetle' }}
+              </button>
+            </div>
+
+            <div v-if="audit" class="mt-4 space-y-3">
+              <div
+                v-for="row in audit.clauses"
+                :key="row.id"
+                class="rounded-lg border px-3 py-2.5"
+                :class="row.dead ? 'border-amber-200 bg-amber-50/50' : 'border-gray-100'"
+              >
+                <div class="flex items-center gap-2">
+                  <span class="w-3 h-3 rounded shrink-0" :style="{ backgroundColor: row.color || '#94A3B8' }"></span>
+                  <span class="text-xs font-medium text-gray-800 truncate">{{ row.name }}</span>
+                  <span class="ml-auto text-xs text-gray-500 tabular-nums shrink-0">
+                    <strong class="text-gray-800">{{ row.owned }}</strong> / {{ row.matched }}
+                  </span>
+                </div>
+
+                <p v-if="row.dead && row.matched > 0" class="mt-1 text-[11px] text-amber-700">
+                  Bu kural hiçbir görev sahiplenmiyor: uyduğu {{ row.matched }} görevin tamamını
+                  önce gelen kurallar alıyor. Sırayı değiştirin ya da kuralı daraltın.
+                </p>
+                <p v-else-if="row.dead" class="mt-1 text-[11px] text-amber-700">
+                  Bu kural hiçbir göreve uymuyor — sorgusu boş bir küme döndürüyor.
+                </p>
+                <p v-else-if="row.shadowed > 0" class="mt-1 text-[11px] text-gray-500">
+                  {{ row.shadowed }} görev önce gelen kurallara gidiyor:
+                  <span v-for="(taker, index) in row.takenBy" :key="taker.id">
+                    <span class="text-gray-700">{{ taker.name }}</span> ({{ taker.count }}){{ index < row.takenBy.length - 1 ? ', ' : '' }}
+                  </span>
+                </p>
+              </div>
+
+              <!-- Sınıflandırılmayanlar: sayı tek başına eyleme dönüşmez, örnek gerekir -->
+              <div
+                v-if="audit.unclassified?.count > 0"
+                class="rounded-lg border border-gray-100 px-3 py-2.5"
+              >
+                <div class="flex items-center gap-2">
+                  <span class="w-3 h-3 rounded shrink-0 bg-gray-300"></span>
+                  <span class="text-xs font-medium text-gray-800">Sınıflandırılmamış</span>
+                  <span class="ml-auto text-xs text-gray-500 tabular-nums">{{ audit.unclassified.count }}</span>
+                </div>
+
+                <ul class="mt-2 space-y-0.5">
+                  <li v-for="task in audit.unclassified.samples" :key="task.id">
+                    <router-link
+                      :to="`/task/${task.customId || task.id}`"
+                      class="flex items-center gap-2 text-[11px] text-gray-500 hover:text-purple-700"
+                    >
+                      <span class="font-mono text-gray-400 w-16 shrink-0 truncate">{{ task.customId }}</span>
+                      <span class="truncate">{{ task.title }}</span>
+                    </router-link>
+                  </li>
+                </ul>
+
+                <router-link
+                  v-if="audit.unclassified.stql"
+                  :to="{ path: `/workList/${teamId}`, query: { q: audit.unclassified.stql } }"
+                  class="mt-2 inline-block text-[11px] text-purple-600 hover:text-purple-700"
+                >
+                  Tümünü listede aç ({{ audit.unclassified.count }})
+                </router-link>
+              </div>
+
+              <p v-else class="text-[11px] text-green-600">
+                Temel sorgudaki {{ audit.total }} görevin tamamı sınıflandırıldı.
+              </p>
+            </div>
+
+            <p v-else-if="!loadingAudit" class="mt-4 text-xs text-gray-400">
+              Kural sırasının gerçekte ne yaptığını görmek için "Denetle"ye basın.
+            </p>
+          </div>
         </section>
 
         <!-- ─── Sabit / dinamik filtreler, görünümler, zaman serileri ──── -->
-        <section v-else-if="['static', 'dynamic', 'views', 'series'].includes(section)" class="px-8 py-6">
+        <section v-else-if="['static', 'dynamic', 'views', 'series', 'alerts'].includes(section)" class="px-8 py-6">
           <div class="flex items-start justify-between gap-4">
             <div>
               <h1 class="text-xl font-semibold text-gray-900">{{ currentSection?.label }}</h1>
@@ -296,6 +388,23 @@
                 <p class="text-sm text-gray-800 truncate">{{ element.name }}</p>
                 <p class="text-[11px] text-gray-400 truncate">{{ describeElement(element) }}</p>
               </div>
+
+              <!-- Uyarı kuralında anlık hesap: bildirim tetiklemeden sayıyı gör -->
+              <span
+                v-if="section === 'alerts' && alertPreview[element.id]"
+                class="shrink-0 text-[11px] px-2 py-1 rounded"
+                :class="alertPreview[element.id].tone"
+              >
+                {{ alertPreview[element.id].text }}
+              </span>
+              <button
+                v-if="section === 'alerts'"
+                class="shrink-0 text-[11px] px-2 py-1 rounded border border-gray-200 text-gray-500 hover:border-purple-300 hover:text-purple-700 transition-colors disabled:opacity-50"
+                :disabled="previewing === element.id"
+                @click="runAlertPreview(element)"
+              >
+                {{ previewing === element.id ? 'Hesaplanıyor…' : 'Şimdi hesapla' }}
+              </button>
 
               <!-- Serilerde geçmiş kurgusu: son 180 gün görev tarihçesinden -->
               <button
@@ -402,6 +511,16 @@
       @close="closeModal"
       @save="saveElement"
     />
+
+    <RatioAlertModal
+      v-if="modalOpen && section === 'alerts'"
+      :smart-filters="smartFilters"
+      :element="editing"
+      :saving="savingElement"
+      :error="elementError"
+      @close="closeModal"
+      @save="saveElement"
+    />
   </div>
 </template>
 
@@ -424,10 +543,12 @@ import SmartFilterModal from '../components/richfilter/SmartFilterModal.vue'
 import StaticFilterModal from '../components/richfilter/StaticFilterModal.vue'
 import DynamicFilterModal from '../components/richfilter/DynamicFilterModal.vue'
 import TimeSeriesModal from '../components/richfilter/TimeSeriesModal.vue'
+import RatioAlertModal from '../components/richfilter/RatioAlertModal.vue'
 import {
   getRichFilter, updateRichFilter, deleteRichFilter, duplicateRichFilter,
   addRichFilterElement, updateRichFilterElement, deleteRichFilterElement,
-  reorderRichFilterElements, backfillRichFilterSeries, smartField,
+  reorderRichFilterElements, backfillRichFilterSeries, auditRichFilter,
+  previewRichFilterAlert, smartField,
 } from '../api/RichFilterApi.js'
 import { getSavedFilters } from '../api/SavedFilterApi.js'
 import { aggregateQuery } from '../api/QueryApi.js'
@@ -461,6 +582,7 @@ const sections = [
   { key: 'dynamic', label: 'Dinamik filtreler', icon: '☰', ready: true },
   { key: 'views', label: 'Görünümler', icon: '👁', ready: true },
   { key: 'series', label: 'Zaman serileri', icon: '📈', ready: true },
+  { key: 'alerts', label: 'Uyarı kuralları', icon: '🔔', ready: true },
 ]
 
 /** Bölüm başına öğe türü — liste ve modal seçimi buradan sürülür. */
@@ -470,6 +592,7 @@ const SECTION_KIND = {
   dynamic: 'DYNAMIC_FILTER',
   views: 'VIEW',
   series: 'TIME_SERIES',
+  alerts: 'RATIO',
 }
 
 const SECTION_HINTS = {
@@ -482,6 +605,9 @@ const SECTION_HINTS = {
   series: 'Her gece bir akıllı filtrenin sayısı ölçülüp saklanır; pano bu ölçümlerin '
     + 'seyrini çizer. Geçmiş, görev tarihçesinden geriye dönük kurgulanabilir — '
     + 'grafiğin dolması için haftalarca beklemeye gerek yok.',
+  alerts: 'Oran hedefin dışına çıktığında bildirim gönderir. Her sabah 09:00\'da '
+    + 'değerlendirilir ve yalnız durum değiştiğinde konuşur — aynı uyarı her gün '
+    + 'tekrarlanmaz. Bildirim zengin filtreyi oluşturan kişiye gider.',
 }
 
 const SECTION_EMPTY = {
@@ -489,12 +615,14 @@ const SECTION_EMPTY = {
   dynamic: 'Henüz dinamik filtre yok.',
   views: 'Henüz görünüm yok — panodaki kontrolcüden bir seçim yapıp "Görünüm kaydet" deyin.',
   series: 'Henüz zaman serisi yok. Bir akıllı filtre seçip seri açın; ölçüm bu geceden başlar.',
+  alerts: 'Henüz uyarı kuralı yok.',
 }
 
 const CREATE_LABEL = {
   static: 'Sabit filtre oluştur',
   dynamic: 'Dinamik filtre oluştur',
   series: 'Zaman serisi oluştur',
+  alerts: 'Uyarı kuralı oluştur',
 }
 
 const currentSection = computed(() => sections.find(s => s.key === section.value))
@@ -559,6 +687,13 @@ function describeElement(element) {
     case 'TIME_SERIES': {
       const source = smartFilters.value.find(s => s.id === element.config?.smartFilterId)
       return source ? `Kaynak: ${source.name} · günlük sayım` : 'Kaynak: tüm sonuçlar · günlük sayım'
+    }
+    case 'RATIO': {
+      const numerator = smartFilters.value.find(s => s.id === element.config?.numeratorId)
+      const denominator = smartFilters.value.find(s => s.id === element.config?.denominatorId)
+      const target = Math.round((element.config?.target ?? 0) * 100)
+      const direction = element.config?.direction === 'lower_better' ? 'en fazla' : 'en az'
+      return `${numerator?.name || '—'} / ${denominator?.name || 'tüm sonuçlar'} · hedef ${direction} %${target}`
     }
     case 'VIEW': {
       const selection = element.config?.selection ?? {}
@@ -648,6 +783,56 @@ async function removeElement(element) {
   if (!confirm(`"${element.name}" silinsin mi?`)) return
   await deleteRichFilterElement(teamId.value, richFilterId.value, element.id)
   await reload()
+}
+
+// ─── Sınıflandırma denetimi ───────────────────────────────────────────────
+
+const audit = ref(null)
+const loadingAudit = ref(false)
+
+async function loadAudit() {
+  if (!teamId.value || !filter.value) return
+  loadingAudit.value = true
+  try {
+    audit.value = await auditRichFilter(teamId.value, richFilterId.value, projectId.value)
+  } catch (e) {
+    console.error('Denetim alınamadı', e)
+    audit.value = null
+  } finally {
+    loadingAudit.value = false
+  }
+}
+
+// ─── Uyarı kuralları ──────────────────────────────────────────────────────
+
+const previewing = ref(null)
+/** Kural id → { text, tone } — anlık hesap sonucu. */
+const alertPreview = ref({})
+
+async function runAlertPreview(element) {
+  previewing.value = element.id
+  try {
+    const result = await previewRichFilterAlert(teamId.value, richFilterId.value, element.id)
+    alertPreview.value = { ...alertPreview.value, [element.id]: describeAlert(result) }
+  } catch (e) {
+    alertPreview.value = {
+      ...alertPreview.value,
+      [element.id]: { text: e?.response?.data?.message || 'Hesaplanamadı', tone: 'bg-red-50 text-red-700' },
+    }
+  } finally {
+    previewing.value = null
+  }
+}
+
+function describeAlert(result) {
+  if (result.problem) return { text: result.problem, tone: 'bg-amber-50 text-amber-700' }
+
+  const percent = Math.round((result.ratio ?? 0) * 100)
+  const text = `${percent}% (${result.numerator}/${result.denominator})`
+  return {
+    text,
+    tone: result.breached ? 'bg-red-50 text-red-700' : 'bg-green-50 text-green-700',
+  }
 }
 
 // ─── Zaman serisi geçmişi ─────────────────────────────────────────────────

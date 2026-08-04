@@ -305,7 +305,12 @@ public class RichFilterService {
             throw new IllegalArgumentException("Akıllı filtrenin sorgusu boş olamaz.");
         }
         if (kind == RichFilterElementKind.TIME_SERIES) {
-            validateSeriesTarget(filter, request);
+            requireSmartReference(filter, request, "smartFilterId", "Zaman serisi", false);
+        }
+        if (kind == RichFilterElementKind.RATIO) {
+            requireSmartReference(filter, request, "numeratorId", "Uyarı kuralının payı", true);
+            requireSmartReference(filter, request, "denominatorId", "Uyarı kuralının paydası", false);
+            validateTarget(request);
         }
         if (request.getColor() != null && !request.getColor().isBlank()
                 && !request.getColor().matches("^#[0-9a-fA-F]{6}([0-9a-fA-F]{2})?$")) {
@@ -314,27 +319,47 @@ public class RichFilterService {
     }
 
     /**
-     * Zaman serisi bir akıllı filtreye bağlanır (boş bırakılırsa tüm sonuçlar).
+     * Bir config alanının bu zengin filtredeki akıllı filtreye işaret ettiğini doğrular.
      *
-     * Bağ kaydedilirken doğrulanır: var olmayan bir id, geçmişi kurgulanamayan ve
-     * gecelik iş her gece sessizce hata veren bir seri bırakırdı.
+     * Kaydederken doğrulanır: var olmayan bir id, gecelik işin her gece sessizce hata
+     * verdiği ölü bir seri ya da hiç tetiklenmeyen bir uyarı kuralı bırakırdı.
+     *
+     * @param required boşsa hata mı; zaman serisinde boş "tüm sonuçlar" demektir
      */
-    private void validateSeriesTarget(RichFilter filter, RichFilterElementRequest request) {
-        Object raw = request.getConfig() == null ? null : request.getConfig().get("smartFilterId");
-        if (raw == null || raw.toString().isBlank()) return;
+    private void requireSmartReference(RichFilter filter, RichFilterElementRequest request,
+                                       String key, String label, boolean required) {
+        Object raw = request.getConfig() == null ? null : request.getConfig().get(key);
+        if (raw == null || raw.toString().isBlank()) {
+            if (required) throw new IllegalArgumentException(label + " seçilmelidir.");
+            return;
+        }
 
         UUID smartId;
         try {
             smartId = UUID.fromString(raw.toString().trim());
         } catch (IllegalArgumentException e) {
-            throw new IllegalArgumentException("Zaman serisinin bağlandığı akıllı filtre geçersiz.");
+            throw new IllegalArgumentException(label + " geçersiz.");
         }
 
         boolean exists = filter.getElements().stream()
                 .anyMatch(e -> e.getKind() == RichFilterElementKind.SMART_FILTER && e.getId().equals(smartId));
         if (!exists) {
             throw new IllegalArgumentException(
-                    "Zaman serisi, bu zengin filtredeki bir akıllı filtreye bağlanmalıdır.");
+                    label + ", bu zengin filtredeki bir akıllı filtre olmalıdır.");
+        }
+    }
+
+    /** Uyarı hedefi bir oran: 0 ile 1 arasında. */
+    private void validateTarget(RichFilterElementRequest request) {
+        Object raw = request.getConfig() == null ? null : request.getConfig().get("target");
+        double target;
+        try {
+            target = raw instanceof Number number ? number.doubleValue() : Double.parseDouble(String.valueOf(raw));
+        } catch (NumberFormatException | NullPointerException e) {
+            throw new IllegalArgumentException("Uyarı hedefi bir yüzde olmalıdır.");
+        }
+        if (target < 0 || target > 1) {
+            throw new IllegalArgumentException("Uyarı hedefi %0 ile %100 arasında olmalıdır.");
         }
     }
 

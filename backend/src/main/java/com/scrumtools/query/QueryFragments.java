@@ -25,6 +25,12 @@ public final class QueryFragments {
         return single(condition(field, QueryOperator.IN, clauseNames));
     }
 
+    /** {@code smart["<zengin filtre>"] IS EMPTY} — hiçbir kurala uymayanlar. */
+    public static ParsedQuery smartIsEmpty(String richFilterName) {
+        String field = TaskFieldRegistry.SMART_FILTER_PREFIX + "[" + richFilterName + "]";
+        return single(condition(field, QueryOperator.IS_EMPTY, List.of()));
+    }
+
     /** {@code <alan> IN ("A", "B")} — dinamik filtre seçimleri için. */
     public static ParsedQuery fieldIn(String field, List<String> values) {
         return single(condition(field, QueryOperator.IN, values));

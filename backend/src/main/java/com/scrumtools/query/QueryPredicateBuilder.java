@@ -431,6 +431,18 @@ public final class QueryPredicateBuilder {
      * doğrudan veri tabanı davranışıdır — grafik gruplaması N ayrı sayım sorgusu
      * yerine tek sorguda çıkar (bkz. RICH_FILTER_PLAN.md — K5).
      */
+    /**
+     * Tek bir kuralın <b>kendi başına</b> eşleşmesi — sıra gözetmeden.
+     *
+     * Sınıflandırmanın "ilk eşleşen kazanır" kuralı normalde önceki kuralları da
+     * hesaba katar; denetim ekranı ise tam olarak bu farkı görünür kılmak için
+     * ham eşleşmeyi sorar: "bu kural 60 göreve uyuyor ama 42'sini alabiliyor,
+     * kalanı daha önce gelen kurallara gidiyor" (bkz. RICH_FILTER_PLAN.md — Ö5).
+     */
+    public Predicate clauseMatchPredicate(SmartClause clause) {
+        return clausePredicate(clause);
+    }
+
     public Expression<String> smartBucketExpression(List<SmartClause> clauses, String unclassifiedKey) {
         if (clauses == null || clauses.isEmpty()) {
             return cb.literal(unclassifiedKey);

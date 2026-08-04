@@ -12,13 +12,18 @@
             {{ loading ? 'Hesaplanıyor…' : `${total} görev` }}
           </p>
         </div>
-        <button
-          v-if="selectedSmart.length"
-          class="shrink-0 text-[11px] text-purple-600 hover:text-purple-700"
-          @click="setSmart([])"
-        >
-          Seçimi kaldır
-        </button>
+        <div class="shrink-0 flex items-center gap-2">
+          <button
+            v-if="selectedSmart.length"
+            class="text-[11px] text-purple-600 hover:text-purple-700"
+            @click="setSmart([])"
+          >
+            Seçimi kaldır
+          </button>
+          <button class="text-[10px] text-gray-300 hover:text-purple-600" title="CSV indir" @click="exportCsv">
+            CSV
+          </button>
+        </div>
       </div>
 
       <p v-if="!loading && !rows.length" class="py-6 text-center text-xs text-gray-400">
@@ -122,6 +127,7 @@ import { useRichFilterContext } from '../../composables/useRichFilterContext.js'
 import { useAutoRefresh } from '../../composables/useAutoRefresh.js'
 import { aggregateRichFilter, searchRichFilter, resolveRichFilter } from '../../api/RichFilterApi.js'
 import { colorFor } from '../../utils/chartPalette.js'
+import { downloadCsv } from '../../utils/widgetExport.js'
 
 const props = defineProps({
   teamId: { type: String, required: true },
@@ -174,6 +180,14 @@ const colorOf = (row) => colorFor(row, rows.value.indexOf(row))
 function share(row) {
   if (!total.value) return 0
   return Math.round((Number(row.value) || 0) / total.value * 100)
+}
+
+function exportCsv() {
+  downloadCsv(
+    props.title || definition.value?.name || 'kuyruk',
+    ['Kuyruk', 'Görev', 'Pay (%)'],
+    rows.value.map(row => [row.label, Number(row.value) || 0, share(row)]),
+  )
 }
 
 async function toggleExpand(row) {
