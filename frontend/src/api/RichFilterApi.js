@@ -102,6 +102,34 @@ export const resolveRichFilter = async (teamId, richFilterId, selection = {}) =>
     return data
 }
 
+// ─── Zaman serileri ──────────────────────────────────────────────────────────
+//
+// Seriler seçim nesnesi almaz: noktalar öğe başına önceden ölçülmüştür, geçmiş
+// çapraz filtrelemeyle yeniden hesaplanamaz (bkz. RICH_FILTER_PLAN.md — K23).
+
+/**
+ * Zengin filtrenin bütün zaman serileri.
+ * @param {number} [days] — pencere (varsayılan 90, azami 365)
+ * @param {'day'|'week'} [interval] — haftalıkta haftanın son değeri alınır
+ * @returns {Promise<Array<{elementId, name, color, points: Array<{date, value, source}>}>>}
+ */
+export const getRichFilterSeries = async (teamId, richFilterId, { days = null, interval = 'day' } = {}) => {
+    const { data } = await apiClient.get(`${base(teamId)}/${richFilterId}/series`, {
+        params: { ...(days ? { days } : {}), interval }
+    })
+    return data
+}
+
+/**
+ * Geçmişi `task_history` üzerinden kurgular — yalnız filtrenin sahibine açık.
+ * @returns {Promise<{status:'ok'|'unsupported'|'too_large'|'mismatch', reason, written, days}>}
+ */
+export const backfillRichFilterSeries = async (teamId, richFilterId, elementId) => {
+    const { data } = await apiClient.post(
+        `${base(teamId)}/${richFilterId}/series/${elementId}/backfill`)
+    return data
+}
+
 // ─── Öğeler ──────────────────────────────────────────────────────────────────
 
 /**

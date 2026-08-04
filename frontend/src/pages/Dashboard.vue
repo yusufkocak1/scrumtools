@@ -188,6 +188,7 @@ import RfChartWidget from '../components/dashboard/RfChartWidget.vue'
 import RfQueueWidget from '../components/dashboard/RfQueueWidget.vue'
 import RfRatioWidget from '../components/dashboard/RfRatioWidget.vue'
 import RfMultiStatWidget from '../components/dashboard/RfMultiStatWidget.vue'
+import RfTimeSeriesWidget from '../components/dashboard/RfTimeSeriesWidget.vue'
 import RfWidgetConfigModal from '../components/dashboard/RfWidgetConfigModal.vue'
 import { getDashboardLayout, saveDashboardLayout } from '../api/DashboardApi.js'
 import { getRichFilters } from '../api/RichFilterApi.js'
@@ -227,6 +228,7 @@ const richFilterWidgetTypes = [
   { type: 'RF_CHART', label: 'Zengin Filtre Grafiği', icon: '🍩', richFilter: true },
   { type: 'RF_QUEUE', label: 'Kuyruk Paneli', icon: '📥', richFilter: true },
   { type: 'RF_RATIO', label: 'Oran Göstergesi', icon: '🎯', richFilter: true },
+  { type: 'RF_TIME_SERIES', label: 'Zaman Serisi', icon: '📈', richFilter: true },
 ]
 
 const WIDGET_COMPONENT_MAP = {
@@ -243,6 +245,7 @@ const WIDGET_COMPONENT_MAP = {
   RF_CHART: RfChartWidget,
   RF_QUEUE: RfQueueWidget,
   RF_RATIO: RfRatioWidget,
+  RF_TIME_SERIES: RfTimeSeriesWidget,
 }
 
 function widgetComponent(type) {
@@ -292,6 +295,11 @@ const RF_WIDGET_PROPS = {
     measureIds: w.measureIds || [],
     showTotal: w.showTotal !== false,
     showShare: !!w.showShare,
+  }),
+  RF_TIME_SERIES: (w) => ({
+    elementIds: w.elementIds || [],
+    days: w.days || 90,
+    interval: w.interval || 'day',
   }),
 }
 

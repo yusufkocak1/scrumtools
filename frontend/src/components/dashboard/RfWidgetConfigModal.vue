@@ -197,6 +197,51 @@
         </div>
       </template>
 
+      <!-- ── Zaman serisi ─────────────────────────────────────────────── -->
+      <template v-else-if="type === 'RF_TIME_SERIES'">
+        <div>
+          <label class="block text-xs font-medium text-gray-600 mb-1.5">Seriler</label>
+          <p v-if="!timeSeries.length" class="text-[11px] text-amber-600">
+            Bu zengin filtrede zaman serisi tanımlı değil. Önce editörde seri tanımlayın;
+            geçmiş orada kurgulanır.
+          </p>
+          <div v-else class="space-y-1 max-h-40 overflow-y-auto">
+            <label v-for="element in timeSeries" :key="element.id"
+                   class="flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-gray-50 cursor-pointer">
+              <input type="checkbox" :value="element.id" v-model="draft.elementIds" class="accent-purple-600" />
+              <span class="w-2.5 h-2.5 rounded-sm" :style="{ backgroundColor: element.color || '#94A3B8' }"></span>
+              <span class="text-xs text-gray-700 truncate">{{ element.name }}</span>
+            </label>
+          </div>
+          <p class="mt-1 text-[11px] text-gray-400">
+            Hiçbiri seçilmezse hepsi çizilir.
+          </p>
+        </div>
+
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs font-medium text-gray-600 mb-1.5">Pencere</label>
+            <select v-model.number="draft.days" class="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:border-purple-400">
+              <option :value="30">Son 30 gün</option>
+              <option :value="90">Son 90 gün</option>
+              <option :value="180">Son 180 gün</option>
+              <option :value="365">Son 1 yıl</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-gray-600 mb-1.5">Aralık</label>
+            <select v-model="draft.interval" class="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:border-purple-400">
+              <option value="day">Günlük</option>
+              <option value="week">Haftalık</option>
+            </select>
+          </div>
+        </div>
+        <p class="text-[11px] text-gray-400 -mt-2">
+          Haftalık gösterimde haftanın son değeri alınır; günlük sayılar toplanmaz —
+          seri o an açık olan görev sayısıdır, bir akış değil.
+        </p>
+      </template>
+
       <!-- Tazeleme: bütün zengin filtre widget'larında ortak -->
       <div>
         <label class="block text-xs font-medium text-gray-600 mb-1.5">Kendiliğinden tazele</label>
@@ -259,6 +304,10 @@ const smartFilters = computed(() =>
   (props.richFilter?.elements || []).filter(e => e.kind === 'SMART_FILTER')
 )
 
+const timeSeries = computed(() =>
+  (props.richFilter?.elements || []).filter(e => e.kind === 'TIME_SERIES')
+)
+
 const draft = ref({
   title: props.richFilter?.name || '',
   refreshInterval: 0,
@@ -284,6 +333,10 @@ const draft = ref({
   measureIds: [],
   showTotal: true,
   showShare: false,
+  // zaman serisi
+  elementIds: [],
+  days: 90,
+  interval: 'day',
 })
 
 const canSave = computed(() => props.type !== 'RF_RATIO' || !!draft.value.numeratorId)
@@ -316,6 +369,11 @@ function submit() {
       measureIds: [...d.measureIds],
       showTotal: !!d.showTotal,
       showShare: !!d.showShare,
+    }),
+    RF_TIME_SERIES: () => ({
+      elementIds: [...d.elementIds],
+      days: clamp(d.days, 7, 365, 90),
+      interval: d.interval === 'week' ? 'week' : 'day',
     }),
   }
 

@@ -25,13 +25,20 @@ public enum RichFilterElementKind {
     /** Seçimlerin adlandırılmış hâli — config.selection. */
     VIEW,
 
-    /** Akıllı filtrelerden oluşan sayaçlı liste paneli — config.smartFilterIds[]. */
+    /**
+     * Akıllı filtrelerden oluşan sayaçlı liste paneli.
+     *
+     * Kullanılmıyor: kuyruk, tanımın değil <b>panonun</b> bir kararı çıktı ve
+     * {@code RF_QUEUE} widget'ının yapılandırmasında taşınıyor (K21). Aynı
+     * sınıflandırmayı iki panoda farklı kuyruk düzeniyle göstermek, tanımı
+     * değiştirmeyi gerektirmesin diye.
+     */
     QUEUE,
 
-    /** Görev başına türetilmiş sayı (yaş, çevrim süresi) — config.kind. */
+    /** Görev başına türetilmiş sayı (yaş, çevrim süresi) — config.kind. Henüz kullanılmıyor. */
     CUSTOM_VALUE,
 
-    /** İki ölçünün oranı — config.numerator / config.denominator. */
+    /** İki ölçünün oranı. Kuyrukla aynı gerekçeyle widget yapılandırmasına taşındı (K21). */
     RATIO,
 
     /** Bir ölçünün zaman içindeki seyri — config.interval / config.window. */

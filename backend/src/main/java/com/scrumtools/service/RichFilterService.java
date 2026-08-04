@@ -50,6 +50,7 @@ public class RichFilterService {
 
     private final RichFilterRepository richFilterRepository;
     private final RichFilterElementRepository elementRepository;
+    private final RichFilterSeriesPointRepository seriesPointRepository;
     private final SavedFilterRepository savedFilterRepository;
     private final TeamRepository teamRepository;
     private final TeamMemberRepository teamMemberRepository;
@@ -141,6 +142,8 @@ public class RichFilterService {
     public void delete(UUID richFilterId) {
         User user = currentUser();
         RichFilter filter = requireOwned(richFilterId, user);
+        // Zaman serisi noktaları öğelere dışarıdan bağlı; cascade onları kapsamaz.
+        seriesPointRepository.deleteByElementRichFilterId(richFilterId);
         richFilterRepository.delete(filter);
     }
 
@@ -245,6 +248,7 @@ public class RichFilterService {
         RichFilter filter = requireOwned(richFilterId, user);
 
         RichFilterElement element = requireElement(filter, elementId);
+        seriesPointRepository.deleteByElementId(elementId);
         filter.getElements().remove(element);
         elementRepository.delete(element);
     }
@@ -300,9 +304,37 @@ public class RichFilterService {
                 && (request.getQuery() == null || request.getQuery().isBlank())) {
             throw new IllegalArgumentException("Akıllı filtrenin sorgusu boş olamaz.");
         }
+        if (kind == RichFilterElementKind.TIME_SERIES) {
+            validateSeriesTarget(filter, request);
+        }
         if (request.getColor() != null && !request.getColor().isBlank()
                 && !request.getColor().matches("^#[0-9a-fA-F]{6}([0-9a-fA-F]{2})?$")) {
             throw new IllegalArgumentException("Renk #RRGGBB biçiminde olmalıdır.");
+        }
+    }
+
+    /**
+     * Zaman serisi bir akıllı filtreye bağlanır (boş bırakılırsa tüm sonuçlar).
+     *
+     * Bağ kaydedilirken doğrulanır: var olmayan bir id, geçmişi kurgulanamayan ve
+     * gecelik iş her gece sessizce hata veren bir seri bırakırdı.
+     */
+    private void validateSeriesTarget(RichFilter filter, RichFilterElementRequest request) {
+        Object raw = request.getConfig() == null ? null : request.getConfig().get("smartFilterId");
+        if (raw == null || raw.toString().isBlank()) return;
+
+        UUID smartId;
+        try {
+            smartId = UUID.fromString(raw.toString().trim());
+        } catch (IllegalArgumentException e) {
+            throw new IllegalArgumentException("Zaman serisinin bağlandığı akıllı filtre geçersiz.");
+        }
+
+        boolean exists = filter.getElements().stream()
+                .anyMatch(e -> e.getKind() == RichFilterElementKind.SMART_FILTER && e.getId().equals(smartId));
+        if (!exists) {
+            throw new IllegalArgumentException(
+                    "Zaman serisi, bu zengin filtredeki bir akıllı filtreye bağlanmalıdır.");
         }
     }
 

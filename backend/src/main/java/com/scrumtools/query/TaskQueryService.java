@@ -151,22 +151,52 @@ public class TaskQueryService {
         return countMatching(em.getCriteriaBuilder(), buildContext(teamId, projectId), parsed);
     }
 
+    /**
+     * Bağlamı çağıranın kurduğu sayım.
+     *
+     * Zamanlanmış işler oturum taşımaz: {@code currentUser()} ve zengin filtre
+     * görünürlüğü {@link SecurityContextHolder} üzerinden çözülemez, bağlamın
+     * dışarıdan verilmesi gerekir (bkz. RICH_FILTER_PLAN.md — K13).
+     */
+    @Transactional(readOnly = true)
+    public long count(QueryContext ctx, ParsedQuery parsed) {
+        return countMatching(em.getCriteriaBuilder(), ctx, parsed);
+    }
+
     // ─── Bağlam ───────────────────────────────────────────────────────────────
 
     public QueryContext buildContext(UUID teamId, UUID projectId) {
+        return buildContext(teamId, projectId, currentUserEmail(), null);
+    }
+
+    /**
+     * @param userEmail     {@code currentUser()} bunu döndürür; oturum yoksa çağıran verir
+     * @param smartOverride belirli zengin filtreleri kayıt aramadan çözen kaynak;
+     *                      null döndürdüğü adlar normal katalogdan çözülür
+     */
+    public QueryContext buildContext(UUID teamId, UUID projectId, String userEmail,
+                                     QueryContext.SmartFilterResolver smartOverride) {
         // Aynı sorguda birden çok smart[…] koşulu aynı zengin filtreye bakabilir;
         // çözüm bağlam ömrü boyunca hatırlanır, her koşul için tekrar sorulmaz.
         Map<String, List<SmartClause>> smartCache = new HashMap<>();
 
+        QueryContext.SmartFilterResolver resolver = (tid, name) -> {
+            if (smartOverride != null) {
+                List<SmartClause> forced = smartOverride.clausesOf(tid, name);
+                if (forced != null) return forced;
+            }
+            return smartCache.computeIfAbsent(
+                    name == null ? "" : name.toLowerCase(Locale.ROOT),
+                    _ -> smartFilterCatalog.clausesOf(tid, name));
+        };
+
         return new QueryContext(
                 teamId,
                 projectId,
-                currentUserEmail(),
+                userEmail,
                 (tid, status) -> sprintRepository.findByTeamIdAndStatus(tid, status)
                         .stream().map(Sprint::getId).toList(),
-                (tid, name) -> smartCache.computeIfAbsent(
-                        name == null ? "" : name.toLowerCase(Locale.ROOT),
-                        _ -> smartFilterCatalog.clausesOf(tid, name)),
+                resolver,
                 LocalDateTime.now());
     }
 

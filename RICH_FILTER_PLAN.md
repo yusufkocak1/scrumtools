@@ -2,12 +2,13 @@
 
 > Jira'daki **Rich Filters for Jira Dashboards** eklentisinin ScrumTools karşılığı.
 >
-> **Durum: Faz 0–5 yazıldı** (2026-08-04) — gruplama altyapısı, zengin filtre CRUD'u,
+> **Durum: Faz 0–6 yazıldı** (2026-08-04) — gruplama altyapısı, zengin filtre CRUD'u,
 > akıllı filtre sınıflandırma motoru, STQL `smart[…]` alanı, yönetim ekranı, dashboard
-> entegrasyonu (kontrolcü + sayaç + çoklu ölçü + liste + grafik + kuyruk + oran
-> widget'ları, çapraz filtreleme, URL'ye yansıyan seçim), grafikten göreve drill-down,
-> sabit/dinamik filtreler, görünümler ve kendiliğinden tazeleme çalışır durumda.
-> Faz 6'dan itibaren (zaman serileri, ısı haritası, bildirimler) plan hâlâ plan — §11.
+> entegrasyonu (kontrolcü + sayaç + çoklu ölçü + liste + grafik + kuyruk + oran +
+> zaman serisi widget'ları, çapraz filtreleme, URL'ye yansıyan seçim), grafikten göreve
+> drill-down, sabit/dinamik filtreler, görünümler, kendiliğinden tazeleme ve
+> `task_history`'den geriye dönük kurgulanan zaman serileri çalışır durumda.
+> Faz 7 (ısı haritası, board renklendirme, bildirimler, dışa aktarma) hâlâ plan — §11.
 >
 > Önkoşul dokümanlar:
 > [TASK_QUERY_LANGUAGE.md](TASK_QUERY_LANGUAGE.md) · [DASHBOARD_WIDGET_ROADMAP.md](DASHBOARD_WIDGET_ROADMAP.md)
@@ -294,7 +295,8 @@ Tanım uçları — `/api/teams/{teamId}/rich-filters`:
 | `POST /{id}/aggregate` | `groupBy: <alan> \| "smart"`, ops. `splitBy` → `[{key,label,color,value}]` |
 | `POST /{id}/options` | Tüm dinamik filtrelerin güncel seçenekleri + sayıları (tek gidiş-dönüş) |
 | ~~`POST /{id}/ratio/{eid}`~~ | **yazılmadı** — `aggregate` yeterli, bkz. K21 |
-| `POST /{id}/series/{eid}` | `[{ date, value }]` |
+| `GET /{id}/series?days=&interval=` | Tüm zaman serileri: `[{elementId, name, color, points:[{date,value,source}]}]` — bkz. K23 |
+| `POST /{id}/series/{eid}/backfill` | Geçmişi `task_history`'den kurgular: `{status, reason, written}` |
 | `POST /{id}/resolve` | `{ stql, count }` — drill-down linki ve önizleme için |
 
 ### K8 — `resolve` ucu: grafikten göreve giden köprü
@@ -330,6 +332,17 @@ STQL paylı oranlar — "story point toplamının saat toplamına oranı" gibi �
 Böyle bir ihtiyaç somutlaşırsa uç o zaman eklenir; şimdiden eklemek, kullanılmayan bir
 API yüzeyini bakıma mahkûm etmek olurdu.
 
+### K23 — Zaman serisi seçimden etkilenmez, öğe başına önceden ölçülür
+
+Diğer bütün widget'lar seçim nesnesini gövdede taşır ve sonucu canlı hesaplar. Zaman
+serisi taşıyamaz: geçmişteki satır artık yok, çapraz filtreleme geçmişi yeniden
+hesaplayamaz. Bu yüzden uç `GET`'tir, seçim almaz ve **bir zengin filtrenin bütün
+serilerini tek istekte** döner — grafik genelde birden çok çizgi gösterir, öğe başına
+istek aynı pencerede N gidiş-dönüş demek olurdu.
+
+Seçim yine de anlamlıdır: seçili kategoriye bağlı çizgi öne çıkar, diğerleri solar.
+Pano daraltıldığında grafik "ilgisiz" değil, "odaklanmış" görünür.
+
 ### K22 — Tazeleme sekme görünürlüğüne bağlı
 
 `refreshInterval` widget yapılandırmasında taşınır (alt sınır 15 sn) ve
@@ -355,7 +368,7 @@ anda olmasında.
 | `RF_QUEUE` ✅ | Kuyruk paneli — akıllı filtre başına sayaç, pay şeridi ve açılır görev listesi |
 | `RF_RATIO` ✅ | Gösterge (gauge) + hedef çizgisi — pay/payda akıllı filtrelerden (K21) |
 | `RF_HEATMAP` | İki boyutlu matris (`groupBy` × `splitBy`) — ör. atanan × öncelik |
-| `RF_TIME_SERIES` | Zaman serisi çizgisi |
+| `RF_TIME_SERIES` ✅ | Zaman serisi çizgisi — kurgulanan geçmiş kesikli (K13, K23) |
 
 Widget kaydı yine `UserDashboard.layout` JSONB'sinde durur (roadmap K6 kararı korunur):
 
@@ -415,6 +428,37 @@ değişimZamanı) var; bu, geçmişi **yeniden kurmayı** mümkün kılıyor.
 Bu ayrım küçük ama önemli: gerçek hayatta zaman serisi istenen akıllı filtrelerin büyük
 çoğunluğu durum tabanlıdır (ekrandaki yedi kategorinin altısı gibi), yani ilk günden
 dolu grafik verir.
+
+### Uygulama (Faz 6)
+
+Kurgu `query/SeriesReplay.java` içinde, **bilinçli olarak dar** bir değerlendirici:
+
+| | Kapsam |
+|---|---|
+| Kurgulanan alanlar | `status`, `priority`, `assignee`, `summary` — `AuditService.recordChange` çağrılarından türetildi |
+| Sabit sayılan alanlar | `key`, `reporter` — hiçbir güncelleme yolunda değişmiyor |
+| Operatörler | `=`, `!=`, `~`, `!~`, `IN`, `NOT IN`, `IS EMPTY`, `IS NOT EMPTY` |
+| Kapsam dışı | sayısal/tarihsel karşılaştırmalar, `sprint`/`project`/`release`/`labels`, `resolution`, `type` |
+
+`resolution` ve `type` neden yok? İkisi de **değişebiliyor ama tarihçeye yazılmıyor**.
+"Değişmemiş" saymak, dün çözülmüş bir görevi 180 gün boyunca çözülmüş göstermek olurdu —
+sessizce yanlış bir geçmiş. Kapsam dışı bırakmak, eksik geçmişi tercih etmektir.
+
+**Öz denetim.** Kurgu, yazmadan önce bugünün kurgulanmış değerini SQL'in verdiği değerle
+karşılaştırır; tutmuyorsa hiçbir nokta yazılmaz (`status: "mismatch"`). İki
+değerlendirici arasındaki olası bir semantik kayması böylece yanlış veriye değil, eksik
+veriye dönüşür — §13/9'daki "tek semantik" ilkesinin ihlal edilemediği tek yerde alınan
+sigorta.
+
+**Yürüyüş.** Geriye doğru gün gün: her gün için o günün sonundan sonra olmuş değişiklikler
+ters uygulanır, o gün henüz oluşturulmamış görevler sayımdan düşer. Bütün görevleri her
+gün yeniden değerlendirmek yerine yalnız durumu değişen görev yeniden değerlendirilir;
+maliyet gün×görev değil, değişiklik sayısı kadardır. Tavanlar: 50.000 görev, 200.000
+değişiklik.
+
+**Kaynak ayrımı saklanıyor.** Her noktanın `source` alanı (`SNAPSHOT` | `REPLAY`) var;
+grafik kurgulanan bölümü kesikli çizer. Ölçülen değerle tahmini aynı çizgide birleştirmek,
+bakan kişinin güvenilirlik farkını görmesini engellerdi.
 
 ---
 
@@ -529,7 +573,7 @@ Roadmap dokümanına bu yönde bir not düşülmeli.
 | **3** ✅ | `RF_CHART` (pasta/halka/çubuk, `groupBy: smart\|alan`), dilime tıkla → daralt, "Görevlerde aç" | Grafikli dashboard | 2–3 gün |
 | **4** ✅ | Dinamik filtreler, sabit filtreler, görünümler (`/options` ucu) | Tam etkileşimli kontrol çubuğu | 3 gün |
 | **5** ✅ | Kuyruklar, `RF_RATIO` (gauge), `RF_MULTI_STAT`, eşik renkleri, `refreshInterval`, ortak yapılandırma adımı (K21) | Jira paritesi | 3 gün |
-| **6** | Zaman serileri: snapshot işi + `task_history` backfill + `RF_TIME_SERIES` | Tarihsel analiz | 4–5 gün |
+| **6** ✅ | Zaman serileri: gecelik snapshot işi + `task_history` backfill (`SeriesReplay`) + `RF_TIME_SERIES` | Tarihsel analiz | 4–5 gün |
 | **7** | Ö2 (board renklendirme), Ö3 (oran → bildirim), Ö5 (denetim ekranı), `RF_HEATMAP`, dışa aktarma | Ayrıştırıcı özellikler | ayrı değerlendirme |
 
 **Önerilen ilk teslim: Faz 0–3 (~12–15 gün).** Bu dört faz sonunda kullanıcı ekran
@@ -564,7 +608,11 @@ Faz 1 içindeki sıra önemli: **önce `CASE` sınıflandırma motoru, sonra `sm
 | `service/RichFilterService.java` | ✅ yazıldı — CRUD + görünürlük (K14) |
 | `service/RichFilterRuntimeService.java` | ✅ yazıldı — seçim çözme, search/count/aggregate/resolve (`/options` Faz 4) |
 | `query/QueryFragments.java` | ✅ yazıldı — seçimlerden koşul düğümü üreten fabrika |
-| `service/RichFilterSeriesService.java` + zamanlanmış iş | Faz 6 (K13) |
+| `service/RichFilterSeriesService.java` | ✅ yazıldı — gecelik snapshot (`@Scheduled`), backfill, okuma (K13) |
+| `query/SeriesReplay.java` | ✅ yazıldı — geçmişi kurgulayan dar değerlendirici (§13/25) |
+| `entity/RichFilterSeriesPoint.java`, `enums/SeriesPointSource.java`, `repository/RichFilterSeriesPointRepository.java` | ✅ yazıldı |
+| `repository/TaskHistoryRepository.java` | takım/proje kapsamlı, alan filtreli değişiklik akışı (yeniden eskiye) |
+| `query/TaskQueryService.java` | oturumsuz bağlam kurulumu — zamanlanmış iş `SecurityContext` taşımaz |
 | `controller/RichFilterController.java` | yeni |
 | `service/DashboardService.java` | yeni widget tiplerinin doğrulaması, yetim referans temizliği (K15) |
 
@@ -580,7 +628,9 @@ Faz 1 içindeki sıra önemli: **önce `CASE` sınıflandırma motoru, sonra `sm
 | `composables/useAutoRefresh.js` | ✅ yazıldı — `refreshInterval`, sekme görünürlüğüne duyarlı (K22) |
 | `pages/RichFilters.vue`, `pages/RichFilterEditor.vue` | ✅ yazıldı — sol menülü yönetim ekranı |
 | `components/richfilter/SmartFilterModal.vue` | ✅ yazıldı — sorgu editörü + renk paleti; liste ve sürükleme editör sayfasında |
-| `components/richfilter/DynamicFilterEditor.vue`, `StaticFilterEditor.vue`, `ViewList.vue`, `QueueEditor.vue`, `RatioEditor.vue` | Faz 4–5 |
+| `components/richfilter/DynamicFilterModal.vue`, `StaticFilterModal.vue` | ✅ yazıldı; görünüm listesi editör sayfasında |
+| `components/richfilter/TimeSeriesModal.vue` | ✅ yazıldı — seri bir akıllı filtreye bağlanır, kendi sorgusunu taşımaz |
+| `components/dashboard/RfTimeSeriesWidget.vue` | ✅ yazıldı — çok çizgili, kurgulanan bölüm kesikli (K13, K23) |
 | `components/richfilter/RichFilterToolbar.vue` | yeni — `RF_CONTROLLER` gövdesi |
 | `components/dashboard/RfStatWidget.vue`, `RfResultsWidget.vue`, `RfChartWidget.vue`, `RfQueueWidget.vue`, `RfRatioWidget.vue`, `RfTimeSeriesWidget.vue` | yeni |
 | `utils/chartPalette.js` | ✅ yazıldı — ortak renk sözlüğü (K12) |
@@ -623,6 +673,9 @@ Uygulama sırasında verilen kararlar:
 | 21 | **`/ratio` ucu yazılmadı; oran ve çoklu ölçü `aggregate` kovalarından okunuyor** (K21). | Pay/payda akıllı filtre olduğu sürece ikisi de zaten tek `CASE WHEN` sorgusunun kovaları. Ayrı uç aynı sayıyı ikinci bir kod yolundan hesaplar, iki yol zamanla ayrışır ve "gösterge %40 diyor, dilim başka diyor" durumu doğardı. Bedeli: serbest STQL paylı oranlar bu sürümde yok. |
 | 22 | **Kendiliğinden tazeleme sekme görünürlüğüne bağlı** (`useAutoRefresh`, alt sınır 15 sn) (K22). | Tarayıcı arka plan zamanlayıcılarını kısar ama durdurmaz; koruma olmadan açık unutulmuş bir pano günlerce istek atardı. Gizliyken tur atlanır, dönüşte bir kez tazelenir — kullanıcı baktığı anda veri gündemdir. |
 | 23 | **Widget yapılandırması tek panelde toplandı** (`RfWidgetConfigModal.vue`); ekleme akışı her zaman üç adım: tip → zengin filtre → ayar. | Faz 4'e kadar yalnız grafiğin yapılandırma adımı vardı ve Dashboard şablonuna gömülüydü. Kuyruk/oran/çoklu ölçü ile birlikte tip başına adım yazmak beş dallı bir şablon demekti; ortak alanlar (başlık, tazeleme) bir kez, tipe özel alanlar tek dalda tanımlanıyor. |
+| 24 | **`QUEUE` / `RATIO` öğe türleri kullanılmadı**; kuyruk ve oran, zengin filtrenin tanımında değil panodaki widget'ın yapılandırmasında duruyor. Editördeki "Kuyruklar" ve "Özel oranlar" bölümleri kaldırıldı. | Aynı sınıflandırmayı iki panoda farklı kuyruk düzeniyle göstermek isteyen kullanıcı, paylaşılan tanımı değiştirmek zorunda kalmamalı. Enum değerleri yerinde bırakıldı: ileride tanıma taşınırsa şema değişmeden geri gelir. |
+| 25 | **Geçmiş kurgusu ayrı ve dar bir değerlendiriciyle** (`SeriesReplay`), yazmadan önce bugünü SQL'e doğrulatarak yapılıyor (K13). | "Tek semantik" ilkesinin (§13/9) kaçınılmaz istisnası: geçmişteki satır veri tabanında yok, SQL'e sorulamaz. İkinci semantiğin riski iki şeyle sınırlandı — kapsam bilinçli olarak küçük (4 kurgulanabilir alan, metin operatörleri) ve öz denetim tutmuyorsa hiçbir nokta yazılmıyor. |
+| 26 | **Seri, tarihçede izlenmeyen alana dayanıyorsa kurgu yapılmıyor** (`status: "unsupported"`), sebebiyle birlikte kullanıcıya söyleniyor. | `resolution`, `type` gibi alanlar değişebiliyor ama tarihçeye yazılmıyor; "değişmemiş" saymak dün çözülmüş bir görevi 180 gün çözülmüş göstermek olurdu. Eksik geçmiş, yanlış geçmişten iyidir — ve kullanıcı neyi düzeltmesi gerektiğini görür. |
 
 Hâlâ açık:
 
