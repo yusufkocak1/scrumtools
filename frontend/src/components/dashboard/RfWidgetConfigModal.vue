@@ -296,10 +296,10 @@
       :disabled="!canSave"
       @click="submit"
     >
-      Ekle
+      {{ submitLabel }}
     </button>
     <button class="mt-2 w-full text-sm text-gray-500 hover:text-gray-700" @click="emit('back')">
-      Geri
+      {{ initial ? 'İptal' : 'Geri' }}
     </button>
   </div>
 </template>
@@ -315,6 +315,11 @@
  *
  * Çıktı düz bir nesnedir; dashboard düzeni JSONB'de bu alanlarla saklanır
  * (bkz. RICH_FILTER_PLAN.md — §7).
+ *
+ * Aynı panel var olan bir widget'ı düzenlemek için de kullanılır: `initial`
+ * verildiğinde taslak o widget'tan doldurulur. Ayrı bir düzenleme paneli yazmak,
+ * iki formun zamanla ayrışması demekti — yeni bir ayar eklendiğinde biri
+ * güncellenip diğeri unutulur, kullanıcı ayarı yalnız eklerken görürdü.
  */
 import { ref, computed } from 'vue'
 import { REFRESH_OPTIONS } from '../../composables/useAutoRefresh.js'
@@ -325,6 +330,9 @@ const props = defineProps({
   richFilter: { type: Object, required: true },
   groupableFields: { type: Array, default: () => [] },
   summableFields: { type: Array, default: () => [] },
+  /** Düzenleme kipinde mevcut widget ayarları; ekleme kipinde null. */
+  initial: { type: Object, default: null },
+  submitLabel: { type: String, default: 'Ekle' },
 })
 
 const emit = defineEmits(['save', 'back'])
@@ -343,37 +351,77 @@ const timeSeries = computed(() =>
   (props.richFilter?.elements || []).filter(e => e.kind === 'TIME_SERIES')
 )
 
-const draft = ref({
-  title: props.richFilter?.name || '',
-  refreshInterval: 0,
-  // grafik / ısı haritası
-  groupBy: '',
-  splitBy: 'priority',
-  metric: 'count',
-  chart: 'donut',
-  // sayaç
-  warn: null,
-  danger: null,
-  // liste
-  limit: 8,
-  // kuyruk
-  smartIds: [],
-  hideEmpty: false,
-  taskLimit: 5,
-  // oran
-  numeratorId: smartFilters.value[0]?.id || '',
-  denominatorId: '',
-  targetPercent: 80,
-  direction: 'higher_better',
-  // çoklu ölçü
-  measureIds: [],
-  showTotal: true,
-  showShare: false,
-  // zaman serisi
-  elementIds: [],
-  days: 90,
-  interval: 'day',
-})
+/**
+ * Taslak: önce her tip için makul varsayılanlar, sonra düzenleme kipinde
+ * mevcut widget'ın değerleri. Kaydedilen düzen yalnız tipin kullandığı alanları
+ * taşıdığı için (bkz. submit), eksik alanlar varsayılanlarıyla kalır.
+ */
+function initialDraft() {
+  const base = {
+    title: props.richFilter?.name || '',
+    refreshInterval: 0,
+    // grafik / ısı haritası
+    groupBy: '',
+    splitBy: 'priority',
+    metric: 'count',
+    chart: 'donut',
+    // sayaç
+    warn: null,
+    danger: null,
+    // liste
+    limit: 8,
+    // kuyruk
+    smartIds: [],
+    hideEmpty: false,
+    taskLimit: 5,
+    // oran
+    numeratorId: smartFilters.value[0]?.id || '',
+    denominatorId: '',
+    targetPercent: 80,
+    direction: 'higher_better',
+    // çoklu ölçü
+    measureIds: [],
+    showTotal: true,
+    showShare: false,
+    // zaman serisi
+    elementIds: [],
+    days: 90,
+    interval: 'day',
+  }
+
+  const w = props.initial
+  if (!w) return base
+
+  // Depolanan biçim ile form biçimi iki yerde ayrışır: eşikler bir nesne
+  // içinde, hedef 0–1 arası oran olarak saklanır. Dönüşüm burada tersine çevrilir.
+  return {
+    ...base,
+    title: w.title ?? base.title,
+    refreshInterval: Number(w.refreshInterval) || 0,
+    groupBy: w.groupBy ?? base.groupBy,
+    splitBy: w.splitBy ?? base.splitBy,
+    metric: w.metric ?? base.metric,
+    chart: w.chart ?? base.chart,
+    warn: Number.isFinite(w.threshold?.warn) ? w.threshold.warn : null,
+    danger: Number.isFinite(w.threshold?.danger) ? w.threshold.danger : null,
+    limit: w.limit ?? base.limit,
+    smartIds: [...(w.smartIds || [])],
+    hideEmpty: !!w.hideEmpty,
+    taskLimit: w.taskLimit ?? base.taskLimit,
+    numeratorId: w.numeratorId || base.numeratorId,
+    denominatorId: w.denominatorId || '',
+    targetPercent: Number.isFinite(w.target) ? Math.round(w.target * 100) : null,
+    direction: w.direction ?? base.direction,
+    measureIds: [...(w.measureIds || [])],
+    showTotal: w.showTotal !== false,
+    showShare: !!w.showShare,
+    elementIds: [...(w.elementIds || [])],
+    days: w.days ?? base.days,
+    interval: w.interval ?? base.interval,
+  }
+}
+
+const draft = ref(initialDraft())
 
 const canSave = computed(() => props.type !== 'RF_RATIO' || !!draft.value.numeratorId)
 

@@ -1,5 +1,7 @@
 package com.scrumtools.controller;
 
+import com.scrumtools.dto.DashboardRequest;
+import com.scrumtools.dto.DashboardResponse;
 import com.scrumtools.service.DashboardService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -7,10 +9,15 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 
 /**
- * Faz 6 — Kişisel dashboard layout CRUD
+ * Pano CRUD — takım altında çoklu pano.
  * Base: /api/dashboards
+ *
+ * Önceki sürüm kullanıcı başına tek düzen tutuyordu ve uçlar da öyleydi
+ * ({@code GET /api/dashboards} düz bir widget dizisi dönerdi). Artık liste
+ * panoları döner; düzen panonun içindedir.
  */
 @RestController
 @RequiredArgsConstructor
@@ -19,28 +26,48 @@ public class DashboardController {
 
     private final DashboardService dashboardService;
 
+    /** Takımda görülebilen panolar — kendininkiler + takıma açılanlar. */
     @GetMapping
-    public ResponseEntity<List<Map<String, Object>>> getLayout() {
-        return ResponseEntity.ok(dashboardService.getLayout());
+    public ResponseEntity<List<DashboardResponse>> list(@RequestParam UUID teamId) {
+        return ResponseEntity.ok(dashboardService.list(teamId));
     }
 
-    @PutMapping
-    public ResponseEntity<List<Map<String, Object>>> saveLayout(
-            @RequestBody List<Map<String, Object>> layout
-    ) {
-        return ResponseEntity.ok(dashboardService.saveLayout(layout));
+    @GetMapping("/{dashboardId}")
+    public ResponseEntity<DashboardResponse> get(@PathVariable UUID dashboardId) {
+        return ResponseEntity.ok(dashboardService.get(dashboardId));
     }
 
-    @PutMapping("/widgets")
-    public ResponseEntity<List<Map<String, Object>>> upsertWidget(
-            @RequestBody Map<String, Object> widget
-    ) {
-        return ResponseEntity.ok(dashboardService.upsertWidget(widget));
+    @PostMapping
+    public ResponseEntity<DashboardResponse> create(@RequestParam UUID teamId,
+                                                    @RequestBody DashboardRequest request) {
+        return ResponseEntity.ok(dashboardService.create(teamId, request));
     }
 
-    @DeleteMapping("/widgets/{widgetId}")
-    public ResponseEntity<List<Map<String, Object>>> removeWidget(@PathVariable String widgetId) {
-        return ResponseEntity.ok(dashboardService.removeWidget(widgetId));
+    /** Ad / görünürlük / sıra ve — gönderilmişse — düzen. */
+    @PutMapping("/{dashboardId}")
+    public ResponseEntity<DashboardResponse> update(@PathVariable UUID dashboardId,
+                                                    @RequestBody DashboardRequest request) {
+        return ResponseEntity.ok(dashboardService.update(dashboardId, request));
+    }
+
+    /** Yalnız düzen — sürükle/boyutlandır sonrası çağrılan hafif yol. */
+    @PutMapping("/{dashboardId}/layout")
+    public ResponseEntity<DashboardResponse> saveLayout(@PathVariable UUID dashboardId,
+                                                        @RequestBody List<Map<String, Object>> layout) {
+        return ResponseEntity.ok(dashboardService.saveLayout(dashboardId, layout));
+    }
+
+    /** Panoyu kendi adına kopyalar; kopya PRIVATE başlar. */
+    @PostMapping("/{dashboardId}/duplicate")
+    public ResponseEntity<DashboardResponse> duplicate(@PathVariable UUID dashboardId,
+                                                       @RequestBody(required = false) DashboardRequest request) {
+        return ResponseEntity.ok(
+                dashboardService.duplicate(dashboardId, request == null ? null : request.getName()));
+    }
+
+    @DeleteMapping("/{dashboardId}")
+    public ResponseEntity<Void> delete(@PathVariable UUID dashboardId) {
+        dashboardService.delete(dashboardId);
+        return ResponseEntity.noContent().build();
     }
 }
-
