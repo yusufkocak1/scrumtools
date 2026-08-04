@@ -81,6 +81,22 @@ export const newRound = async (teamId) => {
     await apiClient.post(`${base(teamId)}/new-round`)
 }
 
+// ─── Fırlatma (eğlence) ──────────────────────────────────────────────────────
+
+/**
+ * Masadaki başka bir oyuncuya obje fırlatır.
+ *
+ * Kalıcı değildir: backend hiçbir şey kaydetmez, yalnızca
+ * /topic/poker/{teamId}/throws üzerinden anlık yayınlar.
+ *
+ * @param {string} teamId
+ * @param {string} toEmail - Hedef oyuncunun e-postası
+ * @param {string} item    - Beyaz listedeki token: arrow | paper | heart | tomato | coffee | party | fire | clap
+ */
+export const throwItem = async (teamId, toEmail, item) => {
+    await apiClient.post(`${base(teamId)}/throw`, { toEmail, item })
+}
+
 // ─── Work Modülü Entegrasyonu ────────────────────────────────────────────────
 
 /**

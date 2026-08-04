@@ -21,6 +21,7 @@ import java.util.UUID;
  *
  *   /topic/poker/{teamId}/votes       → tam oy listesi (her değişiklikte)
  *   /topic/poker/{teamId}/visibility  → { "votesVisible": true/false }
+ *   /topic/poker/{teamId}/throws      → oyuncular arası fırlatma (kalıcı değil)
  */
 @RestController
 @RequestMapping("/api/teams/{teamId}/poker")
@@ -87,6 +88,18 @@ public class ScrumPokerController {
     @PostMapping("/new-round")
     public ResponseEntity<Void> newRound(@PathVariable UUID teamId) {
         scrumPokerService.newRound(teamId);
+        return ResponseEntity.noContent().build();
+    }
+
+    /**
+     * Masadaki başka bir oyuncuya obje fırlatır (kalp, ok, kağıt...).
+     * Kalıcı değildir — yalnızca /topic/poker/{teamId}/throws üzerinden anlık yayınlanır.
+     */
+    @PostMapping("/throw")
+    public ResponseEntity<Void> throwItem(
+            @PathVariable UUID teamId,
+            @RequestBody Map<String, String> body) {
+        scrumPokerService.throwItem(teamId, body.get("toEmail"), body.get("item"));
         return ResponseEntity.noContent().build();
     }
 

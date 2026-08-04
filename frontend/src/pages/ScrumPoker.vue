@@ -95,7 +95,10 @@
           :votes="votes"
           :members="team.members"
           :currentUserEmail="userEmail"
+          :incomingThrow="incomingThrow"
+          :deck="deck"
           @newRound="newRound"
+          @throw="throwAtPlayer"
         />
 
         <!-- Score Suggestion Panel — oylar açıldığında ve görev bağlıyken -->
@@ -106,11 +109,13 @@
               <h3 class="text-lg font-bold text-gray-800">Puanı Göreve İşle</h3>
               <p class="text-sm text-gray-500 mt-1">
                 <template v-if="average !== null">
-                  Ortalama <span class="font-bold text-green-600">{{ average.toFixed(1) }}</span> —
+                  <template v-if="deck.numeric">Ortalama</template>
+                  <template v-else>Bedenlerin puan karşılığı ortalaması</template>
+                  <span class="font-bold text-green-600">{{ average.toFixed(1) }}</span> —
                   tartışma sonrasında önerilen bir puanı seçin veya kendi değerinizi girin.
                 </template>
                 <template v-else>
-                  Sayısal oy bulunmuyor — puanı elle girebilirsiniz.
+                  Puanlanabilir oy bulunmuyor — puanı elle girebilirsiniz.
                 </template>
               </p>
             </div>
@@ -161,7 +166,7 @@
 
         <!-- Deste: kullanıcının kendi eli -->
         <div class="w-full bg-white border border-gray-200 rounded-2xl shadow-sm p-4 sm:p-6">
-          <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-5">
+          <div class="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 mb-5">
             <div class="min-w-0">
               <h3 class="text-base sm:text-lg font-bold text-gray-800">
                 {{ isVotesVisible ? 'Deste kapandı' : 'Kartın' }}
@@ -179,19 +184,37 @@
               </p>
             </div>
 
-            <!-- Seçili kart özeti: mobilde deste dışına kaydırınca da görünür kalır -->
-            <div
-              v-if="selectedPokerCardNumber && selectedPokerCardNumber !== '-'"
-              class="inline-flex items-center gap-2 self-start sm:self-auto px-3 py-1.5 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-700 text-xs font-semibold flex-shrink-0"
-            >
-              <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
-              Seçimin: <span class="font-black text-sm">{{ selectedPokerCardNumber }}</span>
+            <div class="flex flex-wrap items-center gap-2 flex-shrink-0">
+              <!-- Seçili kart özeti -->
+              <div
+                v-if="selectedPokerCardNumber && selectedPokerCardNumber !== '-'"
+                class="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-700 text-xs font-semibold"
+              >
+                <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
+                Seçimin: <span class="font-black text-sm">{{ selectedPokerCardNumber }}</span>
+              </div>
+
+              <!-- Deste seçimi — herkes için değişir, mevcut tur sıfırlanır -->
+              <label class="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl border border-gray-200 bg-white text-xs text-gray-600 focus-within:border-emerald-300">
+                <svg class="w-4 h-4 text-gray-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h5l2 2h5a2 2 0 012 2v8a2 2 0 01-2 2H6a2 2 0 01-2-2V6z" />
+                </svg>
+                <span class="sr-only">Kart destesi</span>
+                <select
+                  :value="cardType"
+                  @change="changeDeck($event)"
+                  :disabled="changingDeck"
+                  class="bg-transparent font-semibold text-gray-700 focus:outline-none cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <option v-for="d in decks" :key="d.id" :value="d.id">{{ d.label }}</option>
+                </select>
+              </label>
             </div>
           </div>
 
           <div class="flex justify-center flex-wrap gap-2.5 sm:gap-3 pt-3">
             <pokerCard
-              v-for="card in fibonacciNumbers"
+              v-for="card in deck.cards"
               :number="card"
               :key="card"
               @selectPokerCard="selectPokerCard"
@@ -201,7 +224,7 @@
           </div>
 
           <p v-if="!isVotesVisible" class="text-center text-[11px] text-gray-400 mt-5">
-            Seçili karta tekrar dokunursan oyunu geri çekersin.
+            {{ deck.label }} destesi ({{ deck.hint }}) · Seçili karta tekrar dokunursan oyunu geri çekersin.
           </p>
         </div>
 
@@ -220,6 +243,7 @@ import { connect, subscribe, unsubscribe } from "../api/websocket.js";
 import { useTeamContext } from "../composables/useTeamContext.js";
 import { useAuth } from "../composables/useAuth.js";
 import { createToast } from "mosha-vue-toastify";
+import { DECKS, DEFAULT_DECK_ID, cardPoints, getDeck } from "../components/poker/decks.js";
 
 export default {
   name: "ScrumPoker",
@@ -234,8 +258,12 @@ export default {
     const votes = ref(new Map())
     const isVotesVisible = ref(false)
     const selectedPokerCardNumber = ref(null)
-    const fibonacciNumbers = ["1", "2", "3", "5", "8", "13", "21", "34", "55", "89", "?"]
     const linkCopied = ref(false)
+
+    // Aktif kart destesi — sunucuda tutulur, takımdaki herkes aynı desteyi görür
+    const cardType = ref(DEFAULT_DECK_ID)
+    const changingDeck = ref(false)
+    const deck = computed(() => getDeck(cardType.value))
 
     // Masadaki "Sen" işaretlemesi için oturum sahibinin e-postası
     const { userEmail } = useAuth()
@@ -250,10 +278,17 @@ export default {
     // açıldığında sonraki gezinmeler (Board, Retro...) aynı takımda devam eder.
     const { adoptTeam } = useTeamContext()
 
+    // Masada oyuncular arası fırlatma — kalıcı değil, yalnızca animasyon
+    const incomingThrow = ref(null)
+    let lastThrowSentAt = 0
+    const THROW_COOLDOWN_MS = 600
+
     const topicsFor = (teamId) => [
       `/topic/poker/${teamId}/votes`,
       `/topic/poker/${teamId}/visibility`,
       `/topic/poker/${teamId}/task`,
+      `/topic/poker/${teamId}/throws`,
+      `/topic/poker/${teamId}/card-type`,
     ]
 
     let updateTimeout = null
@@ -263,18 +298,31 @@ export default {
 
     const memberCount = computed(() => votesArray.value.length)
 
+    // Turda en az bir oy var mı? Deste değişimi uyarısı bunu kullanır.
+    const hasVotesInRound = computed(() => votesArray.value.some(v => v.vote && v.vote !== '-'))
+
+    // Oyların story point karşılığı — beden destesinde points eşlemesi devreye girer (M → 3)
+    const pointValues = computed(() =>
+      votesArray.value
+        .map(v => cardPoints(deck.value, v.vote))
+        .filter(n => n !== null)
+    )
+
     const average = computed(() => {
-      const valid = votesArray.value.filter(v => !isNaN(v.vote) && v.vote !== "-" && v.vote !== '?')
-      if (valid.length === 0) return null
-      return valid.reduce((acc, cur) => acc + parseFloat(cur.vote), 0) / valid.length
+      if (!pointValues.value.length) return null
+      return pointValues.value.reduce((acc, cur) => acc + cur, 0) / pointValues.value.length
     })
 
-    // Ortalamanın alt ve üst Fibonacci komşuları (örn. 9.2 → [8, 13]; tam eşleşmede tek öneri)
+    // Ortalamanın alt ve üst komşusu, aktif destenin puan skalasından
+    // (Fibonacci'de 9.2 → [8, 13]; bedende 4.0 → [3, 5]). Tam eşleşmede tek öneri.
     const suggestions = computed(() => {
       if (average.value === null) return []
-      const deck = fibonacciNumbers.filter(n => !isNaN(n)).map(Number)
-      const floor = [...deck].reverse().find(n => n <= average.value)
-      const ceil = deck.find(n => n >= average.value)
+      const scale = [...new Set(
+        deck.value.cards.map(card => cardPoints(deck.value, card)).filter(n => n !== null)
+      )].sort((a, b) => a - b)
+
+      const floor = [...scale].reverse().find(n => n <= average.value)
+      const ceil = scale.find(n => n >= average.value)
       return [...new Set([floor, ceil].filter(n => n !== undefined))]
     })
 
@@ -319,6 +367,49 @@ export default {
         // Oyları göster
         await ScrumPokerApi.setVotesVisible(props.teamId, true)
       }
+    }
+
+    // Kart destesini değiştirir — sunucu turu sıfırlar ve herkese WS ile yayınlar.
+    // Başarısızlıkta <select> DOM'da yeni değerde kalacağı için elle geri alınır.
+    const changeDeck = async (event) => {
+      const nextType = event.target.value
+      if (!nextType || nextType === cardType.value || changingDeck.value) return
+
+      // Turda oy varsa uyar — deste değişimi herkesin oyunu siler
+      if (hasVotesInRound.value &&
+          !window.confirm('Deste değişince bu turun oyları sıfırlanır. Devam edilsin mi?')) {
+        event.target.value = cardType.value
+        return
+      }
+
+      changingDeck.value = true
+      try {
+        await ScrumPokerApi.updateCardType(props.teamId, nextType)
+        cardType.value = nextType
+      } catch (error) {
+        console.error("Kart destesi değiştirilemedi:", error)
+        event.target.value = cardType.value
+        createToast("Kart destesi değiştirilemedi.", { type: "error", position: "top-center" })
+      } finally {
+        changingDeck.value = false
+      }
+    }
+
+    // Deste değişince (kendi isteğimizle ya da başka biri değiştirdiğinde) sunucu turu
+    // sıfırlar; eski destenin kartı elimizde kalmasın.
+    watch(cardType, () => {
+      selectedPokerCardNumber.value = null
+      resetScoreSelection()
+    })
+
+    // Masadaki başka bir oyuncuya obje fırlatır.
+    // Sunucu hiçbir şey kaydetmez; herkese WS ile yayınlar ve masada animasyona dönüşür.
+    const throwAtPlayer = ({ toEmail, item }) => {
+      const now = Date.now()
+      // İstemci tarafı cooldown — sunucu da ayrıca sınırlıyor
+      if (now - lastThrowSentAt < THROW_COOLDOWN_MS) return
+      lastThrowSentAt = now
+      ScrumPokerApi.throwItem(props.teamId, toEmail, item).catch(console.error)
     }
 
     // Masa linkini panoya kopyalar — takım arkadaşlarını davet etmenin kısa yolu
@@ -386,10 +477,11 @@ export default {
         isVotesVisible.value = session.votesVisible
         applyVotes(session.votes)
         activeTask.value = session.task || null
+        cardType.value = session.cardType || DEFAULT_DECK_ID
 
         // WebSocket bağlantısını kur ve topic'lere subscribe ol
         connect(() => {
-          const [votesTopicKey, visibilityTopicKey, taskTopicKey] = topicsFor(teamId)
+          const [votesTopicKey, visibilityTopicKey, taskTopicKey, throwsTopicKey, cardTypeTopicKey] = topicsFor(teamId)
 
           // Votes topic — Data-Carrying: gelen mesaj doğrudan oy listesi
           subscribe(votesTopicKey, (data) => {
@@ -409,6 +501,18 @@ export default {
             // (task=null durumunda tur korunur; mevcut seçim geçerli kalır)
             if (data.task) selectedPokerCardNumber.value = null
           })
+
+          // Throws topic — Data-Carrying: { fromEmail, fromName, toEmail, item, timestamp }
+          // Her mesaj yeni bir nesne; referans değişimi masadaki animasyonu tetikler.
+          subscribe(throwsTopicKey, (data) => {
+            incomingThrow.value = data
+          })
+
+          // Card type topic — Data-Carrying: { cardType: "fibonacci" | "tshirt" | ... }
+          // Deste değişimini backend zaten yeni turla birlikte yayınlar.
+          subscribe(cardTypeTopicKey, (data) => {
+            cardType.value = data.cardType || DEFAULT_DECK_ID
+          })
         })
       } catch (error) {
         console.error("Error joining poker session:", error)
@@ -426,6 +530,8 @@ export default {
       isVotesVisible.value = false
       selectedPokerCardNumber.value = null
       activeTask.value = null
+      incomingThrow.value = null
+      cardType.value = DEFAULT_DECK_ID
       resetScoreSelection()
     }
 
@@ -457,12 +563,18 @@ export default {
       memberCount,
       isVotesVisible,
       selectedPokerCardNumber,
-      fibonacciNumbers,
       selectPokerCard,
       newRound: handleNewRound,
+      decks: DECKS,
+      deck,
+      cardType,
+      changingDeck,
+      changeDeck,
       userEmail,
       linkCopied,
       copyInviteLink,
+      incomingThrow,
+      throwAtPlayer,
       // Work modülü entegrasyonu
       activeTask,
       average,

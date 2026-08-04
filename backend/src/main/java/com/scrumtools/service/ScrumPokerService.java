@@ -2,6 +2,7 @@ package com.scrumtools.service;
 
 import com.scrumtools.dto.PokerSessionResponse;
 import com.scrumtools.dto.PokerTaskInfo;
+import com.scrumtools.dto.PokerThrowResponse;
 import com.scrumtools.dto.PokerVoteResponse;
 import com.scrumtools.entity.*;
 import com.scrumtools.repository.*;
@@ -15,7 +16,10 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Collectors;
 
 /**
@@ -25,11 +29,26 @@ import java.util.stream.Collectors;
  *   /topic/poker/{teamId}/votes       → tam oy listesi (List<PokerVoteResponse>)
  *   /topic/poker/{teamId}/visibility  → { "votesVisible": true/false }
  *   /topic/poker/{teamId}/task        → { "task": PokerTaskInfo | null }
+ *   /topic/poker/{teamId}/throws      → PokerThrowResponse (kalıcı değil, anlık animasyon)
  */
 @Slf4j
 @Service
 @RequiredArgsConstructor
 public class ScrumPokerService {
+
+    /** Fırlatılabilir objeler — token beyaz listesi (görsel karşılığı frontend'de). */
+    private static final Set<String> ALLOWED_THROWS =
+            Set.of("arrow", "paper", "heart", "tomato", "coffee", "party", "fire", "clap");
+
+    /** Kullanılabilir kart desteleri — kartların kendisi frontend'deki decks.js'te tanımlı. */
+    private static final Set<String> ALLOWED_CARD_TYPES =
+            Set.of("fibonacci", "tshirt", "powers");
+
+    /** Aynı kullanıcının art arda fırlatma aralığı — spam koruması. */
+    private static final long THROW_COOLDOWN_MS = 500;
+
+    /** Cooldown haritasının sınırsız büyümemesi için üst sınır. */
+    private static final int THROW_TRACKER_LIMIT = 500;
 
     private final PokerSessionRepository sessionRepository;
     private final PokerVoteRepository voteRepository;
@@ -38,6 +57,9 @@ public class ScrumPokerService {
     private final TaskRepository taskRepository;
     private final AuditService auditService;
     private final SimpMessagingTemplate messagingTemplate;
+
+    /** "{teamId}|{email}" → son fırlatma zamanı. Kalıcı değil, yalnız cooldown için. */
+    private final Map<String, Long> lastThrowAt = new ConcurrentHashMap<>();
 
     // ─── Session ──────────────────────────────────────────────────────────────
 
@@ -145,13 +167,23 @@ public class ScrumPokerService {
     // ─── Card Type ────────────────────────────────────────────────────────────
 
     /**
-     * Kart tipini günceller (fibonacci, tshirt, vb.).
+     * Kart destesini değiştirir (fibonacci, tshirt, powers).
+     *
+     * Deste değişince mevcut oylar başka bir ölçekte kaldığı için tur sıfırlanır —
+     * aksi halde masada "M" ile "13" yan yana görünürdü.
      */
     @Transactional
     public void setCardType(UUID teamId, String cardType) {
+        if (cardType == null || !ALLOWED_CARD_TYPES.contains(cardType)) {
+            throw new IllegalArgumentException("Geçersiz kart destesi: " + cardType);
+        }
+
         PokerSession session = getOrCreateSession(teamId);
+        if (cardType.equals(session.getCardType())) return;
+
         session.setCardType(cardType);
         sessionRepository.save(session);
+
         // Kart tipi değişikliği için broadcast
         String topic = "/topic/poker/" + teamId + "/card-type";
         try {
@@ -159,6 +191,9 @@ public class ScrumPokerService {
         } catch (Exception e) {
             log.warn("[WS] cardType broadcast başarısız: {}", e.getMessage());
         }
+
+        // Eski destenin oyları yeni destede anlamsız — taze tur
+        resetRound(teamId, session);
     }
 
     // ─── New Round ────────────────────────────────────────────────────────────
@@ -170,6 +205,74 @@ public class ScrumPokerService {
     @Transactional
     public void newRound(UUID teamId) {
         resetRound(teamId, getOrCreateSession(teamId));
+    }
+
+    // ─── Fırlatma (eğlence) ───────────────────────────────────────────────────
+
+    /**
+     * Masadaki bir oyuncuya obje fırlatır (kalp, ok, kağıt...).
+     *
+     * Kalıcı değildir: DB'ye yazılmaz, yalnızca /topic/poker/{teamId}/throws üzerinden
+     * anlık yayınlanır ve istemcide animasyona dönüşür.
+     *
+     * Hem atan hem hedef masada oturuyor olmalı; token beyaz listede olmalı.
+     * Art arda fırlatmalar kısa bir cooldown ile sessizce yutulur (bkz. THROW_COOLDOWN_MS).
+     */
+    public void throwItem(UUID teamId, String toEmail, String item) {
+        if (item == null || !ALLOWED_THROWS.contains(item)) {
+            throw new IllegalArgumentException("Geçersiz fırlatma objesi: " + item);
+        }
+        if (toEmail == null || toEmail.isBlank()) {
+            throw new IllegalArgumentException("Hedef oyuncu belirtilmedi");
+        }
+
+        String fromEmail = SecurityContextHolder.getContext().getAuthentication().getName();
+
+        // Atan masada mı? (aynı zamanda takım üyeliği kontrolü yerine geçer)
+        PokerVote thrower = voteRepository.findByTeamIdAndUserEmail(teamId, fromEmail)
+                .orElseThrow(() -> new RuntimeException("Önce oturuma katılın (join)"));
+
+        // Hedef masada mı? Masada olmayana fırlatılamaz.
+        if (voteRepository.findByTeamIdAndUserEmail(teamId, toEmail).isEmpty()) {
+            throw new RuntimeException("Hedef oyuncu masada değil");
+        }
+
+        if (isThrottled(teamId, fromEmail)) return;
+
+        PokerThrowResponse payload = new PokerThrowResponse(
+                fromEmail,
+                thrower.getDisplayName() != null ? thrower.getDisplayName() : fromEmail,
+                toEmail,
+                item,
+                System.currentTimeMillis());
+
+        String topic = "/topic/poker/" + teamId + "/throws";
+        try {
+            messagingTemplate.convertAndSend(topic, payload);
+        } catch (Exception e) {
+            log.warn("[WS] Poker throw broadcast başarısız: topic={}, error={}", topic, e.getMessage());
+        }
+    }
+
+    /**
+     * Cooldown içindeyse true döner. Harita şişerse tamamen temizlenir —
+     * en kötü ihtimalle birkaç kişi bir kez daha hızlı fırlatabilir, kabul edilebilir.
+     */
+    private boolean isThrottled(UUID teamId, String email) {
+        long now = System.currentTimeMillis();
+        if (lastThrowAt.size() > THROW_TRACKER_LIMIT) lastThrowAt.clear();
+
+        AtomicBoolean throttled = new AtomicBoolean(false);
+        lastThrowAt.compute(teamId + "|" + email, (key, previous) -> {
+            if (previous != null && now - previous < THROW_COOLDOWN_MS) {
+                throttled.set(true);
+                // Zaman damgasını ilerletmiyoruz; aksi halde hızlı tıklama
+                // cooldown'u sürekli öteler ve kullanıcı hiç fırlatamaz.
+                return previous;
+            }
+            return now;
+        });
+        return throttled.get();
     }
 
     // ─── Work Modülü Entegrasyonu (görev puanlama) ────────────────────────────

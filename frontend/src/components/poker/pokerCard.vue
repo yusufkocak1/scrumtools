@@ -8,9 +8,9 @@
     :aria-label="`${number} tahmin kartı`"
     @click="select"
   >
-    <!-- Köşe rakamları — gerçek oyun kartı hissi -->
+    <!-- Köşe değerleri — gerçek oyun kartı hissi -->
     <span class="poker-card__corner poker-card__corner--tl">{{ number }}</span>
-    <span class="poker-card__value">{{ number }}</span>
+    <span class="poker-card__value" :class="valueSizeClass">{{ number }}</span>
     <span class="poker-card__corner poker-card__corner--br">{{ number }}</span>
 
     <!-- Seçim rozeti -->
@@ -38,6 +38,12 @@ export default {
   computed: {
     isSelected() {
       return this.selectedCardNumber === this.number
+    },
+    // "XXL" gibi uzun etiketler kart genişliğini taşırmasın
+    valueSizeClass() {
+      const length = (this.number || '').length
+      if (length >= 3) return 'poker-card__value--sm'
+      return ''
     },
     cardClass() {
       if (this.disabled) {
@@ -91,6 +97,16 @@ export default {
 @media (min-width: 640px) {
   .poker-card__value {
     font-size: 1.875rem;
+  }
+}
+
+.poker-card__value--sm {
+  font-size: 1.05rem;
+}
+
+@media (min-width: 640px) {
+  .poker-card__value--sm {
+    font-size: 1.25rem;
   }
 }
 
