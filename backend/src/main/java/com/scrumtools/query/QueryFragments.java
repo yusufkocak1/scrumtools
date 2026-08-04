@@ -31,6 +31,16 @@ public final class QueryFragments {
     }
 
     /**
+     * {@code <alan> IS EMPTY} — dinamik filtrede "(Boş)" seçeneği.
+     *
+     * Boş kova, değeri olmayan kayıtları temsil eder; {@code IN ("")} ile
+     * aranamaz çünkü SQL'de NULL hiçbir değere eşit değildir.
+     */
+    public static ParsedQuery fieldIsEmpty(String field) {
+        return single(condition(field, QueryOperator.IS_EMPTY, List.of()));
+    }
+
+    /**
      * Serbest metin araması: başlıkta <b>veya</b> görev numarasında geçenler.
      *
      * Açıklama bilinçli olarak dışarıda: uzun metin taraması kısa bir arama

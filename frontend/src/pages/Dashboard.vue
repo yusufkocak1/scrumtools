@@ -116,62 +116,17 @@
           </div>
         </template>
 
-        <!-- 3. adım: grafik yapılandırması -->
-        <template v-else-if="chartDraft">
-          <h2 class="text-base font-semibold text-gray-800">Grafiği yapılandır</h2>
-          <p class="text-xs text-gray-500 mt-1 mb-4">
-            {{ chartDraft.richFilterName }} — hangi eksende, hangi ölçüyle?
-          </p>
-
-          <div class="space-y-4">
-            <div>
-              <label class="block text-xs font-medium text-gray-600 mb-1.5">Grup ekseni</label>
-              <select v-model="chartDraft.groupBy"
-                      class="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:border-purple-400">
-                <option value="">Akıllı filtreler (varsayılan)</option>
-                <option v-for="field in groupableFields" :key="field.name" :value="field.name">
-                  {{ field.label }}
-                </option>
-              </select>
-              <p class="mt-1 text-[11px] text-gray-400">
-                Akıllı filtre ekseninde dilime tıklamak panodaki tüm widget'ları daraltır.
-              </p>
-            </div>
-
-            <div>
-              <label class="block text-xs font-medium text-gray-600 mb-1.5">Ölçü</label>
-              <select v-model="chartDraft.metric"
-                      class="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:border-purple-400">
-                <option value="count">Görev sayısı</option>
-                <option v-for="field in summableFields" :key="field.name" :value="field.name">
-                  {{ field.label }} toplamı
-                </option>
-              </select>
-            </div>
-
-            <div>
-              <label class="block text-xs font-medium text-gray-600 mb-1.5">Görünüm</label>
-              <div class="flex gap-2">
-                <button v-for="option in CHART_TYPES" :key="option.value"
-                        class="flex-1 py-2 rounded-lg border text-sm transition-colors"
-                        :class="chartDraft.chart === option.value
-                          ? 'border-purple-400 bg-purple-50 text-purple-700'
-                          : 'border-gray-200 text-gray-600 hover:border-gray-300'"
-                        @click="chartDraft.chart = option.value">
-                  {{ option.icon }} {{ option.label }}
-                </button>
-              </div>
-            </div>
-          </div>
-
-          <button class="mt-5 w-full text-sm bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg transition-colors"
-                  @click="addChartWidget">
-            Ekle
-          </button>
-          <button @click="chartDraft = null" class="mt-2 w-full text-sm text-gray-500 hover:text-gray-700">
-            Geri
-          </button>
-        </template>
+        <!-- 3. adım: tipe göre yapılandırma -->
+        <RfWidgetConfigModal
+          v-else-if="configDraft"
+          :type="configDraft.type"
+          :type-label="configDraft.typeLabel"
+          :rich-filter="configDraft.richFilter"
+          :groupable-fields="groupableFields"
+          :summable-fields="summableFields"
+          @save="addConfiguredWidget"
+          @back="configDraft = null"
+        />
 
         <!-- 2. adım: zengin filtre seçimi -->
         <template v-else>
@@ -230,6 +185,11 @@ import RfControllerWidget from '../components/dashboard/RfControllerWidget.vue'
 import RfStatWidget from '../components/dashboard/RfStatWidget.vue'
 import RfResultsWidget from '../components/dashboard/RfResultsWidget.vue'
 import RfChartWidget from '../components/dashboard/RfChartWidget.vue'
+import RfQueueWidget from '../components/dashboard/RfQueueWidget.vue'
+import RfRatioWidget from '../components/dashboard/RfRatioWidget.vue'
+import RfMultiStatWidget from '../components/dashboard/RfMultiStatWidget.vue'
+import RfTimeSeriesWidget from '../components/dashboard/RfTimeSeriesWidget.vue'
+import RfWidgetConfigModal from '../components/dashboard/RfWidgetConfigModal.vue'
 import { getDashboardLayout, saveDashboardLayout } from '../api/DashboardApi.js'
 import { getRichFilters } from '../api/RichFilterApi.js'
 import { getQueryFields } from '../api/QueryApi.js'
@@ -263,14 +223,12 @@ const availableWidgetTypes = [
 const richFilterWidgetTypes = [
   { type: 'RF_CONTROLLER', label: 'Filtre Kontrolcüsü', icon: '🎛', richFilter: true },
   { type: 'RF_STAT', label: 'Zengin Filtre Sayacı', icon: '🔢', richFilter: true },
+  { type: 'RF_MULTI_STAT', label: 'Çoklu Ölçü Kartı', icon: '🧮', richFilter: true },
   { type: 'RF_RESULTS', label: 'Zengin Filtre Listesi', icon: '📋', richFilter: true },
-  { type: 'RF_CHART', label: 'Zengin Filtre Grafiği', icon: '🍩', richFilter: true, configurable: true },
-]
-
-const CHART_TYPES = [
-  { value: 'donut', label: 'Halka', icon: '◍' },
-  { value: 'pie', label: 'Pasta', icon: '◕' },
-  { value: 'bar', label: 'Çubuk', icon: '▥' },
+  { type: 'RF_CHART', label: 'Zengin Filtre Grafiği', icon: '🍩', richFilter: true },
+  { type: 'RF_QUEUE', label: 'Kuyruk Paneli', icon: '📥', richFilter: true },
+  { type: 'RF_RATIO', label: 'Oran Göstergesi', icon: '🎯', richFilter: true },
+  { type: 'RF_TIME_SERIES', label: 'Zaman Serisi', icon: '📈', richFilter: true },
 ]
 
 const WIDGET_COMPONENT_MAP = {
@@ -282,8 +240,12 @@ const WIDGET_COMPONENT_MAP = {
   OVERDUE: OverdueWidget,
   RF_CONTROLLER: RfControllerWidget,
   RF_STAT: RfStatWidget,
+  RF_MULTI_STAT: RfMultiStatWidget,
   RF_RESULTS: RfResultsWidget,
   RF_CHART: RfChartWidget,
+  RF_QUEUE: RfQueueWidget,
+  RF_RATIO: RfRatioWidget,
+  RF_TIME_SERIES: RfTimeSeriesWidget,
 }
 
 function widgetComponent(type) {
@@ -304,14 +266,41 @@ function widgetProps(widget) {
     teamId,
     richFilterId: widget.richFilterId,
     title: widget.title || '',
-    ...(widget.type === 'RF_STAT' ? { threshold: widget.threshold || {} } : {}),
-    ...(widget.type === 'RF_RESULTS' ? { limit: widget.limit || 8 } : {}),
-    ...(widget.type === 'RF_CHART' ? {
-      groupBy: widget.groupBy || '',
-      metric: widget.metric || 'count',
-      chart: widget.chart || 'donut',
-    } : {}),
+    refreshInterval: widget.refreshInterval || 0,
+    ...(RF_WIDGET_PROPS[widget.type]?.(widget) || {}),
   }
+}
+
+/** Tipe özel widget ayarları — kaydedilen düzen JSON'undan okunur. */
+const RF_WIDGET_PROPS = {
+  RF_STAT: (w) => ({ threshold: w.threshold || {} }),
+  RF_RESULTS: (w) => ({ limit: w.limit || 8 }),
+  RF_CHART: (w) => ({
+    groupBy: w.groupBy || '',
+    metric: w.metric || 'count',
+    chart: w.chart || 'donut',
+  }),
+  RF_QUEUE: (w) => ({
+    smartIds: w.smartIds || [],
+    hideEmpty: !!w.hideEmpty,
+    taskLimit: w.taskLimit || 5,
+  }),
+  RF_RATIO: (w) => ({
+    numeratorId: w.numeratorId || '',
+    denominatorId: w.denominatorId || '',
+    target: w.target ?? null,
+    direction: w.direction || 'higher_better',
+  }),
+  RF_MULTI_STAT: (w) => ({
+    measureIds: w.measureIds || [],
+    showTotal: w.showTotal !== false,
+    showShare: !!w.showShare,
+  }),
+  RF_TIME_SERIES: (w) => ({
+    elementIds: w.elementIds || [],
+    days: w.days || 90,
+    interval: w.interval || 'day',
+  }),
 }
 
 /**
@@ -368,8 +357,8 @@ watch(selectedTeamId, (teamId) => {
 /** Zengin filtre widget'ı seçildiğinde ikinci adımda hangi tip bekliyor. */
 const pendingType = ref(null)
 const richFilters = ref([])
-/** Grafik widget'ının üçüncü adımdaki taslağı (eksen, ölçü, görünüm). */
-const chartDraft = ref(null)
+/** Üçüncü adımın taslağı: { type, typeLabel, richFilter }. */
+const configDraft = ref(null)
 
 const smartOf = (rf) => (rf.elements || []).filter(e => e.kind === 'SMART_FILTER')
 
@@ -393,44 +382,32 @@ function addWidget(type) {
   closeAddWidget()
 }
 
+/**
+ * Zengin filtre seçildi → yapılandırma adımı.
+ *
+ * Her tip yapılandırılır: eksen/eşik/hedef seçilmeden eklenen bir widget,
+ * kullanıcının silip yeniden eklemesi gereken bir tahmin olurdu. Yalnız başlık
+ * ve tazeleme soran tipler için de aynı adım kullanılır — akış tek kalsın.
+ */
 async function addRichFilterWidget(richFilter) {
   const type = pendingType.value
-
-  // Grafik bir adım daha ister: eksen ve ölçü seçilmeden eklenen grafik,
-  // kullanıcının silip yeniden eklemesi gereken bir tahmin olurdu.
-  if (type === 'RF_CHART') {
-    chartDraft.value = {
-      richFilterId: richFilter.id,
-      richFilterName: richFilter.name,
-      groupBy: '',
-      metric: 'count',
-      chart: 'donut',
-    }
-    await loadFieldCatalog()
-    return
-  }
-
-  activeWidgets.value.push({
-    id: `${type}-${Date.now()}`,
+  configDraft.value = {
     type,
-    teamId: selectedTeamId.value,
-    richFilterId: richFilter.id,
-    title: richFilter.name,
-  })
-  closeAddWidget()
+    typeLabel: richFilterWidgetTypes.find(t => t.type === type)?.label || 'Widget',
+    richFilter,
+  }
+  await loadFieldCatalog()
 }
 
-function addChartWidget() {
-  const draft = chartDraft.value
+/** Yapılandırma adımından dönen düz ayar nesnesi düzene eklenir. */
+function addConfiguredWidget(config) {
+  const draft = configDraft.value
   activeWidgets.value.push({
-    id: `RF_CHART-${Date.now()}`,
-    type: 'RF_CHART',
+    id: `${draft.type}-${Date.now()}`,
+    type: draft.type,
     teamId: selectedTeamId.value,
-    richFilterId: draft.richFilterId,
-    title: draft.richFilterName,
-    groupBy: draft.groupBy,
-    metric: draft.metric,
-    chart: draft.chart,
+    richFilterId: draft.richFilter.id,
+    ...config,
   })
   closeAddWidget()
 }
@@ -455,7 +432,7 @@ async function loadFieldCatalog() {
 function closeAddWidget() {
   showAddWidget.value = false
   pendingType.value = null
-  chartDraft.value = null
+  configDraft.value = null
 }
 
 function removeWidget(widgetId) {
@@ -489,8 +466,7 @@ watch(() => JSON.stringify(selectionToQuery()), (encoded) => {
   const selection = JSON.parse(encoded)
   const query = { ...route.query }
   delete query.rf
-  delete query.smart
-  delete query.rfq
+  delete query.rfsel
 
   router.replace({ query: { ...query, ...selection } }).catch(() => {})
 })

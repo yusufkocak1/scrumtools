@@ -35,6 +35,9 @@ public class RichFilterRuntimeService {
     /** Sınıflandırılmamış görevlerin kova anahtarı — arayüzde "Sınıflandırılmamış". */
     private static final String UNCLASSIFIED = "";
 
+    /** Bir dinamik filtrenin açılır listesinde gösterilecek azami seçenek. */
+    private static final int DEFAULT_OPTION_LIMIT = 25;
+
     private final RichFilterService richFilterService;
     private final TaskQueryService taskQueryService;
     private final TaskAggregationService aggregationService;
@@ -82,6 +85,47 @@ public class RichFilterRuntimeService {
     }
 
     /**
+     * Dinamik filtrelerin güncel seçenekleri — tek gidiş-dönüşte hepsi.
+     *
+     * Seçenekler sabit bir listeden değil, o anki sonuç kümesinden gelir: takımda
+     * hiç görevi olmayan bir kişi "Atanan" listesinde görünmez. Her kontrolün
+     * seçenekleri, kendi seçimi dışlanarak hesaplanır (bkz. resolveQuery).
+     */
+    @Transactional(readOnly = true)
+    public List<Map<String, Object>> options(UUID richFilterId, RichFilterRuntimeRequest request) {
+        RichFilter filter = accessible(richFilterId);
+        UUID teamId = filter.getTeam().getId();
+        UUID projectId = scopeOf(filter, request);
+
+        List<Map<String, Object>> out = new ArrayList<>();
+        for (RichFilterElement element : elementsOf(filter, RichFilterElementKind.DYNAMIC_FILTER)) {
+            String field = fieldOf(element);
+            if (field == null) continue;
+
+            ParsedQuery scoped = resolveQuery(filter, request, element.getId());
+            int limit = intConfig(element, "maxOptions", DEFAULT_OPTION_LIMIT);
+
+            Map<String, Object> control = new LinkedHashMap<>();
+            control.put("elementId", element.getId().toString());
+            control.put("name", element.getName());
+            control.put("field", field);
+            control.put("options", aggregationService.aggregate(teamId, projectId, scoped, field, "count", limit));
+            out.add(control);
+        }
+        return out;
+    }
+
+    private static int intConfig(RichFilterElement element, String key, int fallback) {
+        Object value = element.configOrEmpty().get(key);
+        if (value instanceof Number number) return number.intValue();
+        try {
+            return value == null ? fallback : Integer.parseInt(value.toString());
+        } catch (NumberFormatException e) {
+            return fallback;
+        }
+    }
+
+    /**
      * Seçimlerin karşılığı olan STQL metni ve eşleşen kayıt sayısı.
      *
      * Grafikten görev listesine geçişin köprüsü: arayüz bu metni mevcut
@@ -101,14 +145,30 @@ public class RichFilterRuntimeService {
     // ─── Sorgu kurulumu ───────────────────────────────────────────────────────
 
     /**
-     * temel AND (akıllı seçimler) AND (metin arama)
+     * temel AND (sabit seçimler) AND (dinamik seçimler) AND (akıllı seçimler) AND (metin)
      *
      * Kontroller arası AND, kontrol içi OR. Seçim yoksa o kontrol hiç kısıt
      * eklemez — "hiçbir şey seçilmedi" ile "hepsi seçildi" aynı sonucu verir.
      */
     private ParsedQuery resolveQuery(RichFilter filter, RichFilterRuntimeRequest request) {
+        return resolveQuery(filter, request, null);
+    }
+
+    /**
+     * @param excludeElementId bu öğenin kendi seçimi sorguya katılmaz.
+     *
+     * Dinamik filtrenin seçeneklerini hesaplarken kendi seçimi dışlanır: "Ahmet"
+     * seçiliyken listede yalnız Ahmet kalsaydı, kullanıcı önce seçimi temizlemeden
+     * ikinci bir kişiyi ekleyemezdi. Diğer kontroller yine uygulanır — seçenekler
+     * gerçekten var olan sonuçları gösterir.
+     */
+    private ParsedQuery resolveQuery(RichFilter filter, RichFilterRuntimeRequest request,
+                                     UUID excludeElementId) {
         ParsedQuery base = QueryParser.parse(filter.effectiveBaseQuery());
         List<List<ParsedQuery>> groups = new ArrayList<>();
+
+        groups.addAll(staticGroups(filter, request, excludeElementId));
+        groups.addAll(dynamicGroups(filter, request, excludeElementId));
 
         List<String> smartNames = selectedSmartNames(filter, request.getSmart());
         if (!smartNames.isEmpty()) {
@@ -121,6 +181,88 @@ public class RichFilterRuntimeService {
         }
 
         return QueryComposer.compose(base, groups);
+    }
+
+    /**
+     * Sabit filtreler: yazarın tanımladığı seçeneklerden biri seçilir, seçeneğin
+     * kendi STQL'i sorguya AND'lenir. Tek seçimlidir — "Bu hafta / Bu ay / Bu çeyrek"
+     * gibi kontrollerde birden çok seçenek aynı anda anlamlı olmaz.
+     */
+    private List<List<ParsedQuery>> staticGroups(RichFilter filter, RichFilterRuntimeRequest request,
+                                                 UUID excludeElementId) {
+        Map<UUID, String> selections = request.getStaticSelections();
+        if (selections == null || selections.isEmpty()) return List.of();
+
+        List<List<ParsedQuery>> groups = new ArrayList<>();
+        for (RichFilterElement element : elementsOf(filter, RichFilterElementKind.STATIC_FILTER)) {
+            if (element.getId().equals(excludeElementId)) continue;
+
+            String optionId = selections.get(element.getId());
+            if (optionId == null || optionId.isBlank()) continue;
+
+            optionQuery(element, optionId)
+                    .ifPresent(query -> groups.add(List.of(QueryParser.parse(query))));
+        }
+        return groups;
+    }
+
+    /** {@code config.options[]} içinden seçilen seçeneğin sorgusu. */
+    @SuppressWarnings("unchecked")
+    private Optional<String> optionQuery(RichFilterElement element, String optionId) {
+        Object raw = element.configOrEmpty().get("options");
+        if (!(raw instanceof List<?> options)) return Optional.empty();
+
+        for (Object option : options) {
+            if (!(option instanceof Map<?, ?> map)) continue;
+            if (!optionId.equals(String.valueOf(((Map<String, Object>) map).get("id")))) continue;
+
+            Object query = ((Map<String, Object>) map).get("query");
+            return query == null || query.toString().isBlank()
+                    ? Optional.empty()
+                    : Optional.of(query.toString());
+        }
+        return Optional.empty();
+    }
+
+    /** Dinamik filtreler: bir alandan seçilen değerler — kontrol içinde OR. */
+    private List<List<ParsedQuery>> dynamicGroups(RichFilter filter, RichFilterRuntimeRequest request,
+                                                  UUID excludeElementId) {
+        Map<UUID, List<String>> selections = request.getDynamic();
+        if (selections == null || selections.isEmpty()) return List.of();
+
+        List<List<ParsedQuery>> groups = new ArrayList<>();
+        for (RichFilterElement element : elementsOf(filter, RichFilterElementKind.DYNAMIC_FILTER)) {
+            if (element.getId().equals(excludeElementId)) continue;
+
+            List<String> values = selections.get(element.getId());
+            String field = fieldOf(element);
+            if (values == null || values.isEmpty() || field == null) continue;
+
+            // "(Boş)" kovası ayrı ele alınır: değeri olmayan kayıtlar IN listesiyle
+            // bulunamaz, SQL'de NULL hiçbir değere eşit değildir.
+            List<String> concrete = values.stream()
+                    .filter(v -> v != null && !v.isBlank())
+                    .toList();
+            boolean includeEmpty = values.stream().anyMatch(v -> v == null || v.isBlank());
+
+            List<ParsedQuery> parts = new ArrayList<>();
+            if (!concrete.isEmpty()) parts.add(QueryFragments.fieldIn(field, concrete));
+            if (includeEmpty) parts.add(QueryFragments.fieldIsEmpty(field));
+            if (!parts.isEmpty()) groups.add(parts);
+        }
+        return groups;
+    }
+
+    private static String fieldOf(RichFilterElement element) {
+        Object field = element.configOrEmpty().get("field");
+        return field == null || field.toString().isBlank() ? null : field.toString();
+    }
+
+    private static List<RichFilterElement> elementsOf(RichFilter filter, RichFilterElementKind kind) {
+        return filter.getElements().stream()
+                .filter(e -> e.getKind() == kind)
+                .sorted(Comparator.comparingInt(e -> e.getPosition() == null ? 0 : e.getPosition()))
+                .toList();
     }
 
     /**

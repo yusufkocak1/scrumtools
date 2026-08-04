@@ -6,6 +6,7 @@ import com.scrumtools.dto.RichFilterRequest;
 import com.scrumtools.dto.RichFilterResponse;
 import com.scrumtools.dto.RichFilterRuntimeRequest;
 import com.scrumtools.service.RichFilterRuntimeService;
+import com.scrumtools.service.RichFilterSeriesService;
 import com.scrumtools.service.RichFilterService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -31,6 +32,7 @@ public class RichFilterController {
 
     private final RichFilterService richFilterService;
     private final RichFilterRuntimeService runtimeService;
+    private final RichFilterSeriesService seriesService;
 
     @GetMapping
     public ResponseEntity<List<RichFilterResponse>> list(
@@ -117,6 +119,19 @@ public class RichFilterController {
         return ResponseEntity.ok(runtimeService.aggregate(richFilterId, orEmpty(request)));
     }
 
+    /**
+     * Dinamik filtrelerin güncel seçenekleri ve sayıları — kontrol çubuğu için.
+     * Her kontrolün seçenekleri kendi seçimi dışlanarak hesaplanır.
+     */
+    @PostMapping("/{richFilterId}/options")
+    public ResponseEntity<List<Map<String, Object>>> options(
+            @SuppressWarnings("unused") @PathVariable UUID teamId,
+            @PathVariable UUID richFilterId,
+            @RequestBody(required = false) RichFilterRuntimeRequest request
+    ) {
+        return ResponseEntity.ok(runtimeService.options(richFilterId, orEmpty(request)));
+    }
+
     /** Seçimlerin STQL karşılığı + sayısı — görev listesine geçiş linki için. */
     @PostMapping("/{richFilterId}/resolve")
     public ResponseEntity<Map<String, Object>> resolve(
@@ -130,6 +145,39 @@ public class RichFilterController {
     /** Gövdesiz istek "seçim yok" demektir — her uç boş seçimle de çalışır. */
     private static RichFilterRuntimeRequest orEmpty(RichFilterRuntimeRequest request) {
         return request != null ? request : new RichFilterRuntimeRequest();
+    }
+
+    // ─── Zaman serileri ───────────────────────────────────────────────────────
+
+    /**
+     * Zengin filtrenin bütün zaman serileri, tek istekte.
+     *
+     * Seçim nesnesi almaz: noktalar öğe başına önceden ölçülmüştür, geçmiş
+     * çapraz filtrelemeyle yeniden hesaplanamaz (bkz. RICH_FILTER_PLAN.md — K23).
+     */
+    @GetMapping("/{richFilterId}/series")
+    public ResponseEntity<List<Map<String, Object>>> series(
+            @SuppressWarnings("unused") @PathVariable UUID teamId,
+            @PathVariable UUID richFilterId,
+            @RequestParam(required = false) Integer days,
+            @RequestParam(required = false, defaultValue = "day") String interval
+    ) {
+        return ResponseEntity.ok(seriesService.series(richFilterId, days, interval));
+    }
+
+    /**
+     * Geçmişi {@code task_history}'den kurgular.
+     *
+     * Sorgu izlenmeyen bir alana dayanıyorsa {@code status: "unsupported"} döner —
+     * hata değil, sonucun kendisi: seri o zaman bugünden itibaren birikir.
+     */
+    @PostMapping("/{richFilterId}/series/{elementId}/backfill")
+    public ResponseEntity<Map<String, Object>> backfillSeries(
+            @SuppressWarnings("unused") @PathVariable UUID teamId,
+            @PathVariable UUID richFilterId,
+            @PathVariable UUID elementId
+    ) {
+        return ResponseEntity.ok(seriesService.backfill(richFilterId, elementId));
     }
 
     // ─── Öğeler ───────────────────────────────────────────────────────────────

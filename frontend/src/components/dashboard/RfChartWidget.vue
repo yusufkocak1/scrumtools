@@ -81,6 +81,7 @@ import {
 } from 'chart.js'
 import OrphanRichFilter from './OrphanRichFilter.vue'
 import { useRichFilterContext } from '../../composables/useRichFilterContext.js'
+import { useAutoRefresh } from '../../composables/useAutoRefresh.js'
 import { aggregateRichFilter, resolveRichFilter, smartField } from '../../api/RichFilterApi.js'
 import { colorFor, fade } from '../../utils/chartPalette.js'
 
@@ -94,6 +95,7 @@ const props = defineProps({
   groupBy: { type: String, default: '' },
   metric: { type: String, default: 'count' },
   chart: { type: String, default: 'donut' },
+  refreshInterval: { type: Number, default: 0 },
 })
 
 const emit = defineEmits(['config-change'])
@@ -222,4 +224,5 @@ onMounted(async () => {
 
 watch(signature, load)
 watch(() => [props.groupBy, props.metric], load)
+useAutoRefresh(load, () => props.refreshInterval)
 </script>
