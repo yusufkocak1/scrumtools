@@ -117,6 +117,19 @@ public class RichFilterController {
         return ResponseEntity.ok(runtimeService.aggregate(richFilterId, orEmpty(request)));
     }
 
+    /**
+     * Dinamik filtrelerin güncel seçenekleri ve sayıları — kontrol çubuğu için.
+     * Her kontrolün seçenekleri kendi seçimi dışlanarak hesaplanır.
+     */
+    @PostMapping("/{richFilterId}/options")
+    public ResponseEntity<List<Map<String, Object>>> options(
+            @SuppressWarnings("unused") @PathVariable UUID teamId,
+            @PathVariable UUID richFilterId,
+            @RequestBody(required = false) RichFilterRuntimeRequest request
+    ) {
+        return ResponseEntity.ok(runtimeService.options(richFilterId, orEmpty(request)));
+    }
+
     /** Seçimlerin STQL karşılığı + sayısı — görev listesine geçiş linki için. */
     @PostMapping("/{richFilterId}/resolve")
     public ResponseEntity<Map<String, Object>> resolve(

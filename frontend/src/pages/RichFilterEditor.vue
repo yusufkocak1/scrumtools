@@ -270,6 +270,66 @@
           </div>
         </section>
 
+        <!-- ─── Sabit / dinamik filtreler ve görünümler ───────────────── -->
+        <section v-else-if="['static', 'dynamic', 'views'].includes(section)" class="px-8 py-6">
+          <div class="flex items-start justify-between gap-4">
+            <div>
+              <h1 class="text-xl font-semibold text-gray-900">{{ currentSection?.label }}</h1>
+              <p class="text-sm text-gray-500 mt-1 max-w-3xl">{{ SECTION_HINTS[section] }}</p>
+            </div>
+            <button
+              v-if="filter.owned && section !== 'views'"
+              class="shrink-0 text-sm bg-purple-600 hover:bg-purple-700 text-white px-3 py-1.5 rounded-lg transition-colors"
+              @click="openCreate"
+            >
+              {{ section === 'static' ? 'Sabit filtre oluştur' : 'Dinamik filtre oluştur' }}
+            </button>
+          </div>
+
+          <div class="mt-6 bg-white rounded-xl border border-gray-100 overflow-hidden">
+            <div
+              v-for="element in sectionElements"
+              :key="element.id"
+              class="flex items-center gap-3 px-4 py-3 border-b border-gray-50 last:border-0 hover:bg-gray-50/50 transition-colors"
+            >
+              <div class="min-w-0 flex-1">
+                <p class="text-sm text-gray-800 truncate">{{ element.name }}</p>
+                <p class="text-[11px] text-gray-400 truncate">{{ describeElement(element) }}</p>
+              </div>
+
+              <!-- Görünümlerde varsayılan işareti: pano ilk açılışta buna düşer -->
+              <button
+                v-if="section === 'views' && filter.owned"
+                class="shrink-0 text-[11px] px-2 py-1 rounded border transition-colors"
+                :class="element.config?.default
+                  ? 'border-purple-300 bg-purple-50 text-purple-700'
+                  : 'border-gray-200 text-gray-500 hover:border-gray-300'"
+                @click="toggleDefaultView(element)"
+              >
+                Varsayılan
+              </button>
+
+              <button
+                v-if="filter.owned && section !== 'views'"
+                class="shrink-0 p-1.5 rounded text-gray-400 hover:text-purple-600 hover:bg-purple-50 transition-colors"
+                title="Düzenle"
+                @click="openEdit(element)"
+              >✎</button>
+
+              <button
+                v-if="filter.owned"
+                class="shrink-0 p-1.5 rounded text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors"
+                title="Sil"
+                @click="removeElement(element)"
+              >🗑</button>
+            </div>
+
+            <div v-if="!sectionElements.length" class="px-4 py-12 text-center">
+              <p class="text-sm text-gray-500">{{ SECTION_EMPTY[section] }}</p>
+            </div>
+          </div>
+        </section>
+
         <!-- ─── Henüz gelmeyen bölümler ───────────────────────────────── -->
         <section v-else class="max-w-3xl px-8 py-6">
           <h1 class="text-xl font-semibold text-gray-900">{{ currentSection?.label }}</h1>
@@ -279,10 +339,31 @@
     </div>
 
     <SmartFilterModal
-      v-if="modalOpen"
+      v-if="modalOpen && section === 'smart'"
       :team-id="teamId"
       :project-id="projectId"
       :rich-filter-name="filter?.name"
+      :element="editing"
+      :saving="savingElement"
+      :error="elementError"
+      @close="closeModal"
+      @save="saveElement"
+    />
+
+    <StaticFilterModal
+      v-if="modalOpen && section === 'static'"
+      :team-id="teamId"
+      :project-id="projectId"
+      :element="editing"
+      :saving="savingElement"
+      :error="elementError"
+      @close="closeModal"
+      @save="saveElement"
+    />
+
+    <DynamicFilterModal
+      v-if="modalOpen && section === 'dynamic'"
+      :team-id="teamId"
       :element="editing"
       :saving="savingElement"
       :error="elementError"
@@ -305,6 +386,8 @@ import { ref, computed, onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import StqlInput from '../components/work/StqlInput.vue'
 import SmartFilterModal from '../components/richfilter/SmartFilterModal.vue'
+import StaticFilterModal from '../components/richfilter/StaticFilterModal.vue'
+import DynamicFilterModal from '../components/richfilter/DynamicFilterModal.vue'
 import {
   getRichFilter, updateRichFilter, deleteRichFilter, duplicateRichFilter,
   addRichFilterElement, updateRichFilterElement, deleteRichFilterElement,
@@ -338,13 +421,36 @@ const section = ref('general')
 const sections = [
   { key: 'general', label: 'Genel', icon: '⚙', ready: true },
   { key: 'smart', label: 'Akıllı filtreler', icon: '◧', ready: true },
-  { key: 'static', label: 'Sabit filtreler', icon: '▤', ready: false },
-  { key: 'dynamic', label: 'Dinamik filtreler', icon: '☰', ready: false },
-  { key: 'views', label: 'Görünümler', icon: '👁', ready: false },
+  { key: 'static', label: 'Sabit filtreler', icon: '▤', ready: true },
+  { key: 'dynamic', label: 'Dinamik filtreler', icon: '☰', ready: true },
+  { key: 'views', label: 'Görünümler', icon: '👁', ready: true },
   { key: 'queues', label: 'Kuyruklar', icon: '▦', ready: false },
   { key: 'ratios', label: 'Özel oranlar', icon: '◑', ready: false },
   { key: 'series', label: 'Zaman serileri', icon: '📈', ready: false },
 ]
+
+/** Bölüm başına öğe türü — liste ve modal seçimi buradan sürülür. */
+const SECTION_KIND = {
+  smart: 'SMART_FILTER',
+  static: 'STATIC_FILTER',
+  dynamic: 'DYNAMIC_FILTER',
+  views: 'VIEW',
+}
+
+const SECTION_HINTS = {
+  static: 'Yazarın tanımladığı seçeneklerden oluşan bir açılır kontrol. Her seçenek '
+    + 'kendi sorgusunu taşır ve seçildiğinde temel sorguya eklenir.',
+  dynamic: 'Seçenekleri veriden gelen kontrol: listede yalnız o an sonuçta bulunan '
+    + 'değerler, görev sayılarıyla birlikte görünür.',
+  views: 'Kayıtlı seçim kombinasyonları. Görünümler dashboard\'daki kontrolcüden '
+    + '"Görünüm kaydet" ile oluşturulur; burada silinir ve varsayılan seçilir.',
+}
+
+const SECTION_EMPTY = {
+  static: 'Henüz sabit filtre yok.',
+  dynamic: 'Henüz dinamik filtre yok.',
+  views: 'Henüz görünüm yok — panodaki kontrolcüden bir seçim yapıp "Görünüm kaydet" deyin.',
+}
 
 const currentSection = computed(() => sections.find(s => s.key === section.value))
 
@@ -388,6 +494,67 @@ const smartFilters = computed(() =>
   (filter.value?.elements || []).filter(e => e.kind === 'SMART_FILTER')
 )
 
+/** Açık bölümün öğeleri — sabit/dinamik/görünüm listeleri aynı markup'ı paylaşır. */
+const sectionElements = computed(() => {
+  const kind = SECTION_KIND[section.value]
+  return kind ? (filter.value?.elements || []).filter(e => e.kind === kind) : []
+})
+
+/** Liste satırının ikinci satırı: türe göre en anlamlı özet. */
+function describeElement(element) {
+  switch (element.kind) {
+    case 'STATIC_FILTER': {
+      const options = element.config?.options ?? []
+      return options.length
+        ? options.map(o => o.label).join(' · ')
+        : 'Seçenek tanımlanmamış'
+    }
+    case 'DYNAMIC_FILTER':
+      return `Alan: ${element.config?.field || '—'}`
+    case 'VIEW': {
+      const selection = element.config?.selection ?? {}
+      const parts = []
+      if (selection.smart?.length) parts.push(`${selection.smart.length} akıllı filtre`)
+      if (selection.text) parts.push(`arama: "${selection.text}"`)
+      if (Object.keys(selection.static ?? {}).length) parts.push('sabit seçim')
+      if (Object.keys(selection.dynamic ?? {}).length) parts.push('dinamik seçim')
+      return parts.length ? parts.join(' · ') : 'Boş seçim'
+    }
+    default:
+      return element.query || ''
+  }
+}
+
+/**
+ * Varsayılan görünüm tektir: ikincisi işaretlenince öncekinin işareti kalkar.
+ * İki varsayılan olsaydı panonun hangisiyle açılacağı sıraya kalırdı.
+ */
+async function toggleDefaultView(element) {
+  const makeDefault = !element.config?.default
+  savingElement.value = true
+  try {
+    if (makeDefault) {
+      for (const other of sectionElements.value) {
+        if (other.id !== element.id && other.config?.default) {
+          await updateRichFilterElement(teamId.value, richFilterId.value, other.id, {
+            kind: 'VIEW',
+            name: other.name,
+            config: { ...(other.config ?? {}), default: false },
+          })
+        }
+      }
+    }
+    await updateRichFilterElement(teamId.value, richFilterId.value, element.id, {
+      kind: 'VIEW',
+      name: element.name,
+      config: { ...(element.config ?? {}), default: makeDefault },
+    })
+    await reload()
+  } finally {
+    savingElement.value = false
+  }
+}
+
 const modalOpen = ref(false)
 const editing = ref(null)
 const savingElement = ref(false)
@@ -422,14 +589,14 @@ async function saveElement(payload) {
     await reload()
     closeModal()
   } catch (e) {
-    elementError.value = e?.response?.data?.message || 'Akıllı filtre kaydedilemedi.'
+    elementError.value = e?.response?.data?.message || 'Kaydedilemedi.'
   } finally {
     savingElement.value = false
   }
 }
 
 async function removeElement(element) {
-  if (!confirm(`"${element.name}" akıllı filtresi silinsin mi?`)) return
+  if (!confirm(`"${element.name}" silinsin mi?`)) return
   await deleteRichFilterElement(teamId.value, richFilterId.value, element.id)
   await reload()
 }

@@ -68,6 +68,7 @@ import { ref, computed, watch, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import OrphanRichFilter from './OrphanRichFilter.vue'
 import { useRichFilterContext } from '../../composables/useRichFilterContext.js'
+import { useAutoRefresh } from '../../composables/useAutoRefresh.js'
 import { searchRichFilter, resolveRichFilter } from '../../api/RichFilterApi.js'
 
 const props = defineProps({
@@ -75,6 +76,7 @@ const props = defineProps({
   richFilterId: { type: String, required: true },
   title: { type: String, default: '' },
   limit: { type: Number, default: 8 },
+  refreshInterval: { type: Number, default: 0 },
 })
 
 defineEmits(['task-click'])
@@ -124,4 +126,6 @@ onMounted(async () => {
 })
 
 watch(signature, load)
+watch(() => props.limit, load)
+useAutoRefresh(load, () => props.refreshInterval)
 </script>

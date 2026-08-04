@@ -36,6 +36,7 @@ import { ref, computed, watch, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import OrphanRichFilter from './OrphanRichFilter.vue'
 import { useRichFilterContext } from '../../composables/useRichFilterContext.js'
+import { useAutoRefresh } from '../../composables/useAutoRefresh.js'
 import { countRichFilter, resolveRichFilter } from '../../api/RichFilterApi.js'
 
 const props = defineProps({
@@ -43,6 +44,7 @@ const props = defineProps({
   richFilterId: { type: String, required: true },
   title: { type: String, default: '' },
   threshold: { type: Object, default: () => ({}) },
+  refreshInterval: { type: Number, default: 0 },
 })
 
 const router = useRouter()
@@ -98,4 +100,5 @@ onMounted(async () => {
 })
 
 watch(signature, load)
+useAutoRefresh(load, () => props.refreshInterval)
 </script>

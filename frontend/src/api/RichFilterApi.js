@@ -85,6 +85,17 @@ export const aggregateRichFilter = async (teamId, richFilterId, selection = {}, 
     return data
 }
 
+/**
+ * Dinamik filtrelerin güncel seçenekleri — hepsi tek istekte.
+ * Her kontrolün seçenekleri kendi seçimi dışlanarak hesaplanır: bir değer
+ * seçtikten sonra aynı listeden ikinci bir değer eklenebilsin diye.
+ * @returns {Promise<Array<{elementId: string, name: string, field: string, options: Array}>>}
+ */
+export const optionsRichFilter = async (teamId, richFilterId, selection = {}) => {
+    const { data } = await apiClient.post(`${base(teamId)}/${richFilterId}/options`, selection)
+    return data
+}
+
 /** Seçimlerin STQL karşılığı + sayısı — görev listesine geçiş linki için. */
 export const resolveRichFilter = async (teamId, richFilterId, selection = {}) => {
     const { data } = await apiClient.post(`${base(teamId)}/${richFilterId}/resolve`, selection)
