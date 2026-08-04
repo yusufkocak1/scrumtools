@@ -189,7 +189,8 @@
 
     <!-- Image Insert Modal -->
     <teleport to="body">
-      <div v-if="showImageModal" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-sm"
+      <div v-if="showImageModal" data-editor-overlay
+           class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-sm"
            @click.self="showImageModal = false">
         <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md mx-4 overflow-hidden">
           <div class="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
@@ -258,7 +259,8 @@
 
     <!-- Link Modal -->
     <teleport to="body">
-      <div v-if="showLinkModal" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-sm"
+      <div v-if="showLinkModal" data-editor-overlay
+           class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-sm"
            @click.self="showLinkModal = false">
         <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md mx-4 overflow-hidden">
           <div class="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
@@ -297,7 +299,8 @@
 
     <!-- Markdown Import Modal -->
     <teleport to="body">
-      <div v-if="showMarkdownImport" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-sm"
+      <div v-if="showMarkdownImport" data-editor-overlay
+           class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-sm"
            @click.self="showMarkdownImport = false">
         <div class="bg-white rounded-2xl shadow-2xl w-full max-w-2xl mx-4 overflow-hidden flex flex-col"
              style="max-height: 80vh;">

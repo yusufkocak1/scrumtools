@@ -105,6 +105,9 @@ async function save() {
 function onDocumentMouseDown(event) {
   if (!editing.value) return
   if (event.target.closest?.('[data-panel-root="description"]')) return
+  // Editörün modalları (resim, link, markdown içe aktar) body'ye teleport edildiği için
+  // DOM'da panelin dışında kalır; içlerine tıklamak düzenlemeyi kapatmamalı.
+  if (event.target.closest?.('[data-editor-overlay]')) return
   save()
 }
 
