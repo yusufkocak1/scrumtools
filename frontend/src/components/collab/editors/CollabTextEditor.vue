@@ -51,7 +51,11 @@ import Collaboration from '@tiptap/extension-collaboration'
 import CollaborationCaret from '@tiptap/extension-collaboration-caret'
 
 /**
- * Eş zamanlı zengin metin editörü — TipTap + y-prosemirror (plan K1).
+ * Eş zamanlı zengin metin editörü — TipTap + @tiptap/y-tiptap (plan K1).
+ *
+ * Bağlamayı y-prosemirror değil, TipTap'in kendi çatalı olan `@tiptap/y-tiptap`
+ * yapıyor: Collaboration eklentisinin akran (peer) bağımlılığı odur, ikisi bir
+ * arada kurulursa iki ayrı ProseMirror eklenti anahtarı oluşur.
  *
  * Docs modülüyle aynı içerik biçimini (HTML) üretir; Faz 2'de bir Docs sayfası
  * bu editörle ortak düzenlenebilecek.

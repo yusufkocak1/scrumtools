@@ -10,15 +10,12 @@
 
 <script setup>
 import { ref, watch, computed } from 'vue'
-import { loader, VueMonacoEditor } from '@guolao/vue-monaco-editor'
+import { VueMonacoEditor } from '@guolao/vue-monaco-editor'
 import customLang from '../../../../custom-lang-monarch.js'
 
-// VS CDN yapılandırması (bileşen içinde lokal kurulum)
-loader.config({
-  paths: {
-    vs: 'https://cdn.jsdelivr.net/npm/monaco-editor@0.52.2/min/vs'
-  }
-})
+// Monaco CDN'den değil paketten geliyor (R5). Yan etkisi için import ediliyor:
+// modül `loader.config({ monaco })` çağrısını kendi içinde yapıyor.
+import '../../../monaco/setup.js'
 
 const props = defineProps({
   modelValue: { type: String, default: '' },

@@ -55,7 +55,7 @@ Hedef üç katmanlı:
 |---|---|---|
 | WebSocket taşıma | STOMP + SockJS, JWT'li CONNECT | [WebSocketConfig.java](backend/src/main/java/com/scrumtools/config/WebSocketConfig.java) |
 | WS istemcisi | connect/subscribe/send/unsubscribe sarmalayıcı | [websocket.js](frontend/src/api/websocket.js) |
-| Kod editörü | Monaco (CDN'den yükleniyor — bkz. R5) | [MonacoEditor.vue](frontend/src/components/share/MonacoEditor.vue) |
+| Kod editörü | Monaco (~~CDN~~ → paketten, Faz 2.5/R5) | [MonacoEditor.vue](frontend/src/components/collab/editors/MonacoEditor.vue) |
 | Zengin metin editörü | TipTap 3 (tablo, kod bloğu, resim, link uzantıları kurulu) | [TiptapEditor.vue](frontend/src/components/docs/TiptapEditor.vue) |
 | Versiyonlama | `DocPageVersion` + geri yükleme | [DocPageService.java](backend/src/main/java/com/scrumtools/service/DocPageService.java) |
 | İzin modeli | Space/Page bazlı READ/WRITE, rol + üyelik çözümlemesi | [DocPermissionService.java](backend/src/main/java/com/scrumtools/service/DocPermissionService.java) |
@@ -707,7 +707,7 @@ görmek gerekir.
 | R2 | Docs tohumlama ikilenmesi (Y1) | Sayfa içeriği iki katına çıkar | `state IS NULL` koşullu tek işlem |
 | R3 | CRDT büyümesi | Uzun ömürlü doküman diski yer | Sıkıştırma görevi + append gruplama (§12) |
 | R4 | Makro yetki yükseltme | Yetkisiz veri erişimi | Onay akışı + çalıştıran yetkisi + denetim (9.2) |
-| R5 | Monaco CDN'den yükleniyor | Kapalı ağ / CDN kesintisinde editör açılmaz | Monaco'yu npm'e alıp yerelden servis et |
+| R5 | ~~Monaco CDN'den yükleniyor~~ ✅ | Kapalı ağ / CDN kesintisinde editör açılmaz; ayrıca `y-monaco` paketi zaten derlemeye soktuğu için **iki ayrı Monaco örneği** oluşuyordu | Faz 2.5'te npm paketine alındı, `loader.config({ monaco })` |
 | R6 | POI bellek piki (D3) | Büyük xlsx sunucuyu düşürür | SXSSF + SAX + tek iş parçacıklı kuyruk + hücre kotası |
 | R7 | Tek örnek yeniden başlatma (K9) | Deploy'da tüm oturumlar düşer | Append log'dan kurtarma + backoff'lu yeniden bağlanma |
 | R8 | Mobil hesap tablosu | Dokunmatik ızgara zayıf | v1'de mobilde `SHEET` salt-okunur |
@@ -716,7 +716,7 @@ görmek gerekir.
 
 ## 14. Faz Planı ve İş Listesi
 
-Tahminler adam-gün. Toplam ≈ **61 gün**; Faz 0–2 ile kullanılabilir bir ürün çıkar (≈24 gün).
+Tahminler adam-gün. Toplam ≈ **62 gün**; Faz 0–2.5 ile kullanılabilir bir ürün çıkar (≈25 gün).
 
 ### Faz 0 — Temizlik, altyapı ve güvenlik sertleştirme (7 gün) ✅ *tamamlandı*
 
@@ -804,6 +804,30 @@ sütunları şemada hazır ama akış Faz 2'de yazılacak.
 | Geçmiş seyreltme | En fazla 10 dk'da bir, doküman başına 20 kayıt | Anlık görüntü dakikada birkaç kez üretilir; hepsini kaydetmek zaman çizelgesini okunamaz yapar |
 | Geri yükleme | Geri sarma değil, **yeni düzenleme** olarak uygulama | CRDT'de tek taraflı geri sarma, o an bağlı olanların durumuyla çelişir |
 | Aynalama hatası | Yutulur ve log'lanır, anlık görüntü geri alınmaz | Docs yazımı türev çıktıdır; doğruluk kaynağı CRDT'dir. Hata yüzünden anlık görüntüyü geri almak dokümanı kaydedilmemiş bırakırdı |
+
+### Faz 2.5 — Derleme borcu: kilit dosyası ve Monaco (1 gün) ✅ *tamamlandı*
+
+Plana sonradan eklendi. Faz 1'in ilk Jenkins koşusu `npm ci` aşamasında düştü;
+kök sebebi araştırırken R5'in sanılandan büyük olduğu ortaya çıktı.
+
+- [x] `package-lock.json` yeniden üretildi — Faz 1'de eklenen 6 paket kilitte yoktu,
+      `npm ci` kilitten birebir kurduğu için CI ERESOLVE ile düşüyordu. *(0.5 g)*
+- [x] TipTap ortak düzenleme eklentileri **sabit** `3.23.4`'e çekildi; TipTap akran
+      sürümlerini birebir istiyor (`peer @tiptap/pm@"3.23.4"`), aralık vermek npm'e
+      olmayan bir esneklik vaat ediyordu. *(0.5 g)*
+- [x] `y-prosemirror` kaldırıldı, yerine `@tiptap/y-tiptap` — `extension-collaboration`
+      v3'ün gerçek akran bağımlılığı bu; y-prosemirror kodda hiç import edilmiyordu.
+- [x] **R5 kapatıldı:** `monaco-editor` npm bağımlılığı + `src/monaco/setup.js`
+      (worker'lar + `loader.config({ monaco })`), CDN bırakıldı.
+
+**Faz 2.5'te verilen ek kararlar:**
+
+| Konu | Karar | Gerekçe |
+|---|---|---|
+| Monaco kaynağı | CDN değil **npm paketi** | `y-monaco` zaten `editor.api.js`'i statik import ediyor; CDN kalsaydı iki ayrı Monaco örneği (0.52.2 / 0.53.0) yan yana çalışır, y-monaco'nun `Range`/`Selection` nesneleri yabancı bir editöre giderdi |
+| Dil worker'ları | Beşi de kayıtlı (json/css/html/ts/editor) | Vite her birini ayrı varlık olarak üretiyor, ancak o dilde model açılınca iniyor — ilk yükleme maliyeti yok, CDN'deki davranış korunuyor |
+| `monaco-editor` sürümü | `^` yok, sabit `0.53.0` | `esm/vs/...` altındaki worker giriş noktaları paketin iç yapısı; ara sürümde yer değiştirirse derleme sessizce bozulur |
+| Monaco'nun ana pakete girmemesi | Tembel rota ile sınırlandı | Tek tüketicisi `MonacoEditor.vue` → `CollabDocument` rotası; rota `import()` ile yüklendiği için Monaco ayrı bir async parçaya düşüyor, Docs/Dashboard bedelini ödemiyor |
 
 ### Faz 3 — Hesap tablosu (18 gün)
 
