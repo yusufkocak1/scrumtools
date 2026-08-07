@@ -133,6 +133,21 @@
             </svg>
           </button>
           <div class="w-px h-6 bg-slate-200 mx-1.5 hidden sm:block"></div>
+          <!-- Ortak düzenleme (COLLAB_WORKSPACE_PLAN.md Y1). Klasik "Düzenle" son
+               yazan kazanır modelidir; bu kapı eş zamanlı düzenlemeye açılır. -->
+          <button v-if="!editing && currentPage" @click="openCollab" :disabled="collabOpening"
+                  class="inline-flex items-center gap-1.5 border border-indigo-200 text-indigo-700 bg-indigo-50/60 hover:bg-indigo-100 px-3 py-1.5 rounded-xl text-sm font-medium transition disabled:opacity-50">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round"
+                    d="M18 18.72a9.094 9.094 0 003.741-.479 3 3 0 00-4.682-2.72M18 18.72a5.971 5.971 0 00-.941-3.197m0 0A5.995 5.995 0 0012 12.75a5.995 5.995 0 00-5.058 2.772m0 0a3 3 0 00-4.681 2.72 8.986 8.986 0 003.74.477m.94-3.197a5.971 5.971 0 00-.94 3.197M15 6.75a3 3 0 11-6 0 3 3 0 016 0z"/>
+            </svg>
+            <span class="hidden sm:inline">Ortak Düzenle</span>
+            <span v-if="collabParticipants > 0"
+                  class="inline-flex items-center justify-center min-w-[1.25rem] h-5 px-1 rounded-full bg-emerald-500 text-white text-[11px] font-semibold"
+                  :title="`${collabParticipants} kişi şu anda düzenliyor`">
+              {{ collabParticipants }}
+            </span>
+          </button>
           <button v-if="!editing" @click="startEditing"
                   class="inline-flex items-center gap-1.5 bg-indigo-600 hover:bg-indigo-500 active:bg-indigo-700 text-white px-3.5 py-1.5 rounded-xl text-sm font-medium shadow-sm shadow-indigo-200 transition">
             <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
@@ -257,12 +272,14 @@
 </template>
 
 <script setup>
-import {ref, computed, onMounted, watch, nextTick} from 'vue'
+import {ref, computed, onMounted, onBeforeUnmount, watch, nextTick} from 'vue'
 import {useRoute, useRouter} from 'vue-router'
 import {marked} from 'marked'
 import hljs from 'highlight.js'
 import DOMPurify from 'dompurify'
 import DocApi from '../api/DocApi.js'
+import CollabApi from '../api/CollabApi.js'
+import {subscribe, unsubscribe} from '../api/websocket.js'
 import PageTree from '../components/docs/PageTree.vue'
 import TiptapEditor from '../components/docs/TiptapEditor.vue'
 import VersionHistory from '../components/docs/VersionHistory.vue'
@@ -294,6 +311,12 @@ const showSaveDialog = ref(false)
 
 // Sayfa arama
 const pageSearch = ref('')
+
+// ─── Ortak çalışma alanı köprüsü (COLLAB_WORKSPACE_PLAN.md Y1) ───────────────
+const collabOpening = ref(false)
+const collabDocumentId = ref(null)
+const collabParticipants = ref(0)
+let collabTopic = null
 
 // Başlık yeniden adlandırma state
 const renamingTitle = ref(false)
@@ -398,10 +421,65 @@ async function loadPage(pageId) {
     const res = await DocApi.getPage(projectId.value, spaceId.value, pageId)
     currentPage.value = res.data
     editing.value = false
+    await watchCollabPresence(pageId)
   } catch (e) {
     console.error(e)
   }
 }
+
+// ─── Ortak çalışma alanı köprüsü (COLLAB_WORKSPACE_PLAN.md Y1) ───────────────
+
+/**
+ * Sayfayı eş zamanlı düzenlemeye açar.
+ *
+ * Uç nokta idempotenttir: sayfanın dokümanı varsa yenisi yaratılmaz, mevcut
+ * olana gidilir. Aksi hâlde iki kişi butona bastığında sayfa iki ayrı CRDT
+ * akışıyla yazılmaya başlar (plan R2).
+ */
+async function openCollab() {
+  if (!currentPage.value || collabOpening.value) return
+  collabOpening.value = true
+  try {
+    const res = await CollabApi.openForDocPage(projectId.value, currentPage.value.id)
+    router.push(`/projects/${projectId.value}/collab/${res.data.id}`)
+  } catch (e) {
+    console.error(e)
+  } finally {
+    collabOpening.value = false
+  }
+}
+
+/**
+ * Okuma modunda "şu an N kişi düzenliyor" rozeti.
+ *
+ * Sayfanın dokümanı yoksa hiçbir şey yapılmaz — rozet için doküman yaratmak,
+ * sayfayı okuyan herkesin arkada bir CRDT dokümanı doğurması demek olurdu.
+ */
+async function watchCollabPresence(pageId) {
+  unsubscribeCollabPresence()
+  collabParticipants.value = 0
+  collabDocumentId.value = null
+  try {
+    const res = await CollabApi.findForDocPage(projectId.value, pageId)
+    if (res.status === 204 || !res.data?.id) return
+    collabDocumentId.value = res.data.id
+    collabTopic = `/topic/collab/${res.data.id}/presence`
+    subscribe(collabTopic, (participants) => {
+      collabParticipants.value = Array.isArray(participants) ? participants.length : 0
+    })
+  } catch {
+    // Doküman yok ya da yetki yok — rozet gösterilmez, sayfa normal çalışır.
+  }
+}
+
+function unsubscribeCollabPresence() {
+  if (collabTopic) {
+    unsubscribe(collabTopic)
+    collabTopic = null
+  }
+}
+
+onBeforeUnmount(unsubscribeCollabPresence)
 
 function selectPage(page) {
   showPageTree.value = false

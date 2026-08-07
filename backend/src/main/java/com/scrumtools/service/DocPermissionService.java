@@ -62,10 +62,7 @@ public class DocPermissionService {
      * Okuma yetkisi kontrolü (space veya page seviyesinde).
      */
     public void checkReadAccess(DocSpace space, DocPage page, User user) {
-        if (user.getSystemRole() == SystemRole.SUPER_ADMIN) return;
-        if (isProjectAdmin(space.getProject().getId(), user)) return;
-
-        if (!hasAccessLevel(space, page, user, DocAccessLevel.READ)) {
+        if (!hasReadAccess(space, page, user)) {
             throw new SecurityException("Bu içeriği görüntüleme yetkiniz yok");
         }
     }
@@ -74,12 +71,28 @@ public class DocPermissionService {
      * Yazma yetkisi kontrolü (space veya page seviyesinde).
      */
     public void checkWriteAccess(DocSpace space, DocPage page, User user) {
-        if (user.getSystemRole() == SystemRole.SUPER_ADMIN) return;
-        if (isProjectAdmin(space.getProject().getId(), user)) return;
-
-        if (!hasAccessLevel(space, page, user, DocAccessLevel.WRITE)) {
+        if (!hasWriteAccess(space, page, user)) {
             throw new SecurityException("Bu içeriği düzenleme yetkiniz yok");
         }
+    }
+
+    /**
+     * Boolean karşılıklar — ortak çalışma alanı bunları kullanır (COLLAB_WORKSPACE_PLAN.md Y1).
+     *
+     * <p>Bir ortak doküman bir {@code DocPage}'e bağlıysa yetki kararı buraya
+     * devredilir; kararı istisna yakalayarak öğrenmek yerine doğrudan sorabilmek
+     * için ayrıştırıldı. {@code check*} metotlarının davranışı değişmedi.
+     */
+    public boolean hasReadAccess(DocSpace space, DocPage page, User user) {
+        if (user.getSystemRole() == SystemRole.SUPER_ADMIN) return true;
+        if (isProjectAdmin(space.getProject().getId(), user)) return true;
+        return hasAccessLevel(space, page, user, DocAccessLevel.READ);
+    }
+
+    public boolean hasWriteAccess(DocSpace space, DocPage page, User user) {
+        if (user.getSystemRole() == SystemRole.SUPER_ADMIN) return true;
+        if (isProjectAdmin(space.getProject().getId(), user)) return true;
+        return hasAccessLevel(space, page, user, DocAccessLevel.WRITE);
     }
 
     /**

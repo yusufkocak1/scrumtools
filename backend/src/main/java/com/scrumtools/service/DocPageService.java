@@ -139,6 +139,49 @@ public class DocPageService {
         log.info("Doc page silindi: {}", pageId);
     }
 
+    // ─── Ortak çalışma alanı köprüsü (COLLAB_WORKSPACE_PLAN.md Y1/Y2) ─────────
+
+    /**
+     * Ortak düzenleme sonucunu sayfaya yazar ve bir sürüm kaydı üretir.
+     *
+     * <p>Normal {@code updatePage} akışından ayrı durmasının iki nedeni var:
+     * <ul>
+     *   <li>Kullanıcı burada bir form göndermiyor — içerik, "yazar" seçilen
+     *       istemcinin gönderdiği anlık görüntüden geliyor (plan K6). Başlık,
+     *       üst sayfa, sıra gibi alanlara dokunulmamalı.</li>
+     *   <li>Sürüm özeti değişikliği kimin yaptığını değil <b>kaç kişinin</b>
+     *       yaptığını anlatmalı; sürüm geçmişinde "Ali güncelledi" yazması,
+     *       aslında üç kişinin yazdığı bir oturumda yanıltıcı olur.</li>
+     * </ul>
+     *
+     * <p>Yetki kontrolü burada tekrarlanmaz: çağıran taraf
+     * ({@code CollabDocumentService.saveSnapshot}) zaten {@code DocPermissionService}
+     * üzerinden yazma yetkisini doğrulamış oluyor — bağlı dokümanlarda yetki
+     * kaynağı tektir.
+     */
+    @Transactional
+    public void applyCollaborativeContent(UUID pageId, String content, User user, int participantCount) {
+        DocPage page = pageRepository.findById(pageId)
+                .orElseThrow(() -> new IllegalArgumentException("Sayfa bulunamadı: " + pageId));
+
+        String next = content != null ? content : "";
+        if (next.equals(page.getContent())) {
+            // Anlık görüntü periyodiktir; içerik değişmediyse her turda yeni bir
+            // sürüm üretmek geçmişi kullanılamaz hâle getirirdi.
+            return;
+        }
+
+        page.setContent(next);
+        page.setUpdatedBy(user);
+        page = pageRepository.save(page);
+
+        String summary = participantCount > 1
+                ? "Ortak düzenleme — " + participantCount + " katılımcı"
+                : "Ortak düzenleme";
+        createVersion(page, user, summary);
+        log.debug("Docs sayfası ortak düzenlemeden güncellendi: {}", pageId);
+    }
+
     // ─── Versiyonlama ──────────────────────────────────────────────────────────
 
     public List<DocPageVersionResponse> getVersions(UUID pageId) {
