@@ -29,6 +29,7 @@ public class DocAttachmentService {
     private final StorageService storageService;
     private final UserRepository userRepository;
     private final DocPermissionService permissionService;
+    private final MediaLinkService mediaLinkService;
 
     private static final long MAX_FILE_SIZE = 20 * 1024 * 1024; // 20MB
     private static final int MAX_ATTACHMENTS_PER_PAGE = 50;
@@ -70,7 +71,7 @@ public class DocAttachmentService {
         log.info("Doc attachment yüklendi: {} → page {}", attachment.getFileName(), pageId);
 
         String downloadUrl = storageService.getPresignedUrl(objectKey, 60);
-        return DocAttachmentResponse.from(attachment, downloadUrl);
+        return DocAttachmentResponse.from(attachment, downloadUrl, mediaUrl(attachment.getId()));
     }
 
     public List<DocAttachmentResponse> getAttachments(UUID pageId) {
@@ -83,9 +84,14 @@ public class DocAttachmentService {
         return attachmentRepository.findByPageIdOrderByCreatedAtDesc(pageId).stream()
                 .map(a -> {
                     String url = storageService.getPresignedUrl(a.getObjectKey(), 60);
-                    return DocAttachmentResponse.from(a, url);
+                    return DocAttachmentResponse.from(a, url, mediaUrl(a.getId()));
                 })
                 .collect(Collectors.toList());
+    }
+
+    /** İçeriğe gömülebilen kalıcı bağlantı — presigned URL'in aksine süresi dolmaz. */
+    private String mediaUrl(UUID attachmentId) {
+        return mediaLinkService.urlFor(MediaLinkService.DOC_ATTACHMENT, attachmentId);
     }
 
     public InputStream download(UUID attachmentId) {

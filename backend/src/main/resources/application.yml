@@ -100,6 +100,12 @@ app:
     secret: ${JWT_SECRET:ScrumToolsSuperSecretKeyForJWTSigningMustBe256Bits1yusuf}
     # Token süresi ms cinsinden (default: 24 saat)
     expiration: ${JWT_EXPIRATION:86400000}
+  media:
+    # İçeriğe gömülü görsellerin kalıcı /api/media linklerini imzalayan anahtar.
+    # Varsayılan olarak JWT secret'ı kullanılır; DEĞİŞTİRİLİRSE eski içerikteki tüm
+    # görsel bağlantıları geçersiz olur (JWT secret'ı rotate ediyorsanız bunu ayrı
+    # ve sabit bir değere set edin).
+    secret: ${MEDIA_SECRET:${JWT_SECRET:ScrumToolsSuperSecretKeyForJWTSigningMustBe256Bits1yusuf}}
 
 logging:
   level:

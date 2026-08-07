@@ -229,7 +229,8 @@ async function submitComment() {
 async function uploadHandler(file) {
   if (!props.teamId || !props.task?.id) return null
   const result = await uploadAttachment(props.teamId, props.task.id, file)
-  return { downloadUrl: result.downloadUrl, fileName: result.fileName || file.name }
+  // Yoruma kalıcı medya bağlantısı gömülür (presigned URL 60 dakikada ölüyordu).
+  return { downloadUrl: result.mediaUrl || result.downloadUrl, fileName: result.fileName || file.name }
 }
 
 const fieldLabels = {

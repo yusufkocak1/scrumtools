@@ -25,6 +25,7 @@ public class AttachmentService {
     private final TaskAttachmentRepository attachmentRepository;
     private final TaskRepository taskRepository;
     private final StorageService storageService;
+    private final MediaLinkService mediaLinkService;
 
     /** Maksimum tek dosya boyutu: 20MB */
     private static final long MAX_FILE_SIZE = 20 * 1024 * 1024;
@@ -72,7 +73,7 @@ public class AttachmentService {
         log.info("Dosya eklendi: {} → task {}", attachment.getFileName(), task.getCustomId());
 
         String downloadUrl = storageService.getPresignedUrl(objectKey, 60);
-        return AttachmentResponse.from(attachment, downloadUrl);
+        return AttachmentResponse.from(attachment, downloadUrl, mediaUrl(attachment.getId()));
     }
 
     // ─── List ──────────────────────────────────────────────────────────────────
@@ -87,9 +88,14 @@ public class AttachmentService {
         return attachmentRepository.findByTaskIdOrderByCreatedAtDesc(taskId).stream()
                 .map(a -> {
                     String downloadUrl = storageService.getPresignedUrl(a.getObjectKey(), 60);
-                    return AttachmentResponse.from(a, downloadUrl);
+                    return AttachmentResponse.from(a, downloadUrl, mediaUrl(a.getId()));
                 })
                 .collect(Collectors.toList());
+    }
+
+    /** İçeriğe gömülebilen kalıcı bağlantı — presigned URL'in aksine süresi dolmaz. */
+    private String mediaUrl(UUID attachmentId) {
+        return mediaLinkService.urlFor(MediaLinkService.TASK_ATTACHMENT, attachmentId);
     }
 
     // ─── Download ──────────────────────────────────────────────────────────────

@@ -152,7 +152,8 @@ async function onFileSelected(event) {
 }
 
 function insertIntoEditor(att) {
-  emit('inserted', att.downloadUrl)
+  // Sayfa içeriğine kalıcı bağlantı gömülür; presigned downloadUrl 60 dakikada ölüyor.
+  emit('inserted', att.mediaUrl || att.downloadUrl)
 }
 
 async function deleteAttachment() {

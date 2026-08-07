@@ -578,6 +578,14 @@ function removeLink() {
 
 // ─── Image Functions ──────────────────────────────────────────────────────────
 
+/**
+ * İçeriğe gömülecek bağlantı: kalıcı imzalı medya URL'i (mediaUrl). Presigned
+ * downloadUrl 60 dakikada geçersizleştiği için yalnızca yedek olarak kullanılır.
+ */
+function mediaSrc(attachment) {
+  return attachment?.mediaUrl || attachment?.downloadUrl || ''
+}
+
 async function handleImageUpload(file) {
   if (!file) return
 
@@ -614,7 +622,8 @@ async function handleImageUpload(file) {
   try {
     const res = await DocApi.uploadAttachment(props.projectId, props.spaceId, props.pageId, file)
     const attachment = res.data
-    editor.value?.chain().focus().setImage({src: attachment.downloadUrl, alt: attachment.fileName}).run()
+    // Kalıcı medya bağlantısı gömülür — presigned downloadUrl 60 dakikada geçersizleşiyor.
+    editor.value?.chain().focus().setImage({src: mediaSrc(attachment), alt: attachment.fileName}).run()
   } catch (e) {
     console.error('Resim yüklenemedi:', e)
     const reader = new FileReader()
@@ -695,10 +704,10 @@ async function onFileSelected(event) {
     const attachment = res.data
 
     if (attachment.mimeType?.startsWith('image/')) {
-      editor.value.chain().focus().setImage({src: attachment.downloadUrl, alt: attachment.fileName}).run()
+      editor.value.chain().focus().setImage({src: mediaSrc(attachment), alt: attachment.fileName}).run()
     } else {
       editor.value.chain().focus().insertContent(
-          `<a href="${attachment.downloadUrl}" target="_blank">${attachment.fileName}</a>`
+          `<a href="${mediaSrc(attachment)}" target="_blank">${attachment.fileName}</a>`
       ).run()
     }
   } catch (e) {

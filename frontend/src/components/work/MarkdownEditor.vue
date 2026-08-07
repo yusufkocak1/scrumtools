@@ -209,7 +209,8 @@ export default {
       this.uploadingImage = true
       try {
         const result = await uploadAttachment(this.teamId, this.taskId, file)
-        const imageUrl = result.downloadUrl || ''
+        // Kalıcı medya bağlantısı — presigned downloadUrl 60 dakika sonra kırılıyordu.
+        const imageUrl = result.mediaUrl || result.downloadUrl || ''
         const mdImage = `![${file.name}](${imageUrl})\n`
         this.insertAtCursor(mdImage)
       } catch (e) {

@@ -74,6 +74,9 @@ public class SecurityConfig {
                         .requestMatchers("/api/webhooks/**").permitAll()
                         // WebSocket endpoint'i
                         .requestMatchers("/ws/**").permitAll()
+                        // İçeriğe gömülü medya: <img src> Authorization header taşıyamaz,
+                        // yetkilendirme URL'deki HMAC imzasıyla yapılır (MediaLinkService)
+                        .requestMatchers("/api/media/**").permitAll()
                         // Diğer tüm istekler token gerektirir
                         .anyRequest().authenticated()
                 )

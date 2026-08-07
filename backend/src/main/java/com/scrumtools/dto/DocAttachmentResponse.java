@@ -11,12 +11,15 @@ public record DocAttachmentResponse(
         String fileName,
         long fileSize,
         String mimeType,
+        /** Geçici (60 dk) MinIO presigned URL — liste/indirme bağlantıları için. */
         String downloadUrl,
+        /** Kalıcı imzalı URL — sayfa içeriğine gömülecek görseller bunu kullanır. */
+        String mediaUrl,
         String uploadedByEmail,
         String uploadedByName,
         LocalDateTime createdAt
 ) {
-    public static DocAttachmentResponse from(DocPageAttachment a, String downloadUrl) {
+    public static DocAttachmentResponse from(DocPageAttachment a, String downloadUrl, String mediaUrl) {
         return new DocAttachmentResponse(
                 a.getId(),
                 a.getPage().getId(),
@@ -24,6 +27,7 @@ public record DocAttachmentResponse(
                 a.getFileSize(),
                 a.getMimeType(),
                 downloadUrl,
+                mediaUrl,
                 a.getUploadedBy().getEmail(),
                 a.getUploadedBy().getName(),
                 a.getCreatedAt()

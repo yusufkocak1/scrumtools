@@ -114,7 +114,9 @@ function onDocumentMouseDown(event) {
 async function uploadHandler(file) {
   if (!props.teamId || !props.task?.id) return null
   const result = await uploadAttachment(props.teamId, props.task.id, file)
-  return { downloadUrl: result.downloadUrl, fileName: result.fileName || file.name }
+  // İçeriğe kalıcı medya bağlantısı gömülür; presigned downloadUrl 60 dakikada
+  // geçersizleşip görselleri kırıyordu.
+  return { downloadUrl: result.mediaUrl || result.downloadUrl, fileName: result.fileName || file.name }
 }
 </script>
 

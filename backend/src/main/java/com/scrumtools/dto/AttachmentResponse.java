@@ -16,10 +16,16 @@ public class AttachmentResponse {
     private Long fileSize;
     private String mimeType;
     private String uploadedBy;
+
+    /** Geçici (60 dk) MinIO presigned URL — liste/indirme bağlantıları için. */
     private String downloadUrl;
+
+    /** Kalıcı imzalı URL — açıklama/yorum içeriğine gömülecek görseller bunu kullanır. */
+    private String mediaUrl;
+
     private LocalDateTime createdAt;
 
-    public static AttachmentResponse from(TaskAttachment a, String downloadUrl) {
+    public static AttachmentResponse from(TaskAttachment a, String downloadUrl, String mediaUrl) {
         return AttachmentResponse.builder()
                 .id(a.getId().toString())
                 .taskId(a.getTask().getId().toString())
@@ -28,6 +34,7 @@ public class AttachmentResponse {
                 .mimeType(a.getMimeType())
                 .uploadedBy(a.getUploadedBy())
                 .downloadUrl(downloadUrl)
+                .mediaUrl(mediaUrl)
                 .createdAt(a.getCreatedAt())
                 .build();
     }
