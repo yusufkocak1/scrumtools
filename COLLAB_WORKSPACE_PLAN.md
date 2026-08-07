@@ -860,15 +860,31 @@ kök sebebi araştırırken R5'in sanılandan büyük olduğu ortaya çıktı.
 | Uzak imleç | `IMarkSelectionService`, DI'dan, `try/catch` ile | Univer'in iç API'si. Bir yükseltmede kaybolursa uzak imleçler kaybolur ama **düzenleme çalışmaya devam eder** — kozmetik özellik, kritik yola bağlanmamalı |
 | Excel stil kapsamı | Yalnızca **sayı biçimi** | Her stil varyantını almak hücre sayısı kadar stil üretebilir; kullanıcı neyin alınmadığını uyum raporunda görüyor |
 
-### Faz 4 — Makro motoru (14 gün)
+### Faz 4 — Makro motoru (14 gün) ✅ *tamamlandı*
 
-- [ ] `CollabMacro`, `CollabMacroRun` entity + servis + REST. *(1.5 g)*
-- [ ] `macroWorker.js` sandbox: worker kurulumu, global temizliği, zaman aşımı. *(2 g)*
-- [ ] Doküman API yüzeyi (§9.1) — oku-anlık-görüntü / yaz-toplu modeli (K8). *(3 g)*
-- [ ] `ScrumTools.tasks` / `.sprints` / `.docs` köprüleri (TQL motoru üzerinden). *(2 g)*
-- [ ] Onay akışı + rıza diyaloğu + statik API taraması (9.2). *(2 g)*
-- [ ] `MacroEditor.vue` — Monaco + `d.ts` tamamlama + hata paneli. *(1.5 g)*
-- [ ] `MacroPanel.vue` + çalıştırma günlüğü + `ActivityService` kaydı. *(1 g)*
+- [x] `CollabMacro`, `CollabMacroRun` entity + servis + REST. *(1.5 g)*
+- [x] `macroWorker.js` sandbox: worker kurulumu, global temizliği, zaman aşımı. *(2 g)*
+- [x] Doküman API yüzeyi (§9.1) — oku-anlık-görüntü / yaz-toplu modeli (K8). *(3 g)*
+- [x] `ScrumTools.tasks` / `.sprints` / `.docs` köprüleri (TQL motoru üzerinden). *(2 g)*
+- [x] Onay akışı + rıza diyaloğu + statik API taraması (9.2). *(2 g)*
+- [x] `MacroEditor.vue` — Monaco + `d.ts` tamamlama + hata paneli. *(1.5 g)*
+- [x] `MacroPanel.vue` + çalıştırma günlüğü + `ActivityService` kaydı. *(1 g)*
+
+**Faz 4'te verilen ek kararlar:**
+
+| Konu | Karar | Gerekçe |
+|---|---|---|
+| Veri API'leri | §9.1'in taslağı senkron gösteriyordu; **`Promise` döndürüyorlar** | K8 eşzamanlı RPC'yi zaten reddediyor — o yol `SharedArrayBuffer` + COOP/COEP demek, yani tüm sayfayı izole moda sokmak. `await` yazmak ucuz bir bedel |
+| `ScrumTools.tasks/sprints/docs` | Makroya özel sunucu ucu **açılmadı**; ana iş parçacığı mevcut REST uçlarını **kullanıcının kendi oturumuyla** çağırıyor | "Makro çalıştıranın yetkisiyle koşar" (§9.2) böylece kuralla değil **yapıyla** garanti oluyor. İkinci bir veri yolu, ikinci bir yetki kontrolü ve zamanla ayrışacak iki doğruluk kaynağı demekti |
+| Statik API taraması | Güvenlik sınırı değil, **rıza metninin kaynağı** | Regex taraması `ScrumTools['ta'+'sks']` yazımını kaçırır. Kaçırması yetki kazandırmıyor çünkü asıl sınır yukarıdaki satırda; taramanın işi kullanıcıya dürüst bir özet göstermek |
+| Onay | Kaynağa değil kaynağın **SHA-256'sına** verilir | Aksi hâlde "onaylat, sonra değiştir", incelenmemiş kodu onaylı göstermenin en kolay yolu olurdu |
+| Yazarın istisnası | Onaysız makroyu **yalnızca yazarı** çalıştırabilir; otomatik tetikleyicide bu istisna **yok** | `ON_OPEN`, dokümanı açan herkesin yetkisiyle sessizce koşar — orada "yazar zaten biliyor" argümanı geçersiz |
+| Zaman aşımı | Sayaç worker'da değil **host'ta**, `terminate()` ile | Sonsuz döngüye girmiş bir worker kendi sayacını çalıştıramaz |
+| Hata sonrası işlemler | Uygulanmaz, **tümü atılır** | Yarım çalışmış makronun dokümanı tutarsız bırakması, hiç çalışmamasından kötüdür |
+| Makro yazımının origin'i | `LOCAL_ORIGIN` değil `'macro'` | Kendi Yjs gözlemcilerimiz de tetiklensin: aksi hâlde veri CRDT'ye girer, ağdaki herkes görür, ama makroyu çalıştıranın ekranı güncellenmezdi |
+| Aktivite akışı | Yalnızca **yazan** ve başarılı çalıştırmalar düşer | Salt okuyan bir makronun her koşusunu akışa koymak, gerçek değişiklikleri görünmez yapardı |
+| `ScrumTools.http` | Sunucu vekili; allowlist **boş = kapalı** | Yanlışlıkla açık kalmış bir vekil, sunucuyu isteğe bağlı bir istek üretecine çevirir. Yönlendirme takip edilmiyor — allowlist yalnızca ilk adresi doğrular, 302 zinciri o doğrulamayı anlamsız kılardı |
+| Kaydedici (§9.3) | **Yapılmadı** | Faz 4 iş listesinde yer almıyordu; köprünün komut akışı üzerine ince bir katman olarak Faz 5'e ya da sonrasına kalıyor |
 - [ ] `PlanFeature.COLLAB_MACRO` + kaynak limitleri. *(0.5 g)*
 - [ ] Makro kaydedici (9.3) — Univer komut akışından betik üretimi. *(0.5 g\*)*
       \* köprü hazırsa; değilse +2 g.

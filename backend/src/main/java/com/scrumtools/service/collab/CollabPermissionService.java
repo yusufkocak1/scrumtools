@@ -79,6 +79,11 @@ public class CollabPermissionService {
         }
     }
 
+    /** Makro çalıştırma / yönetme (§9.2). Doküman değil <b>proje</b> kapsamlıdır. */
+    public boolean hasProjectPermission(UUID projectId, User user, Permission permission) {
+        return has(projectId, user, permission);
+    }
+
     private boolean has(UUID projectId, User user, Permission permission) {
         if (user == null) return false;
         if (user.getSystemRole() == SystemRole.SUPER_ADMIN) return true;

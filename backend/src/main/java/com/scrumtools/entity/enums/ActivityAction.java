@@ -26,6 +26,11 @@ public enum ActivityAction {
 
     // SCM / Git aksiyonları
     SCM_BRANCH_CREATED,
-    SCM_COMMIT_LINKED
+    SCM_COMMIT_LINKED,
+
+    // Ortak çalışma alanı makroları (COLLAB_WORKSPACE_PLAN.md §9.2 — denetim).
+    // Yalnızca **yazan** makrolar akışa düşer: salt okuyan bir makro her
+    // çalıştığında akışı doldurmak, gerçek değişiklikleri görünmez yapardı.
+    COLLAB_MACRO_RUN
 }
 

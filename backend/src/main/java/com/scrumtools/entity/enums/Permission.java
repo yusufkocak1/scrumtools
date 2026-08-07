@@ -74,6 +74,12 @@ public enum Permission {
     COLLAB_WRITE,
     COLLAB_MANAGE,
 
+    /** Onaylanmış bir makroyu çalıştırma. Makro, yazanın değil çalıştıranın yetkisiyle koşar. */
+    COLLAB_RUN_MACRO,
+
+    /** Makro yazma ve <b>onaylama</b>. Onay, yetki yükseltmeye karşı tek kapıdır (§9.2). */
+    COLLAB_MANAGE_MACRO,
+
     // Admin
     ADMIN_FULL_ACCESS
 }

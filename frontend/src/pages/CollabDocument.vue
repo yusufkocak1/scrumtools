@@ -33,6 +33,7 @@
           @retry="reconnect"
           @publish="showPublish = true"
           @export="exportSheet"
+          @toggle-macros="showMacros = !showMacros"
           @toggle-history="showHistory = !showHistory">
         <CollabSheetEditor
             v-if="doc.type === 'SHEET'"
@@ -41,7 +42,7 @@
             :awareness="awareness"
             :document-id="documentId"
             :read-only="!canWrite"
-            @snapshotText="setSnapshotTextProvider"/>
+            @snapshotText="captureSnapshotProvider"/>
         <CollabCodeEditor
             v-else-if="doc.type === 'CODE'"
             ref="codeEditor"
@@ -49,15 +50,23 @@
             :awareness="awareness"
             :language="doc.language || 'javascript'"
             :read-only="!canWrite"
-            @snapshotText="setSnapshotTextProvider"/>
+            @snapshotText="captureSnapshotProvider"/>
         <CollabTextEditor
             v-else
             ref="textEditor"
             :ydoc="ydoc"
             :awareness="awareness"
             :read-only="!canWrite"
-            @snapshotText="setSnapshotTextProvider"/>
+            @snapshotText="captureSnapshotProvider"/>
       </CollabShell>
+
+      <MacroPanel
+          v-if="showMacros"
+          :project-id="projectId"
+          :document-id="documentId"
+          :running="macroRunning"
+          @close="showMacros = false"
+          @run="runMacro"/>
 
       <HistoryPanel
           v-if="showHistory"
@@ -91,6 +100,8 @@ import CollabTextEditor from '../components/collab/editors/CollabTextEditor.vue'
 import CollabSheetEditor from '../components/collab/editors/CollabSheetEditor.vue'
 import DocsLinkDialog from '../components/collab/DocsLinkDialog.vue'
 import HistoryPanel from '../components/collab/HistoryPanel.vue'
+import MacroPanel from '../components/collab/macro/MacroPanel.vue'
+import { useMacroRuntime } from '../collab/macro/useMacroRuntime.js'
 
 /**
  * Tek doküman kabuğu: üstveriyi çeker, CRDT oturumunu kurar ve tipe göre
@@ -110,6 +121,7 @@ const doc = ref({ title: '', type: 'TEXT', language: null, docPageId: null })
 
 const showPublish = ref(false)
 const showHistory = ref(false)
+const showMacros = ref(false)
 const textEditor = ref(null)
 const codeEditor = ref(null)
 const sheetEditor = ref(null)
@@ -122,6 +134,61 @@ const {
   ydoc, awareness, status, canWrite, isWriter, participants,
   pendingChanges, lastSavedAt, setSnapshotTextProvider, requestSnapshot, reconnect
 } = useCollabDoc(props.projectId, props.documentId)
+
+/**
+ * Makro çalışma zamanı (plan §9 / K8).
+ *
+ * Anlık görüntü ve işlem uygulama tipe göre ayrışıyor: SHEET'te köprü üzerinden
+ * CRDT'ye, TEXT/CODE'da editör üzerinden. Worker her iki durumda da aynı
+ * `ScrumTools` API'sini görüyor.
+ */
+let snapshotTextProvider = null
+
+function captureSnapshotProvider(provider) {
+  snapshotTextProvider = provider
+  setSnapshotTextProvider(provider)
+}
+
+const { running: macroRunning, runMacro: executeMacro } = useMacroRuntime({
+  projectId: props.projectId,
+  documentId: props.documentId,
+  // Getter olarak geçiliyor: doküman üstverisi bu bileşen kurulduktan sonra
+  // geliyor, o anki değeri kopyalamak takımı kalıcı olarak boş bırakırdı.
+  getTeamId: () => doc.value.teamId,
+  getSnapshot: () => {
+    if (doc.value.type === 'SHEET') {
+      const model = sheetEditor.value?.getSnapshotModel() || { sheets: [] }
+      return { type: 'SHEET', title: doc.value.title, sheets: model.sheets || [] }
+    }
+    return { type: doc.value.type, title: doc.value.title, text: snapshotTextProvider?.() || '' }
+  },
+  applyOps: (ops) => {
+    if (doc.value.type === 'SHEET') {
+      sheetEditor.value?.applyMacroOps(ops)
+      return
+    }
+    // Metin dokümanında yalnızca son `setText` anlamlı: ara adımları tek tek
+    // uygulamak, her birini ayrı bir düzenleme olarak yayınlamak demekti.
+    const last = [...ops].reverse().find((op) => op.op === 'setText')
+    if (!last) return
+    if (doc.value.type === 'CODE') codeEditor.value?.replaceContent(last.text)
+    else textEditor.value?.seedContent(last.text)
+  }
+})
+
+async function runMacro(macro) {
+  if (!canWrite.value && macro.apiScopes?.includes('document:write')) {
+    createToast('Bu dokümanda yazma yetkiniz yok', { type: 'warning', position: 'bottom-right' })
+    return
+  }
+  const result = await executeMacro(macro, macro.triggerType || 'MANUAL')
+  if (!result) return
+  if (result.status === 'SUCCESS') {
+    createToast(`“${macro.name}” çalıştı`, { type: 'success', position: 'bottom-right', timeout: 2500 })
+  } else {
+    createToast(result.error || 'Makro başarısız', { type: 'danger', position: 'bottom-right', timeout: 6000 })
+  }
+}
 
 const docPageLink = computed(() => {
   if (!doc.value.docPageId || !doc.value.docSpaceId) return ''

@@ -113,7 +113,22 @@ function seedContent(json) {
   }
 }
 
-defineExpose({ seedContent })
+/** Makro anlık görüntüsü: worker'a giden okunabilir kopya (plan K8). */
+function getSnapshotModel() {
+  if (!bridge) return { sheets: [] }
+  try {
+    return JSON.parse(bridge.toSnapshotJson())
+  } catch {
+    return { sheets: [] }
+  }
+}
+
+/** Makronun ürettiği işlem listesi — tek transaction'da uygulanır. */
+function applyMacroOps(ops) {
+  bridge?.applyMacroOps(ops)
+}
+
+defineExpose({ seedContent, getSnapshotModel, applyMacroOps })
 
 onBeforeUnmount(() => {
   if (awarenessHandler) props.awareness.off('change', awarenessHandler)

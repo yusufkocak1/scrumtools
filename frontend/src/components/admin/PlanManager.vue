@@ -136,6 +136,7 @@ const FEATURE_LABELS = {
   RICH_FILTERS: 'Zengin Filtreler',
   COLLAB_WORKSPACE: 'Ortak Çalışma Alanı',
   COLLAB_SHEET: 'Ortak Hesap Tablosu',
+  COLLAB_MACRO: 'Doküman Makroları',
 }
 
 const allFeatures = Object.keys(FEATURE_LABELS)

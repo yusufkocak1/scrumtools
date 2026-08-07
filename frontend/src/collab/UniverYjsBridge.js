@@ -689,6 +689,91 @@ export class UniverYjsBridge {
     })
   }
 
+  // ─── Makro işlemleri (plan §9.1 / K8) ─────────────────────────────────────
+
+  /**
+   * Makronun ürettiği işlem listesini uygular.
+   *
+   * <p>Yazma origin'i {@code LOCAL_ORIGIN} <b>değil</b>: böylece kendi Yjs
+   * gözlemcilerimiz de tetiklenir ve değişiklik Univer'e uygulanır. Aksi hâlde
+   * veri CRDT'ye girer, ağdaki herkes görür ama makroyu çalıştıran kişinin
+   * ekranı güncellenmezdi.
+   *
+   * <p>Tümü tek transaction: makro yarım uygulanırsa doküman tutarsız kalır ve
+   * o arada yazan biri henüz gelmemiş hücrelerin üstüne yazar.
+   */
+  applyMacroOps(ops) {
+    if (!Array.isArray(ops) || ops.length === 0) return
+    this.ydoc.transact(() => {
+      for (const op of ops) {
+        const sheetId = op.sheetId || this.sheetOrder()[0] || DEFAULT_SHEET_ID
+        switch (op.op) {
+          case 'setCell': {
+            const cells = this.sheetCells(sheetId)
+            const key = cellKey(op.row, op.column)
+            const merged = normalizeCell({ ...(cells.get(key) || {}), ...op.cell })
+            if (merged) cells.set(key, merged)
+            else cells.delete(key)
+            break
+          }
+          case 'setStyle': {
+            const cells = this.sheetCells(sheetId)
+            const key = cellKey(op.row, op.column)
+            const current = cells.get(key)
+            if (!current) break
+            cells.set(key, { ...current, s: { ...(current.s || {}), ...macroStyleToUniver(op.style) } })
+            break
+          }
+          case 'insertRows':
+            this.shiftCells(sheetId, 'row', op.rowIndex, op.count || 1)
+            break
+          case 'deleteRows':
+            this.shiftCells(sheetId, 'row', op.rowIndex, -(op.count || 1))
+            break
+          case 'insertColumns':
+            this.shiftCells(sheetId, 'column', op.columnIndex, op.count || 1)
+            break
+          case 'deleteColumns':
+            this.shiftCells(sheetId, 'column', op.columnIndex, -(op.count || 1))
+            break
+          default:
+            break
+        }
+      }
+    }, 'macro')
+  }
+
+  /**
+   * Satır/sütun ekleme-silme: anahtarları yeniden yazar (§5).
+   *
+   * <p>Hücreler dizi değil {@code "R{r}C{c}"} sözlüğü olduğu için indeks kaydırma
+   * otomatik değil; §5 bunu "anahtarları yeniden yazan tek bir işlem" olarak
+   * tanımlıyor. Diziyle çalışsaydık her ekleme sonraki tüm indeksleri kaydırır
+   * ve eşzamanlı düzenlemede çakışmaları çoğaltırdı.
+   */
+  shiftCells(sheetId, axis, from, delta) {
+    const cells = this.sheetCells(sheetId)
+    const entries = []
+    cells.forEach((value, key) => {
+      const position = parseCellKey(key)
+      if (position) entries.push({ key, position, value })
+    })
+
+    // Silinen aralıktaki hücreler önce kaldırılır, sonra kalanlar kaydırılır.
+    for (const entry of entries) {
+      const index = axis === 'row' ? entry.position.row : entry.position.col
+      if (index < from) continue
+      if (delta < 0 && index < from - delta) {
+        cells.delete(entry.key)
+        continue
+      }
+      const row = axis === 'row' ? entry.position.row + delta : entry.position.row
+      const col = axis === 'row' ? entry.position.col : entry.position.col + delta
+      cells.delete(entry.key)
+      cells.set(cellKey(row, col), entry.value)
+    }
+  }
+
   // ─── CRDT erişim yardımcıları ─────────────────────────────────────────────
 
   transact(fn) {
@@ -819,6 +904,17 @@ function mapToObject(map) {
 function styleToUniver(style) {
   if (!style || !style.numFmt) return null
   return { n: { pattern: style.numFmt } }
+}
+
+/** Makro API'sindeki okunabilir stil → Univer {@code IStyleData}. */
+function macroStyleToUniver(style) {
+  if (!style) return {}
+  const result = {}
+  if (style.bold != null) result.bl = style.bold ? 1 : 0
+  if (style.italic != null) result.it = style.italic ? 1 : 0
+  if (style.bg) result.bg = { rgb: style.bg }
+  if (style.color) result.cl = { rgb: style.color }
+  return result
 }
 
 /** Satır içi Univer stilini sunucunun beklediği havuz anahtarına çevirir. */

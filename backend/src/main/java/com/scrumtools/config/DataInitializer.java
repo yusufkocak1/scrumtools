@@ -76,7 +76,8 @@ public class DataInitializer implements ApplicationRunner {
         // Hesap tablosu FREE'de kapalı: ızgara istemcide çalışsa da Excel G/Ç
         // sunucudaki tek gerçek pik kalemi (plan §10/§12), ücretsiz hesaplara
         // açmak dar sunucuyu savunmasız bırakır.
-        grantPlanFeatures(List.of("PRO", "MAX"), List.of(PlanFeature.COLLAB_SHEET));
+        grantPlanFeatures(List.of("PRO", "MAX"), List.of(
+                PlanFeature.COLLAB_SHEET, PlanFeature.COLLAB_MACRO));
 
         for (String roleName : List.of("Project Admin", "Developer")) {
             grantRolePermissions(roleName, List.of(Permission.SCM_CREATE_BRANCH,
@@ -91,6 +92,16 @@ public class DataInitializer implements ApplicationRunner {
         }
         grantRolePermissions("Viewer / Observer", List.of(Permission.COLLAB_READ));
         grantRolePermissions("Project Admin", List.of(Permission.COLLAB_MANAGE));
+
+        // Makro çalıştırma yazma yetkisi olan rollerde; **onaylama** yalnızca
+        // proje yöneticisinde. Onay, makronun çalıştıranın yetkisiyle koşmasından
+        // doğan yetki yükseltme riskine karşı tek kapı (§9.2) — dağıtılırsa
+        // koruma anlamını yitirir.
+        for (String roleName : List.of("Project Admin", "Scrum Master", "Product Owner",
+                "Developer", "QA / Tester", "Analyst")) {
+            grantRolePermissions(roleName, List.of(Permission.COLLAB_RUN_MACRO));
+        }
+        grantRolePermissions("Project Admin", List.of(Permission.COLLAB_MANAGE_MACRO));
     }
 
     /** Varsayılan bir rol şablonuna eksik izinleri ekler; zaten varsa dokunmaz. */

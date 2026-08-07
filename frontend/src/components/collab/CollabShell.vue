@@ -65,6 +65,12 @@
         </div>
       </div>
 
+      <button @click="$emit('toggle-macros')"
+              class="px-2.5 py-1.5 rounded-lg text-slate-600 hover:bg-slate-100 text-xs font-medium whitespace-nowrap transition"
+              title="Makrolar — JavaScript betikleri">
+        Makrolar
+      </button>
+
       <button @click="$emit('toggle-history')"
               :class="['p-1.5 rounded-lg transition', historyOpen
                         ? 'bg-indigo-50 text-indigo-600'
@@ -109,7 +115,8 @@ const props = defineProps({
   historyOpen: { type: Boolean, default: false }
 })
 
-const emit = defineEmits(['back', 'rename', 'language', 'retry', 'publish', 'export', 'toggle-history'])
+const emit = defineEmits(['back', 'rename', 'language', 'retry', 'publish', 'export',
+  'toggle-macros', 'toggle-history'])
 
 const exportOpen = ref(false)
 
