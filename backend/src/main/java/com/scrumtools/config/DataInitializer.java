@@ -73,6 +73,11 @@ public class DataInitializer implements ApplicationRunner {
         grantPlanFeatures(List.of("FREE", "PRO", "MAX"), List.of(
                 PlanFeature.COLLAB_WORKSPACE));
 
+        // Hesap tablosu FREE'de kapalı: ızgara istemcide çalışsa da Excel G/Ç
+        // sunucudaki tek gerçek pik kalemi (plan §10/§12), ücretsiz hesaplara
+        // açmak dar sunucuyu savunmasız bırakır.
+        grantPlanFeatures(List.of("PRO", "MAX"), List.of(PlanFeature.COLLAB_SHEET));
+
         for (String roleName : List.of("Project Admin", "Developer")) {
             grantRolePermissions(roleName, List.of(Permission.SCM_CREATE_BRANCH,
                     Permission.SCM_CREATE_PULL_REQUEST));

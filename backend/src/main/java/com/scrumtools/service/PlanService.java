@@ -129,7 +129,7 @@ public class PlanService {
                         PlanFeature.COLLAB_WORKSPACE, PlanFeature.QUIZ, PlanFeature.DOCS,
                         PlanFeature.DASHBOARD_REPORTS, PlanFeature.ATTACHMENTS,
                         PlanFeature.GIT_INTEGRATION, PlanFeature.CI_CD_INTEGRATION,
-                        PlanFeature.RICH_FILTERS),
+                        PlanFeature.RICH_FILTERS, PlanFeature.COLLAB_SHEET),
                 new BigDecimal("499.00"), new BigDecimal("4990.00"),
                 null, false, 1);
 

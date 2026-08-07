@@ -67,14 +67,12 @@ public class CollabDocumentService {
                 .orElseThrow(() -> new IllegalArgumentException("Proje bulunamadı: " + projectId));
         Organization organization = project.getOrganization();
 
-        if (request.type() == CollabDocumentType.SHEET) {
-            // Faz 3'e kadar açılmıyor: ne Univer köprüsü ne de COLLAB_SHEET paket
-            // özelliği var. Sessizce TEXT'e düşürmek kullanıcıyı yanıltırdı.
-            throw new IllegalArgumentException(
-                    "Hesap tablosu dokümanları henüz kullanılamıyor (Faz 3'te geliyor).");
-        }
-
         entitlementService.assertFeature(organization, PlanFeature.COLLAB_WORKSPACE);
+        if (request.type() == CollabDocumentType.SHEET) {
+            // Hesap tablosu ayrı bir paket özelliği (§11): ızgara istemcide çalışsa
+            // da Excel G/Ç sunucudaki tek gerçek pik kalemidir.
+            entitlementService.assertFeature(organization, PlanFeature.COLLAB_SHEET);
+        }
         assertDocumentQuota(organization);
 
         Team team = resolveTeam(request.teamId(), project);
@@ -180,6 +178,10 @@ public class CollabDocumentService {
      * için Yjs gerekir ve sunucuda yok (K2). Bu yüzden hak <b>koşullu tek bir
      * UPDATE ile</b> tek istemciye verilir; hakkı alan istemci dönüştürüp normal
      * CRDT akışına yazar, diğerleri hiçbir şey yapmaz.
+     *
+     * <p>Faz 3'te aynı kilit Excel içe aktarımına da hizmet ediyor: POI'nin
+     * ürettiği tablo modeli {@code snapshot_text}'te bekler, ilk açan istemci
+     * onu Y.Doc'a yazar. İki farklı tohumlama yolu yerine tek mekanizma.
      */
     @Transactional
     public CollabSeedClaimResponse claimSeed(UUID documentId) {
@@ -187,10 +189,21 @@ public class CollabDocumentService {
         CollabDocument document = require(documentId);
         permissionService.checkWrite(document, user);
 
-        if (document.getDocPage() == null || document.getSeededAt() != null) {
+        if (document.getSeededAt() != null) {
             return CollabSeedClaimResponse.denied();
         }
-        String content = document.getDocPage().getContent();
+        String content;
+        if (document.getDocPage() != null) {
+            content = document.getDocPage().getContent();
+        } else if (document.getType() == CollabDocumentType.SHEET) {
+            // İçe aktarılmış tablo: bekleyen model anlık görüntü alanında duruyor.
+            content = document.getSnapshotText();
+        } else {
+            return CollabSeedClaimResponse.denied();
+        }
+        if (content == null || content.isBlank()) {
+            return CollabSeedClaimResponse.denied();
+        }
 
         int claimed = documentRepository.claimSeed(documentId, LocalDateTime.now());
         if (claimed == 0) {

@@ -32,8 +32,18 @@ public enum PlanFeature {
      *
      * Kaldırılan {@code CODE_SHARE} özelliğinin yerini alır; mevcut kurulumlarda
      * {@code CollabCleanupRunner} eski satırları bu değere göç ettirir (K10).
-     * Hesap tablosu ({@code COLLAB_SHEET}) ve makrolar ({@code COLLAB_MACRO})
-     * ayrı özelliklerdir, sırasıyla Faz 3 ve Faz 4'te eklenir.
+     * Hesap tablosu ({@code COLLAB_SHEET}) ayrı bir özelliktir; makrolar
+     * ({@code COLLAB_MACRO}) Faz 4'te eklenecek.
      */
-    COLLAB_WORKSPACE
+    COLLAB_WORKSPACE,
+
+    /**
+     * Eş zamanlı hesap tablosu — Univer ızgarası, formül motoru, Excel G/Ç
+     * (COLLAB_WORKSPACE_PLAN.md Faz 3).
+     *
+     * FREE'ye <b>verilmez</b>: ızgara istemcide çalışsa da içe/dışa aktarma
+     * sunucuda Apache POI ile yapılır ve dar sunucunun (D3) tek gerçek pik
+     * kalemidir. Hücre kotası pakete göre değişir — {@code app.collab.sheet-*}.
+     */
+    COLLAB_SHEET
 }

@@ -82,5 +82,32 @@ export default {
 
     getSnapshotText(projectId, documentId, snapshotId) {
         return axios.get(`${BASE(projectId)}/documents/${documentId}/history/${snapshotId}`)
+    },
+
+    // ─── Hesap tablosu Excel G/Ç (plan §10) ─────────────────────────────────
+
+    /**
+     * `.xlsx` / `.xlsm` / `.csv` yükler ve yeni bir SHEET dokümanı üretir.
+     * Doküman tohumlanmamış döner: içeriği CRDT'ye ilk açan istemci yazar.
+     */
+    importSheet(projectId, file, teamId) {
+        const form = new FormData()
+        form.append('file', file)
+        if (teamId) form.append('teamId', teamId)
+        return axios.post(`${BASE(projectId)}/documents/import`, form, {
+            headers: { 'Content-Type': 'multipart/form-data' }
+        })
+    },
+
+    /**
+     * Tabloyu indirir. Çağırmadan **önce** anlık görüntü gönderilmeli: formül
+     * sonuçları yalnızca istemcide hesaplanıyor (plan K5), sunucu son anlık
+     * görüntüde ne varsa onu yazar.
+     */
+    exportSheet(projectId, documentId, format) {
+        return axios.post(`${BASE(projectId)}/documents/${documentId}/export`, null, {
+            params: { format },
+            responseType: 'blob'
+        })
     }
 }

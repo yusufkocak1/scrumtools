@@ -135,6 +135,7 @@ const FEATURE_LABELS = {
   CI_CD_INTEGRATION: 'CI/CD Entegrasyonu',
   RICH_FILTERS: 'Zengin Filtreler',
   COLLAB_WORKSPACE: 'Ortak Çalışma Alanı',
+  COLLAB_SHEET: 'Ortak Hesap Tablosu',
 }
 
 const allFeatures = Object.keys(FEATURE_LABELS)

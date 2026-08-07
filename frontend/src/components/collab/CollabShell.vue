@@ -48,6 +48,23 @@
         Docs'a Kaydet
       </button>
 
+      <!-- Excel/CSV indirme (plan §10). Yazma yetkisi aranmıyor: dosyayı
+           indirmek okuma yetkisiyle yapılabilecek bir iştir. -->
+      <div v-if="type === 'SHEET'" class="relative">
+        <button @click="exportOpen = !exportOpen"
+                class="px-2.5 py-1.5 rounded-lg text-slate-600 hover:bg-slate-100 text-xs font-medium whitespace-nowrap transition">
+          İndir
+        </button>
+        <div v-if="exportOpen"
+             class="absolute right-0 top-full mt-1 z-20 w-32 bg-white border border-slate-200 rounded-xl shadow-lg py-1">
+          <button v-for="format in ['xlsx', 'csv']" :key="format"
+                  @click="emitExport(format)"
+                  class="w-full text-left px-3 py-1.5 text-xs text-slate-600 hover:bg-slate-50 transition">
+            .{{ format }} olarak
+          </button>
+        </div>
+      </div>
+
       <button @click="$emit('toggle-history')"
               :class="['p-1.5 rounded-lg transition', historyOpen
                         ? 'bg-indigo-50 text-indigo-600'
@@ -69,7 +86,7 @@
 </template>
 
 <script setup>
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 import PresenceBar from './PresenceBar.vue'
 import ConnectionBanner from './ConnectionBanner.vue'
 
@@ -92,7 +109,14 @@ const props = defineProps({
   historyOpen: { type: Boolean, default: false }
 })
 
-defineEmits(['back', 'rename', 'language', 'retry', 'publish', 'toggle-history'])
+const emit = defineEmits(['back', 'rename', 'language', 'retry', 'publish', 'export', 'toggle-history'])
+
+const exportOpen = ref(false)
+
+function emitExport(format) {
+  exportOpen.value = false
+  emit('export', format)
+}
 
 const LANGUAGES = [
   'javascript', 'typescript', 'java', 'python', 'csharp', 'go', 'rust', 'kotlin',

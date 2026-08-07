@@ -67,4 +67,33 @@ public class CollabProperties {
 
     /** Doküman başına saklanan durak sayısı; fazlası en eskiden silinir. */
     private int historyMaxEntries = 20;
+
+    // ─── Hesap tablosu (plan §10, Faz 3) ─────────────────────────────────────
+
+    /**
+     * PRO paketinde bir hesap tablosunun toplam hücre sayısı (plan §10).
+     * Kota istemcide de uygulanır ama <b>bağlayıcı olan burasıdır</b>: içe/dışa
+     * aktarma sırasında hücreler sunucuda sayılır ve aşan dosya reddedilir.
+     */
+    private int sheetMaxCellsPro = 200_000;
+
+    /**
+     * MAX paketinde hücre sayısı. İlk planda 1 000 000 yazıyordu; D3'ün dar
+     * sunucusunda POI ile o boyut riskli olduğu için düşürüldü (§10).
+     */
+    private int sheetMaxCellsMax = 500_000;
+
+    /**
+     * Yüklenebilecek dosyanın üst sınırı. Hücre kotası ancak dosya
+     * ayrıştırıldıktan sonra bilinir; bu sınır ayrıştırmaya hiç başlamadan
+     * uygulanır, yani asıl koruma katmanı budur.
+     */
+    private long sheetImportMaxBytes = 10L * 1024 * 1024;
+
+    /**
+     * Excel işinin tamamlanması için beklenecek süre. Kuyruk tek iş parçacıklı
+     * olduğundan (§10) bu süre aynı zamanda sıradaki isteğin en kötü bekleme
+     * süresidir.
+     */
+    private long sheetIoTimeoutMs = 60_000;
 }

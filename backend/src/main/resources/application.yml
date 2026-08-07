@@ -132,6 +132,15 @@ app:
     max-binary-message-size: ${COLLAB_MAX_BINARY_MESSAGE_SIZE:1048576}
     # §12: aynı dokümana gelen güncellemelerin tek INSERT'e toplandığı pencere (ms)
     append-batch-window-ms: ${COLLAB_APPEND_BATCH_WINDOW_MS:1000}
+    # §10 hesap tablosu kotaları. Hücre sınırları PRO/MAX paketleri içindir;
+    # bağlayıcı denetim içe aktarmada sunucu tarafında yapılır.
+    sheet-max-cells-pro: ${COLLAB_SHEET_MAX_CELLS_PRO:200000}
+    sheet-max-cells-max: ${COLLAB_SHEET_MAX_CELLS_MAX:500000}
+    # Yüklenen dosyanın üst sınırı — ayrıştırmaya hiç başlamadan uygulanır.
+    sheet-import-max-bytes: ${COLLAB_SHEET_IMPORT_MAX_BYTES:10485760}
+    # Excel işleri tek iş parçacıklı kuyrukta koşar; bu süre aynı zamanda
+    # sıradaki isteğin en kötü bekleme süresidir.
+    sheet-io-timeout-ms: ${COLLAB_SHEET_IO_TIMEOUT_MS:60000}
   media:
     # İçeriğe gömülü görsellerin kalıcı /api/media linklerini imzalayan anahtar.
     # Varsayılan olarak JWT secret'ı kullanılır; DEĞİŞTİRİLİRSE eski içerikteki tüm

@@ -5,13 +5,21 @@
         <div>
           <h1 class="text-2xl font-bold text-slate-900">Ortak Çalışma Alanı</h1>
           <p class="text-slate-500 text-sm mt-1">
-            Metin ve kod dokümanlarını ekibinizle aynı anda düzenleyin — değişiklikler anında birleşir.
+            Metin, kod ve hesap tablolarını ekibinizle aynı anda düzenleyin — değişiklikler anında birleşir.
           </p>
         </div>
-        <button @click="showCreate = true"
-                class="shrink-0 px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-xl hover:bg-indigo-500 shadow-sm shadow-indigo-200 transition">
-          Yeni Doküman
-        </button>
+        <div class="shrink-0 flex items-center gap-2">
+          <button @click="fileInput?.click()" :disabled="importing"
+                  class="px-4 py-2 bg-white border border-slate-200 text-slate-700 text-sm font-medium rounded-xl hover:border-indigo-300 disabled:opacity-50 transition">
+            {{ importing ? 'Yükleniyor…' : 'Excel Yükle' }}
+          </button>
+          <input ref="fileInput" type="file" class="hidden"
+                 accept=".xlsx,.xlsm,.csv" @change="importSheet"/>
+          <button @click="showCreate = true"
+                  class="px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-xl hover:bg-indigo-500 shadow-sm shadow-indigo-200 transition">
+            Yeni Doküman
+          </button>
+        </div>
       </div>
 
       <!-- Filtreler -->
@@ -83,7 +91,7 @@
           <div class="p-6 space-y-4">
             <div>
               <label class="text-sm text-slate-600 block mb-1.5">Tip</label>
-              <div class="grid grid-cols-2 gap-2">
+              <div class="grid grid-cols-3 gap-2">
                 <button v-for="option in CREATE_TYPES" :key="option.value"
                         @click="form.type = option.value"
                         :class="['border rounded-xl px-3 py-2.5 text-left transition',
@@ -131,6 +139,7 @@
 <script setup>
 import { ref, reactive, onMounted, onBeforeUnmount } from 'vue'
 import { useRouter } from 'vue-router'
+import { createToast } from 'mosha-vue-toastify'
 import CollabApi from '../api/CollabApi.js'
 
 /**
@@ -154,12 +163,15 @@ const TYPE_BADGES = {
 const TYPE_FILTERS = [
   { value: '', label: 'Tümü' },
   { value: 'TEXT', label: 'Metin' },
-  { value: 'CODE', label: 'Kod' }
+  { value: 'CODE', label: 'Kod' },
+  { value: 'SHEET', label: 'Tablo' }
 ]
-// SHEET burada yok: Faz 3'e kadar backend oluşturmayı reddediyor.
 const CREATE_TYPES = [
   { value: 'TEXT', label: 'Metin', hint: 'Zengin metin, tablo, başlık' },
-  { value: 'CODE', label: 'Kod', hint: 'Monaco, sözdizimi renklendirme' }
+  { value: 'CODE', label: 'Kod', hint: 'Monaco, sözdizimi renklendirme' },
+  // SHEET ayrı bir paket özelliği (COLLAB_SHEET); FREE pakette backend reddeder
+  // ve kullanıcı yükseltme akışına düşer.
+  { value: 'SHEET', label: 'Tablo', hint: 'Izgara, formül, Excel aktarımı' }
 ]
 const LANGUAGES = [
   'javascript', 'typescript', 'java', 'python', 'csharp', 'go', 'rust', 'kotlin',
@@ -172,6 +184,8 @@ const typeFilter = ref('')
 const search = ref('')
 const showCreate = ref(false)
 const creating = ref(false)
+const importing = ref(false)
+const fileInput = ref(null)
 const form = reactive({ type: 'TEXT', title: '', language: 'javascript' })
 
 let searchTimer = null
@@ -231,6 +245,34 @@ async function create() {
     // Paket limiti (402) axios interceptor'ında upgrade akışını tetikliyor
   } finally {
     creating.value = false
+  }
+}
+
+/**
+ * Excel/CSV yükleyip yeni bir tablo dokümanı açar (plan §10).
+ *
+ * Uyum raporu bir toast olarak gösteriliyor: aktarılmayan özellikler (grafik,
+ * pivot, VBA) sessizce düşerse kullanıcı kaybı ancak dosyayı Excel'de tekrar
+ * açtığında fark eder.
+ */
+async function importSheet(event) {
+  const file = event.target.files?.[0]
+  event.target.value = ''
+  if (!file || importing.value) return
+
+  importing.value = true
+  try {
+    const { data } = await CollabApi.importSheet(props.projectId, file)
+    if (data.warnings?.length) {
+      createToast(data.warnings.join(' '), {
+        type: 'warning', position: 'bottom-right', timeout: 8000
+      })
+    }
+    router.push(`/projects/${props.projectId}/collab/${data.document.id}`)
+  } catch {
+    // 402 (paket limiti) ve 400 (biçim) mesajlarını interceptor gösteriyor
+  } finally {
+    importing.value = false
   }
 }
 

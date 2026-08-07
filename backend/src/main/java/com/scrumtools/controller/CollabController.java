@@ -3,11 +3,16 @@ package com.scrumtools.controller;
 import com.scrumtools.dto.*;
 import com.scrumtools.entity.enums.CollabDocumentType;
 import com.scrumtools.service.collab.CollabDocumentService;
+import com.scrumtools.service.collab.sheet.CollabSheetService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.ContentDisposition;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
+import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -27,6 +32,7 @@ import java.util.UUID;
 public class CollabController {
 
     private final CollabDocumentService documentService;
+    private final CollabSheetService sheetService;
 
     @PostMapping("/documents")
     public ResponseEntity<CollabDocumentResponse> create(
@@ -163,5 +169,45 @@ public class CollabController {
             @PathVariable UUID documentId) {
         documentService.archive(documentId);
         return ResponseEntity.noContent().build();
+    }
+
+    // ─── Hesap tablosu Excel G/Ç (plan §10) ──────────────────────────────────
+
+    /**
+     * {@code .xlsx} / {@code .xlsm} / {@code .csv} yükleyip yeni bir SHEET
+     * dokümanı üretir.
+     *
+     * <p>Doküman <b>tohumlanmamış</b> döner: içerik CRDT'ye ancak onu ilk açan
+     * istemci tarafından yazılır (K2 — sunucuda Yjs yok). Cevaptaki uyum raporu
+     * aktarılmayan özellikleri sayar.
+     */
+    @PostMapping("/documents/import")
+    public ResponseEntity<CollabSheetImportResponse> importSheet(
+            @PathVariable UUID projectId,
+            @RequestParam("file") MultipartFile file,
+            @RequestParam(required = false) UUID teamId) {
+        return ResponseEntity.ok(sheetService.importFile(projectId, file, teamId));
+    }
+
+    /**
+     * Tabloyu Excel ya da CSV olarak indirir.
+     *
+     * <p>Çıktı son anlık görüntüden üretilir; formül sonuçları yalnızca istemcide
+     * hesaplandığı için (K5) arayüz bu ucu çağırmadan önce anlık görüntü
+     * göndermek zorundadır.
+     */
+    @PostMapping("/documents/{documentId}/export")
+    public ResponseEntity<byte[]> exportSheet(
+            @PathVariable UUID projectId,
+            @PathVariable UUID documentId,
+            @RequestParam(defaultValue = "xlsx") String format) {
+        CollabSheetService.Export export = sheetService.export(documentId, format);
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_TYPE, export.contentType())
+                .header(HttpHeaders.CONTENT_DISPOSITION,
+                        ContentDisposition.attachment()
+                                .filename(export.fileName(), StandardCharsets.UTF_8)
+                                .build().toString())
+                .body(export.content());
     }
 }

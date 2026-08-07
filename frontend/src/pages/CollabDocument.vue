@@ -32,9 +32,18 @@
           @language="changeLanguage"
           @retry="reconnect"
           @publish="showPublish = true"
+          @export="exportSheet"
           @toggle-history="showHistory = !showHistory">
+        <CollabSheetEditor
+            v-if="doc.type === 'SHEET'"
+            ref="sheetEditor"
+            :ydoc="ydoc"
+            :awareness="awareness"
+            :document-id="documentId"
+            :read-only="!canWrite"
+            @snapshotText="setSnapshotTextProvider"/>
         <CollabCodeEditor
-            v-if="doc.type === 'CODE'"
+            v-else-if="doc.type === 'CODE'"
             ref="codeEditor"
             :ydoc="ydoc"
             :awareness="awareness"
@@ -79,6 +88,7 @@ import { useCollabDoc } from '../composables/useCollabDoc.js'
 import CollabShell from '../components/collab/CollabShell.vue'
 import CollabCodeEditor from '../components/collab/editors/CollabCodeEditor.vue'
 import CollabTextEditor from '../components/collab/editors/CollabTextEditor.vue'
+import CollabSheetEditor from '../components/collab/editors/CollabSheetEditor.vue'
 import DocsLinkDialog from '../components/collab/DocsLinkDialog.vue'
 import HistoryPanel from '../components/collab/HistoryPanel.vue'
 
@@ -102,7 +112,9 @@ const showPublish = ref(false)
 const showHistory = ref(false)
 const textEditor = ref(null)
 const codeEditor = ref(null)
+const sheetEditor = ref(null)
 const seedAttempted = ref(false)
+const exporting = ref(false)
 
 // CRDT oturumu bileşenin ömrü boyunca yaşar; useCollabDoc kendi
 // onBeforeUnmount'unda bağlantıyı kapatıp son anlık görüntüyü gönderir.
@@ -128,28 +140,61 @@ onMounted(async () => {
 })
 
 /**
- * Docs tohumlaması (plan Y1 adım 3 / R2).
+ * Tohumlama (plan Y1 adım 3 / R2 — Faz 3'te içe aktarma da aynı yolu kullanır).
  *
- * Bağlantı kurulduktan **sonra** denenir: içerik `setContent` ile Y.Doc'a
- * yazılıyor ve oradan CRDT güncellemesi olarak yayılıyor; bağlantı yokken
- * yazılsaydı paket kimseye gitmez, üstelik sunucudaki "tohumlandı" işareti
- * konmuş olurdu.
+ * Bağlantı kurulduktan **sonra** denenir: içerik Y.Doc'a yazılıyor ve oradan
+ * CRDT güncellemesi olarak yayılıyor; bağlantı yokken yazılsaydı paket kimseye
+ * gitmez, üstelik sunucudaki "tohumlandı" işareti konmuş olurdu.
+ *
+ * Docs'a bağlı dokümanlarda kaynak sayfa HTML'i, içe aktarılmış tablolarda
+ * POI'nin ürettiği JSON'dur; hangisi olduğuna sunucu karar verir.
  */
-watch([status, () => doc.value.docPageId, canWrite], async ([currentStatus, docPageId, writable]) => {
-  if (seedAttempted.value) return
-  if (currentStatus !== 'synced' || !docPageId || !writable) return
-  seedAttempted.value = true
+watch([status, () => doc.value.type, () => doc.value.docPageId, canWrite],
+    async ([currentStatus, type, docPageId, writable]) => {
+      if (seedAttempted.value) return
+      if (currentStatus !== 'synced' || !writable) return
+      // Tohumlanacak bir şeyi olabilecek tek iki durum; diğerlerinde sunucuya
+      // her açılışta boşuna istek atmıyoruz.
+      if (!docPageId && type !== 'SHEET') return
+      seedAttempted.value = true
+      try {
+        const { data } = await CollabApi.claimSeed(props.projectId, props.documentId)
+        // granted=false: başka bir sekme aktarımı üstlendi — dokunmuyoruz.
+        if (data?.granted && data.content) {
+          if (type === 'SHEET') sheetEditor.value?.seedContent(data.content)
+          else textEditor.value?.seedContent(data.content)
+        }
+      } catch {
+        // Tohumlama başarısız olsa da doküman boş olarak kullanılabilir kalır.
+        seedAttempted.value = false
+      }
+    })
+
+/**
+ * Excel/CSV indirme (plan §10).
+ *
+ * Önce anlık görüntü zorlanıyor: hesaplanmış formül değerleri yalnızca
+ * istemcide var (K5), sunucu son anlık görüntüde ne varsa onu yazar — bu adım
+ * atlanırsa son dakikanın düzenlemeleri dosyada görünmez.
+ */
+async function exportSheet(format) {
+  if (exporting.value) return
+  exporting.value = true
   try {
-    const { data } = await CollabApi.claimSeed(props.projectId, props.documentId)
-    // granted=false: başka bir sekme aktarımı üstlendi — dokunmuyoruz.
-    if (data?.granted && data.content) {
-      textEditor.value?.seedContent(data.content)
-    }
+    await requestSnapshot()
+    const { data } = await CollabApi.exportSheet(props.projectId, props.documentId, format)
+    const url = URL.createObjectURL(data)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = `${doc.value.title || 'tablo'}.${format}`
+    link.click()
+    URL.revokeObjectURL(url)
   } catch {
-    // Tohumlama başarısız olsa da doküman boş olarak kullanılabilir kalır.
-    seedAttempted.value = false
+    createToast('Dosya indirilemedi', { type: 'danger', position: 'bottom-right' })
+  } finally {
+    exporting.value = false
   }
-})
+}
 
 function goBack() {
   router.push(`/projects/${props.projectId}/collab`)
@@ -181,7 +226,9 @@ function onPublished(updated) {
 /** Geçmişten geri yükleme: eski metin yeni bir düzenleme olarak uygulanır. */
 function applyRestoredText(text) {
   if (!canWrite.value || !text) return
-  if (doc.value.type === 'CODE') {
+  if (doc.value.type === 'SHEET') {
+    sheetEditor.value?.seedContent(text)
+  } else if (doc.value.type === 'CODE') {
     codeEditor.value?.replaceContent(text)
   } else {
     textEditor.value?.seedContent(text)

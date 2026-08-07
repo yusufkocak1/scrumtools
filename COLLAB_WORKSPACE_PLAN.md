@@ -703,14 +703,14 @@ görmek gerekir.
 
 | # | Konu | Risk | Azaltma |
 |---|---|---|---|
-| R1 | Univer mutation sözleşmesi (K4) | Sürüm yükseltmede köprü kırılır | Kesin sürüm sabitleme + köprü sözleşme testleri |
+| R1 | Univer mutation sözleşmesi (K4) | Sürüm yükseltmede köprü kırılır | `0.25.1` kesin sabitlendi; CRDT Univer'in değil kendi modelimizin biçiminde (Faz 3 karar tablosu), mutation kimlikleri dize değil **dışa aktarılan sabitlerden** okunuyor — kaybolan bir sabit sessiz bozulma değil derleme hatası verir |
 | R2 | Docs tohumlama ikilenmesi (Y1) | Sayfa içeriği iki katına çıkar | `state IS NULL` koşullu tek işlem |
 | R3 | CRDT büyümesi | Uzun ömürlü doküman diski yer | Sıkıştırma görevi + append gruplama (§12) |
 | R4 | Makro yetki yükseltme | Yetkisiz veri erişimi | Onay akışı + çalıştıran yetkisi + denetim (9.2) |
 | R5 | ~~Monaco CDN'den yükleniyor~~ ✅ | Kapalı ağ / CDN kesintisinde editör açılmaz; ayrıca `y-monaco` paketi zaten derlemeye soktuğu için **iki ayrı Monaco örneği** oluşuyordu | Faz 2.5'te npm paketine alındı, `loader.config({ monaco })` |
 | R6 | POI bellek piki (D3) | Büyük xlsx sunucuyu düşürür | SXSSF + SAX + tek iş parçacıklı kuyruk + hücre kotası |
 | R7 | Tek örnek yeniden başlatma (K9) | Deploy'da tüm oturumlar düşer | Append log'dan kurtarma + backoff'lu yeniden bağlanma |
-| R8 | Mobil hesap tablosu | Dokunmatik ızgara zayıf | v1'de mobilde `SHEET` salt-okunur |
+| R8 | Mobil hesap tablosu ✅ | Dokunmatik ızgara zayıf | Faz 3'te uygulandı: `max-width: 767px` altında `SHEET` salt-okunur, banner ile bildiriliyor |
 
 ---
 
@@ -829,18 +829,36 @@ kök sebebi araştırırken R5'in sanılandan büyük olduğu ortaya çıktı.
 | `monaco-editor` sürümü | `^` yok, sabit `0.53.0` | `esm/vs/...` altındaki worker giriş noktaları paketin iç yapısı; ara sürümde yer değiştirirse derleme sessizce bozulur |
 | Monaco'nun ana pakete girmemesi | Tembel rota ile sınırlandı | Tek tüketicisi `MonacoEditor.vue` → `CollabDocument` rotası; rota `import()` ile yüklendiği için Monaco ayrı bir async parçaya düşüyor, Docs/Dashboard bedelini ödemiyor |
 
-### Faz 3 — Hesap tablosu (18 gün)
+### Faz 3 — Hesap tablosu (18 gün) ✅ *tamamlandı*
 
-- [ ] Univer OSS entegrasyonu, Vue sarmalayıcı, **kesin sürüm sabitleme**. *(2 g)*
-- [ ] `SHEET` Yjs şeması (§5) + `UniverYjsBridge.js` iki yönlü köprü.
+- [x] Univer OSS entegrasyonu, Vue sarmalayıcı, **kesin sürüm sabitleme** (0.25.1). *(2 g)*
+- [x] `SHEET` Yjs şeması (§5) + `UniverYjsBridge.js` iki yönlü köprü.
       **Planın en riskli tek işi.** *(6 g)*
-- [ ] Formül: yerel yeniden hesaplama, bağımlılık grafiği, döngü tespiti (K5). *(2 g)*
-- [ ] Hücre düzeyi imleç/seçim paylaşımı (awareness). *(1.5 g)*
-- [ ] Sayfa (worksheet) ekle/sil/yeniden adlandır + sıralama. *(1 g)*
-- [ ] Apache POI **SAX** ile `.xlsx` / `.csv` içe aktarma + uyum raporu + kuyruk. *(2.5 g)*
-- [ ] **SXSSF** ile `.xlsx` / `.csv` dışa aktarma. *(1.5 g)*
-- [ ] `PlanFeature.COLLAB_SHEET` + hücre kotaları (§10). *(0.5 g)*
-- [ ] Mobilde salt-okunur düşürme (R8). *(1 g)*
+- [x] Formül: yerel yeniden hesaplama, bağımlılık grafiği, döngü tespiti (K5) —
+      Univer'in OSS formül motoru sağlıyor; bize düşen CRDT'ye **formül metnini**
+      yazmak, sonucu değil. *(2 g)*
+- [x] Hücre düzeyi imleç/seçim paylaşımı (awareness). *(1.5 g)*
+- [x] Sayfa (worksheet) ekle/sil/yeniden adlandır + sıralama. *(1 g)*
+- [x] Apache POI **SAX** ile `.xlsx` / `.csv` içe aktarma + uyum raporu + kuyruk. *(2.5 g)*
+- [x] **SXSSF** ile `.xlsx` / `.csv` dışa aktarma. *(1.5 g)*
+- [x] `PlanFeature.COLLAB_SHEET` + hücre kotaları (§10). *(0.5 g)*
+- [x] Mobilde salt-okunur düşürme (R8). *(1 g)*
+
+**Faz 3'te verilen ek kararlar:**
+
+| Konu | Karar | Gerekçe |
+|---|---|---|
+| CRDT'de ne durur | Univer mutation akışı değil, **kendi hücre modelimiz** | Ham mutation kaydetmek doğruluk kaynağını Univer'in iç sözleşmesine bağlar; bir sürüm yükseltmesi tüm geçmişi okunamaz yapardı (R1) |
+| Hücre gösterimi | İç içe `Y.Map` değil **düz nesne** | §5'in taslağı alan bazlı birleşme kazandırırdı ama 200 bin hücre 200 bin CRDT tipi demek — tarayıcı belleği dayanmaz. Karşılığı hücre düzeyinde "son yazan kazanır"; hesap tablosunda beklenen davranış zaten bu |
+| Kaplar | `meta` altında iç içe değil, **üst düzey** `Y` tipleri | İç içe tip oluşturmak CRDT'ye yazmaktır. Dokümanı yalnızca açan istemci bile boş kapları yazar, `last_seq` artar ve sunucudaki tohumlama kilidi (`last_seq = 0`) bir daha açılmaz — içe aktarılan tablo hiç yüklenmezdi |
+| Değişiklik yolu | Hücreler **mutation**, sayfa yapısı **Facade** | Hücre yazımı saniyede onlarca kez olur, mutation en ucuz yol. Sayfa ekleme nadirdir ve Univer'in iç anlık görüntü biçimini elle üretmek yerine belgelenmiş `create()` kullanılır |
+| Uzak değişiklik uygulama | `syncExecuteCommand` + `onlyLocal`, komut değil **mutation** | Komut çalıştırmak geri alma yığınına girerdi: Ctrl+Z, başkasının yazdığı hücreyi silerdi |
+| Stiller | Havuz değil **satır içi** | Havuz, iki tarafta da eşitlenmesi gereken ikinci bir durum demekti. Sunucu sözleşmesindeki `s` anahtarına çevirme yalnızca anlık görüntü üretilirken yapılıyor |
+| Univer kurulumu | `@univerjs/presets` yerine `preset-sheets-core` + 30 satırlık kendi bootstrap'ımız | Meta paket 22 preset'i bağımlılık olarak çeker; dar Jenkins ajanına (D3) hepsini kurmanın karşılığı yok. Kullanılan her şey belgelenmiş genel API |
+| Hücre kotası | Canlı düzenlemede değil, **içe/dışa aktarmada** | Sunucunun her anlık görüntüde 500 bin hücrelik JSON'u ayrıştırıp sayması K2'ye aykırı. Bağlayıcı denetim, hücrelerin zaten sunucuda sayıldığı tek an olan Excel G/Ç'de |
+| İçe aktarma tohumlaması | Yeni bir yol değil, **Faz 2'nin `claimSeed` kilidi** | Sunucuda Yjs yok (K2); POI'nin ürettiği model `snapshot_text`'te bekler, ilk açan istemci yazar. İki tohumlama mekanizması yerine tek mekanizma |
+| Uzak imleç | `IMarkSelectionService`, DI'dan, `try/catch` ile | Univer'in iç API'si. Bir yükseltmede kaybolursa uzak imleçler kaybolur ama **düzenleme çalışmaya devam eder** — kozmetik özellik, kritik yola bağlanmamalı |
+| Excel stil kapsamı | Yalnızca **sayı biçimi** | Her stil varyantını almak hücre sayısı kadar stil üretebilir; kullanıcı neyin alınmadığını uyum raporunda görüyor |
 
 ### Faz 4 — Makro motoru (14 gün)
 
