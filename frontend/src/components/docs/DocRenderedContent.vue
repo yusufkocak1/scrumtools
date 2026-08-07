@@ -1,6 +1,13 @@
 <template>
+  <!--
+    Genişlik düzenleyiciyle aynı (`max-w-none`). Okuma görünümü `max-w-3xl` ile
+    kapalıydı; "Düzenle"ye basınca sayfa birden genişliyor, çıkınca daralıyordu.
+    Aynı içeriğin iki modda iki farklı satır uzunluğuna sahip olması, gömülü
+    tablo ve geniş kod bloklarında özellikle rahatsız edici — okurken kırpılan
+    tablo düzenlemeye geçince sığıyordu.
+  -->
   <article ref="root"
-           class="prose prose-indigo max-w-3xl mx-auto px-4 sm:px-8 py-8 sm:py-10 overflow-x-auto"
+           class="prose prose-indigo max-w-none px-4 sm:px-8 py-8 sm:py-10 overflow-x-auto"
            v-html="html"></article>
 </template>
 
