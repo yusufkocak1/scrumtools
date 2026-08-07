@@ -8,6 +8,11 @@ pipeline {
 
     environment {
         COMPOSE_PROJECT_NAME = 'scrumtools'
+        // Klasik builder her RUN adimi icin ara container acar ve basarisiz olan
+        // adimin container'ini geride birakir (rastgele isimli exited 1/2 yiginlari).
+        // BuildKit ara container hic olusturmaz; sorunu kaynaginda keser.
+        DOCKER_BUILDKIT = '1'
+        COMPOSE_DOCKER_CLI_BUILD = '1'
     }
 
     stages {
@@ -59,18 +64,27 @@ pipeline {
                 '''
             }
         }
-
-        stage('Cleanup') {
-            steps {
-                sh 'docker image prune -f'
-            }
-        }
     }
 
     post {
+        // Temizlik post.always'te: artik container'lar tam da build BASARISIZ
+        // oldugunda kaliyor, o durumda bir 'Cleanup' stage'i hic calismazdi.
         always {
             // .env'i workspace'te birakma
             sh 'rm -f .env'
+
+            // BuildKit devre disi kalirsa (eski daemon, DOCKER_BUILDKIT=0 override)
+            // basarisiz RUN adimlari geride rastgele isimli exited container birakir.
+            // Servis container'larina dokunmamak icin isim koruma listesi uygulanir;
+            // ara build container'larinin adi her zaman rastgele iki kelimedir.
+            sh '''
+                docker ps -a --filter status=exited --filter status=dead --format '{{.Names}}' |
+                  grep -Ev '^(scrumtools-|postgres|minio|mail|nginx-proxy-manager|npm[-_]|portainer|jenkins)' |
+                  xargs -r docker rm >/dev/null || true
+            '''
+
+            // Container'lar gittikten sonra katmanlari da birak
+            sh 'docker image prune -f'
         }
     }
 }
