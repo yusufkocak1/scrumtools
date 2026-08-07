@@ -599,8 +599,75 @@ makro, yetkisi yüksek birine çalıştırılırsa yetki yükseltme aracına dö
 
 Kullanıcıların çoğu betik yazmaz. **"Makroyu Kaydet"** modu: kullanıcının yaptığı
 işlemler (biçim, sıralama, formül girme) API çağrılarına çevrilip düzenlenebilir bir
-betik olarak üretilir. Univer'in komut akışı zaten dinlendiği için (K4) bu, köprünün
-üzerine ince bir katman.
+betik olarak üretilir.
+
+#### Neden köprünün üstüne "ince bir katman" değil
+
+Planın ilk hâli bunu ince bir katman sayıyordu, çünkü komut akışı zaten dinleniyor.
+Faz 3'te köprü yazıldıktan sonra bu varsayım yanlış çıktı:
+[UniverYjsBridge.js](frontend/src/collab/UniverYjsBridge.js) aynı akışı dinliyor ama
+`command.type !== CommandType.MUTATION` olanı **eliyor** — ve bunu bilerek yapıyor,
+CRDT'ye yazılması gereken şey oturmuş düşük seviye değişikliktir.
+
+Kaydedici için mutation yanlış seviye:
+
+- Tek bir kullanıcı işlemi birden çok mutation üretir ("satır sil" = `RemoveRowMutation`
+  \+ değer kaydırması + birleşik hücre düzeltmesi).
+- Mutation parametreleri dönüşüm **sonrası** ve mutlaktır: "kalın yap", hücre matrisi
+  üzerinde tam stil nesnesi olarak gelir, `bold` niyeti olarak değil.
+- Mutation'lardan üretilmiş bir betik okunamaz; kaydedicinin bütün değeri
+  **düzenlenebilir** çıktı vermesi.
+
+Kaydedici bu yüzden aynı `onCommandExecuted` akışına **`CommandType.COMMAND`** filtresiyle
+abone olur — komut, kullanıcının ne yaptığıdır. Aynı kaynak, karşıt filtre; ikisi
+birleştirilemez, sonradan "sadeleştirilmesin" diye buraya yazılıyor.
+
+#### Ne kaydedilir, ne kaydedilmez
+
+- **Yalnızca yerel kullanıcı komutları.** Uzak değişiklikler köprünün `applyLocally`'si
+  üzerinden gelir; `applyingRemote` açıkken kaydedici susar. Aksi hâlde yanınızda çalışan
+  birinin düzenlemeleri sizin makronuza yazılırdı.
+- **Makro yazımları hariç** (`'macro'` origin) — çalışan bir makronun yanında kayıt
+  yapmak, kendini çağıran bir betik üretirdi.
+- Seçim, kaydırma, imleç hariç.
+- **Geri al bir tuzak:** kullanıcı bir şey yapar, beğenmez, geri alır. Kaydedici ikisini
+  birden yazarsa betik hatayı da tekrarlar. v1 davranışı: `undo` son kaydedilen adımı
+  **siler**; yığın kaydın başlangıcından geriye giderse kayıt durdurulur ve kullanıcı
+  uyarılır. Geri alma geçmişini betiğe doğru yansıtmaya çalışmak, kazandırdığından çok
+  daha karmaşık.
+
+#### Komut → API eşlemesi
+
+Kaydedici yalnızca Faz 4'te **gerçekten var olan** makro API'sini üretebilir
+(§9.1 — `setValues`, `setFormula`, `setStyle`, `insertRows/Columns`,
+`deleteRows/Columns`, `sort`):
+
+| Univer komutu | Üretilen satır |
+|---|---|
+| `sheet.command.set-range-values` | `sheet.getRange('A1:C3').setValues([...])` |
+| `sheet.command.set-range-bold` / `-italic` / `-font-color` … | `sheet.getRange('A1').setStyle({ bold: true })` |
+| `sheet.command.insert-row` / `-col` | `sheet.insertRows(4, 2)` |
+| `sheet.command.remove-row` / `-col` | `sheet.deleteRows(4, 2)` |
+| `sheet.command.sort-range` | `sheet.sort({ column: 2, ascending: false })` |
+| birleştirme, satır yüksekliği, dondurma, filtre, koşullu biçim | **eşleme yok** |
+
+Eşlemesi olmayan komut **sessizce atlanmaz**: yerine
+`// kaydedilemedi: birleştirilmiş hücre` yorumu yazılır ve kayıt bitince kaç işlemin
+düştüğü söylenir. Sessizce kısalmış bir betik daha kötüdür — kullanıcı çalıştırır, işin
+yarısı olmaz ve şüphelenmesi için bir sebep yoktur.
+
+#### Sınırlar
+
+- **Üretilen betik mutlaktır**, göreli değil: aralıklar ve değerler sabit yazılır.
+  Excel'in R1C1 tarzı göreli kaydı v1'de yok — göreli kayıt, kullanıcının anlaması
+  gereken bir çapa kavramı getirir; oysa çıktı bitmiş bir araç değil, **düzenlenecek bir
+  başlangıç**.
+- **Yalnızca `SHEET`.** TEXT/CODE'da kayıt, son içeriği yazan tek bir `setText` üretirdi;
+  bu makro değil, dokümanın kopyası.
+- Kayıt tamamen istemcide tutulur, sunucuda durum yok — sekme kapanırsa kayıt gider.
+  Birkaç dakikalık bir iş için ikinci bir doküman-kapsamlı oturum kavramı açmaya değmez.
+- Kaydedilen makro **yeni ve onaysız** bir makrodur; §9.2 kuralları aynen işler.
+  Kaydedici, onaydan kaçmanın yolu değildir.
 
 ---
 
@@ -716,7 +783,7 @@ görmek gerekir.
 
 ## 14. Faz Planı ve İş Listesi
 
-Tahminler adam-gün. Toplam ≈ **62 gün**; Faz 0–2.5 ile kullanılabilir bir ürün çıkar (≈25 gün).
+Tahminler adam-gün. Toplam ≈ **64 gün**; Faz 0–2.5 ile kullanılabilir bir ürün çıkar (≈25 gün).
 
 ### Faz 0 — Temizlik, altyapı ve güvenlik sertleştirme (7 gün) ✅ *tamamlandı*
 
@@ -746,6 +813,7 @@ Tahminler adam-gün. Toplam ≈ **62 gün**; Faz 0–2.5 ile kullanılabilir bir
 | Yetkisiz SUBSCRIBE | Hata çerçevesi değil, **mesajı düşür** | STOMP'ta ERROR tüm bağlantıyı kapatır; tek hatalı abonelik aynı sekmedeki diğer modülleri de koparırdı. Broker'a ulaşmadığı için sızıntı yine kapalı |
 | Geçersiz JWT ile CONNECT | Reddedilmez, kullanıcısız kalır | stomp.js sonsuz yeniden bağlanır; reddetmek 5 sn'lik bir fırtına yaratır. Kullanıcısız oturum hiçbir hedefe abone olamaz |
 | `spring-boot-starter-actuator` | Eklendi | K9'un health bileşeni için; yalnızca `health` açık, `diskspace` kapalı, endpoint kimlik doğrulaması arkasında |
+| Yetkilendiricinin `WebSocketConfig`'e enjeksiyonu | **`ObjectProvider`** ile geç çözülür | Faz 1'de `CollabDocumentService`, `CollabSessionRegistry`'ye bağlanınca bean döngüsü kapandı ve uygulama açılmadı: `webSocketConfig → …AccessResolver → …DocumentService → …SessionRegistry → SimpMessagingTemplate → webSocketConfig`. Kesim bilerek altyapı ucunda: STOMP ile yayın yapan sekiz servis var ve yetkilendirici uygulamanın yetki ağacını tanımak zorunda, yani bu kenar durdukça ağaca eklenecek her yeni servis döngüyü yeniden kurabilirdi |
 
 **Faz 1'de silinecek Faz 0 yer tutucuları:**
 `DenyAllCollabDocumentAccessResolver` (bugün **her** `/ws/collab` bağlantısı 4403
@@ -869,6 +937,7 @@ kök sebebi araştırırken R5'in sanılandan büyük olduğu ortaya çıktı.
 - [x] Onay akışı + rıza diyaloğu + statik API taraması (9.2). *(2 g)*
 - [x] `MacroEditor.vue` — Monaco + `d.ts` tamamlama + hata paneli. *(1.5 g)*
 - [x] `MacroPanel.vue` + çalıştırma günlüğü + `ActivityService` kaydı. *(1 g)*
+- [x] `PlanFeature.COLLAB_MACRO` + kaynak limitleri. *(0.5 g)*
 
 **Faz 4'te verilen ek kararlar:**
 
@@ -884,17 +953,20 @@ kök sebebi araştırırken R5'in sanılandan büyük olduğu ortaya çıktı.
 | Makro yazımının origin'i | `LOCAL_ORIGIN` değil `'macro'` | Kendi Yjs gözlemcilerimiz de tetiklensin: aksi hâlde veri CRDT'ye girer, ağdaki herkes görür, ama makroyu çalıştıranın ekranı güncellenmezdi |
 | Aktivite akışı | Yalnızca **yazan** ve başarılı çalıştırmalar düşer | Salt okuyan bir makronun her koşusunu akışa koymak, gerçek değişiklikleri görünmez yapardı |
 | `ScrumTools.http` | Sunucu vekili; allowlist **boş = kapalı** | Yanlışlıkla açık kalmış bir vekil, sunucuyu isteğe bağlı bir istek üretecine çevirir. Yönlendirme takip edilmiyor — allowlist yalnızca ilk adresi doğrular, 302 zinciri o doğrulamayı anlamsız kılardı |
-| Kaydedici (§9.3) | **Yapılmadı** | Faz 4 iş listesinde yer almıyordu; köprünün komut akışı üzerine ince bir katman olarak Faz 5'e ya da sonrasına kalıyor |
-- [ ] `PlanFeature.COLLAB_MACRO` + kaynak limitleri. *(0.5 g)*
-- [ ] Makro kaydedici (9.3) — Univer komut akışından betik üretimi. *(0.5 g\*)*
-      \* köprü hazırsa; değilse +2 g.
+| Kaydedici (§9.3) | Faz 4'te **yapılmadı**, Faz 5'e alındı ve tahmini 0.5 g → 2 g'ye çıktı | Faz 4 iş listesinde yer almıyordu. Ayrıca "köprü zaten komut akışını dinliyor, ince bir katman" varsayımı yanlış çıktı: köprü bilerek **mutation** dinliyor, kaydedicinin ihtiyacı olan **command** seviyesi ise ayrı bir filtre, ayrı bir eşleme tablosu ve geri-alma davranışı demek (§9.3) |
 
-### Faz 5 — Genişletme (5 gün)
+### Faz 5 — Genişletme (7 gün)
 
 - [ ] Docs içine canlı gömme (Y3): TipTap özel düğüm + salt-okunur render +
       DOMPurify izni. *(2 g)*
 - [ ] Sunucu tarafı makro: GraalJS + bekçi iş parçacığı + **tek iş parçacıklı kuyruk**
       + 10 sn zaman aşımı (K8 D3 notu). *(2 g)*
+- [ ] **Makro kaydedici (§9.3)** — kayıt deposu: `CommandType.COMMAND` filtresi,
+      `applyingRemote` / `'macro'` origin dışlaması, geri-alma ile son adımı silme. *(0.5 g)*
+- [ ] **Makro kaydedici** — komut → API eşleme tablosu ve betik üretimi;
+      eşlemesi olmayan komut için `// kaydedilemedi:` yorumu. *(1 g)*
+- [ ] **Makro kaydedici** — kayıt göstergesi, durdurunca düşen işlem raporu,
+      üretilen kaynağın `MacroEditor`'a devri. *(0.5 g)*
 - [ ] Webhook tetikleyicisi + imzalı uç nokta. *(0.5 g)*
 - [ ] Collab kaynak izleme ekranı (§12). *(0.5 g)*
 
@@ -930,6 +1002,16 @@ kök sebebi araştırırken R5'in sanılandan büyük olduğu ortaya çıktı.
 - Onaysız `ON_OPEN` makrosu **çalışmaz**.
 - Makro kaynağı değiştirilince onay düşer ve tekrar onay istenir.
 
+**Faz 5**
+- Kayıt açıkken yapılan "değer gir → kalın yap → satır ekle" dizisi, çalıştırıldığında
+  aynı sonucu veren okunabilir bir betik üretir.
+- Kayıt sırasında **başka bir kullanıcının** aynı tabloya yazdığı hücreler üretilen
+  betikte **yer almaz**.
+- Eşlemesi olmayan bir işlem (birleştirme) yapıldığında betikte `// kaydedilemedi:`
+  yorumu görünür ve kayıt bitiminde düşen işlem sayısı bildirilir.
+- Kaydedilen makro onaysız oluşturulur; başka bir kullanıcı çalıştırmayı deneyince
+  reddedilir.
+
 ---
 
 ## 16. Özet Karar Tablosu
@@ -945,6 +1027,7 @@ kök sebebi araştırırken R5'in sanılandan büyük olduğu ortaya çıktı.
 | Tablo motoru | Univer OSS + kendi senkronumuz (D2) | Pro lisansı alınmıyor; ızgara yine de bedava |
 | Formül sonucu | CRDT'de saklanmaz, türetilir | Ağ ve disk yazma patlamasını önler |
 | Makro dili | JavaScript (Apps Script modeli) | VBA yorumlayıcısı ayrı bir ürün olurdu |
+| Makro kaydedici | Komut seviyesini dinler, köprünün dinlediği mutation'ı değil (§9.3) | Mutation dönüşüm sonrası ve parçalıdır; ondan üretilen betik okunamaz. Oysa kaydedicinin bütün değeri **düzenlenebilir** çıktı vermesi |
 | Excel G/Ç | Sunucuda Apache POI, SXSSF + SAX | Univer Pro kısıtını aşar, bellek piki kontrollü |
 | Ölçek | Tek örnek, Redis yok (D3) | Sunucu kaldırmaz; append log restart'ı güvenli kılar |
 | Kapsam | Proje birincil, takım etiket (D4) | Docs ile aynı hiza, tek yetki ağacı |

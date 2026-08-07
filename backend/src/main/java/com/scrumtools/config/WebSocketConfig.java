@@ -4,6 +4,7 @@ import com.scrumtools.security.JwtUtil;
 import com.scrumtools.security.WebSocketSubscriptionAuthorizer;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.messaging.Message;
@@ -31,7 +32,30 @@ import java.util.List;
 public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
 
     private final JwtUtil jwtUtil;
-    private final WebSocketSubscriptionAuthorizer subscriptionAuthorizer;
+
+    /**
+     * Abonelik yetkilendiricisi <b>geç</b> çözülür — aksi hâlde uygulama açılmaz.
+     *
+     * <p>Bu sınıf bir {@link WebSocketMessageBrokerConfigurer}, yani Spring'in
+     * {@code DelegatingWebSocketMessageBrokerConfiguration}'ı broker'ı kurarken onu
+     * beklemek zorunda. Ama {@code SimpMessagingTemplate} de o yapılandırmanın
+     * ürettiği bir bean. Yetkilendirici doğrudan enjekte edilince zincir kapanıyordu:
+     * <pre>
+     * webSocketConfig → webSocketSubscriptionAuthorizer → collabDocumentAccessResolver
+     *                 → collabDocumentService → collabSessionRegistry
+     *                 → SimpMessagingTemplate → webSocketConfig
+     * </pre>
+     *
+     * <p>Kesim bilerek <i>burada</i> yapıldı, zincirin collab ucunda değil: STOMP ile
+     * yayın yapan sekiz servis var ve yetkilendirici tanımı gereği uygulamanın yetki
+     * ağacını tanımak zorunda. Yani bu kenar durdukça, ağaca eklenecek herhangi bir
+     * servis aynı döngüyü yeniden kurabilir. Altyapı yapılandırmasının uygulama servis
+     * grafiğini <b>açılışta</b> istememesi, sorunu sınıf olarak ortadan kaldırıyor.
+     *
+     * <p>Yetkilendirici yalnızca SUBSCRIBE geldiğinde gerekiyor; o an bağlam çoktan
+     * hazır.
+     */
+    private final ObjectProvider<WebSocketSubscriptionAuthorizer> subscriptionAuthorizer;
 
     @Value("${app.cors.allowed-origins:http://localhost:3000,http://localhost:5173,https://kocak.net.tr}")
     private String allowedOrigins;
@@ -138,7 +162,7 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
         String email = (user != null) ? user.getName() : null;
         String destination = accessor.getDestination();
 
-        if (subscriptionAuthorizer.isAuthorized(destination, email)) {
+        if (subscriptionAuthorizer.getObject().isAuthorized(destination, email)) {
             return message;
         }
 
