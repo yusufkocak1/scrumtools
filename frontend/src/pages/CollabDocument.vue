@@ -62,11 +62,17 @@
 
       <MacroPanel
           v-if="showMacros"
+          ref="macroPanel"
           :project-id="projectId"
           :document-id="documentId"
           :running="macroRunning"
+          :can-record="doc.type === 'SHEET' && canWrite"
+          :recording="recorder.recording.value"
+          :recorded-count="recorder.stepCount.value"
+          :skipped-count="recorder.skippedCount.value"
           @close="showMacros = false"
-          @run="runMacro"/>
+          @run="runMacro"
+          @toggle-record="toggleRecording"/>
 
       <HistoryPanel
           v-if="showHistory"
@@ -102,6 +108,7 @@ import DocsLinkDialog from '../components/collab/DocsLinkDialog.vue'
 import HistoryPanel from '../components/collab/HistoryPanel.vue'
 import MacroPanel from '../components/collab/macro/MacroPanel.vue'
 import { useMacroRuntime } from '../collab/macro/useMacroRuntime.js'
+import { useMacroRecorder } from '../collab/macro/useMacroRecorder.js'
 
 /**
  * Tek doküman kabuğu: üstveriyi çeker, CRDT oturumunu kurar ve tipe göre
@@ -125,6 +132,7 @@ const showMacros = ref(false)
 const textEditor = ref(null)
 const codeEditor = ref(null)
 const sheetEditor = ref(null)
+const macroPanel = ref(null)
 const seedAttempted = ref(false)
 const exporting = ref(false)
 
@@ -175,6 +183,39 @@ const { running: macroRunning, runMacro: executeMacro } = useMacroRuntime({
     else textEditor.value?.seedContent(last.text)
   }
 })
+
+/**
+ * Makro kaydedici (§9.3).
+ *
+ * Kayıt tamamen istemcide tutuluyor, sunucuda durum yok — sekme kapanırsa kayıt
+ * gider. Birkaç dakikalık bir iş için ikinci bir doküman-kapsamlı oturum kavramı
+ * açmaya değmez.
+ */
+const recorder = useMacroRecorder()
+
+function toggleRecording() {
+  if (recorder.recording.value) {
+    recorder.stop()
+    const name = `Kayıt ${new Date().toLocaleString('tr-TR', {
+      day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit'
+    })}`
+    const skipped = recorder.skippedCount.value
+    if (skipped > 0) {
+      createToast(`${skipped} işlem betiğe çevrilemedi; betikte yorum olarak işaretlendi.`,
+          { type: 'warning', position: 'bottom-right', timeout: 6000 })
+    }
+    macroPanel.value?.openDraft(recorder.toSource(name), name)
+    recorder.reset()
+    return
+  }
+
+  const handles = sheetEditor.value?.getRecorderHandles()
+  if (!handles) {
+    createToast('Tablo henüz hazır değil', { type: 'warning', position: 'bottom-right' })
+    return
+  }
+  recorder.start(handles.univerAPI, handles.isApplyingRemote)
+}
 
 async function runMacro(macro) {
   if (!canWrite.value && macro.apiScopes?.includes('document:write')) {

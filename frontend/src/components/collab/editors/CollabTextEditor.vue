@@ -49,6 +49,7 @@ import { TableCell } from '@tiptap/extension-table-cell'
 import { TableHeader } from '@tiptap/extension-table-header'
 import Collaboration from '@tiptap/extension-collaboration'
 import CollaborationCaret from '@tiptap/extension-collaboration-caret'
+import CollabEmbed from '../../docs/collabEmbedExtension.js'
 
 /**
  * Eş zamanlı zengin metin editörü — TipTap + @tiptap/y-tiptap (plan K1).
@@ -81,6 +82,11 @@ const editor = useEditor({
     TableCell,
     TableHeader,
     Placeholder.configure({ placeholder: 'Yazmaya başlayın — ekibiniz anlık olarak görecek…' }),
+    // Y3 gömme düğümü burada da tanımlı olmak zorunda. Eksik olsaydı, gömme
+    // içeren bir Docs sayfası "Ortak Düzenle" ile açıldığında TipTap tanımadığı
+    // düğümü ayrıştırırken atardı — ve sayfa Docs'a geri yazıldığında gömme
+    // sessizce kaybolurdu.
+    CollabEmbed,
     Collaboration.configure({ document: props.ydoc, field: 'prosemirror' }),
     CollaborationCaret.configure({ provider: { awareness: props.awareness } })
   ]

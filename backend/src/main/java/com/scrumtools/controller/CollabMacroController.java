@@ -3,12 +3,14 @@ package com.scrumtools.controller;
 import com.scrumtools.dto.*;
 import com.scrumtools.entity.enums.MacroTriggerType;
 import com.scrumtools.service.collab.macro.CollabMacroService;
+import com.scrumtools.service.collab.macro.CollabServerMacroService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 /**
@@ -24,6 +26,7 @@ import java.util.UUID;
 public class CollabMacroController {
 
     private final CollabMacroService macroService;
+    private final CollabServerMacroService serverMacroService;
 
     @GetMapping
     public ResponseEntity<List<CollabMacroResponse>> list(
@@ -97,5 +100,25 @@ public class CollabMacroController {
             @PathVariable UUID projectId,
             @PathVariable UUID macroId) {
         return ResponseEntity.ok(macroService.runs(macroId));
+    }
+
+    /**
+     * Webhook sırrını yeniden üretir ve <b>bir kereye mahsus</b> döndürür (Faz 5).
+     *
+     * <p>Ayrı bir "sırrı göster" ucu bilerek yok: sır yalnızca üretildiği anda
+     * görülebilirse, ekran görüntüsü ve destek talebi yoluyla dolaşma ihtimali
+     * belirgin şekilde düşer. Kaybeden kullanıcı yenisini üretir — eski adres
+     * çalışmayı bırakır, ki zaten istenen budur.
+     */
+    @PostMapping("/{macroId}/webhook-secret")
+    public ResponseEntity<Map<String, String>> rotateWebhookSecret(
+            @PathVariable UUID projectId,
+            @PathVariable UUID macroId) {
+        String secret = serverMacroService.rotateWebhookSecret(macroId);
+        return ResponseEntity.ok(Map.of(
+                "secret", secret,
+                "url", "/api/webhooks/collab-macros/" + macroId,
+                "signatureHeader", "X-ScrumTools-Signature",
+                "algorithm", "HmacSHA256(hex, gövdenin tamamı)"));
     }
 }

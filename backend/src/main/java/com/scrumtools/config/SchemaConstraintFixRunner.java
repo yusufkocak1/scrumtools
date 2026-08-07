@@ -45,6 +45,44 @@ public class SchemaConstraintFixRunner implements ApplicationRunner {
         // kalmadı ama ddl-auto:update kolonu düşürmediği için NOT NULL kısıtı insert'leri
         // patlatıyordu. Kolon artık ölü — verisi korunsun diye sadece NOT NULL kaldırılıyor.
         dropNotNull("hangman_words", "team_id");
+
+        // Ortak çalışma anlık görüntüleri: entity `String` (TEXT) diyor ama canlı
+        // veritabanında kolon `bytea` olarak oluşmuştu. Liste ekranı `LOWER(...)`
+        // uyguladığı anda "function lower(bytea) does not exist" ile patlıyordu;
+        // yazma yolu da aynı uyuşmazlıkla bozuk. ddl-auto:update var olan bir
+        // kolonun tipini asla değiştirmediği için elle düzeltilmesi gerekiyor.
+        widenToText("collab_documents", "snapshot_text");
+        widenToText("collab_snapshots", "snapshot_text");
+    }
+
+    /**
+     * İkili tipte oluşmuş bir metin kolonunu {@code text}'e çevirir.
+     *
+     * <p>Yalnızca gerçekten yanlış tipteyse dokunulur — tipi sorgulamadan
+     * {@code ALTER} çalıştırmak her açılışta tabloyu yeniden yazmak demekti.
+     * Dönüşüm {@code convert_from(...,'UTF8')} ile yapılır: kolonda veri varsa
+     * UTF-8 metindir (uygulama oraya yalnızca {@code String} yazar), bayt olarak
+     * bırakmak içeriği kaybetmek olurdu.
+     */
+    private void widenToText(String table, String column) {
+        try {
+            String type = jdbcTemplate.query(
+                    """
+                    SELECT data_type FROM information_schema.columns
+                    WHERE table_name = ? AND column_name = ?
+                    """,
+                    rs -> rs.next() ? rs.getString(1) : null, table, column);
+
+            if (type == null || !"bytea".equalsIgnoreCase(type)) return;
+
+            jdbcTemplate.execute("ALTER TABLE " + table + " ALTER COLUMN " + column
+                    + " TYPE text USING convert_from(" + column + ", 'UTF8')");
+            log.warn("Kolon tipi düzeltildi: {}.{} bytea → text", table, column);
+        } catch (Exception e) {
+            // Tablo henüz yoksa (temiz kurulumda Hibernate'ten önce çalışabilir)
+            // ya da dönüşüm başarısızsa açılış engellenmemeli; hata görünür kalsın.
+            log.warn("Kolon tipi düzeltilemedi: {}.{} — {}", table, column, e.getMessage());
+        }
     }
 
     private void dropConstraint(String table, String constraint) {

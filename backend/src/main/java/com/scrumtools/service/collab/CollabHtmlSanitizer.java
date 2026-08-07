@@ -43,6 +43,12 @@ public class CollabHtmlSanitizer {
                 // Uygulama içi kalıcı medya bağlantıları /api/media üzerinden gelir
                 .addProtocols("img", "src", "http", "https", "data")
                 // target="_blank" korunur; jsoup rel=nofollow ekler
-                .addAttributes("a", "target");
+                .addAttributes("a", "target")
+                // Y3 — gömülü ortak doküman kabı. Süzülürse gömme kimliğini
+                // kaybeder ve sayfa ortak düzenlemeden geçtiğinde sessizce
+                // boş bir div'e döner. Öznitelikler yalnızca bir UUID ve bir
+                // sayı taşıyor; içerik yine okuyanın yetkisiyle çekiliyor.
+                .addAttributes("div", "data-collab-embed", "data-document-id",
+                        "data-type", "data-height");
     }
 }

@@ -192,12 +192,8 @@ public class CollabMacroService {
         entitlementService.assertFeature(macro.getProject().getOrganization(), PlanFeature.COLLAB_MACRO);
 
         MacroTriggerType effective = triggerType != null ? triggerType : MacroTriggerType.MANUAL;
-        String currentHash = hash(macro.getSource());
-        boolean approved = macro.isApproved(currentHash);
-        boolean isAuthor = macro.getCreatedBy() != null
-                && macro.getCreatedBy().getEmail().equalsIgnoreCase(user.getEmail());
 
-        String denial = denialReason(macro, user, projectId, effective, approved, isAuthor);
+        String denial = denialReason(macro, user, projectId, effective);
         if (denial != null) {
             recordRun(macro, user, effective, MacroRunStatus.DENIED, null, null, denial, false);
             throw new SecurityException(denial);
@@ -215,8 +211,24 @@ public class CollabMacroService {
                 timeoutMsFor(macro));
     }
 
-    private String denialReason(CollabMacro macro, User user, UUID projectId,
-                                MacroTriggerType trigger, boolean approved, boolean isAuthor) {
+    /**
+     * Çalıştırma izninin <b>tek</b> kural kümesi.
+     *
+     * <p>Hem tarayıcı yürütmesi ({@link #beginRun}) hem sunucu tarafı yürütme
+     * ({@code CollabServerMacroService}) buradan geçer. İkisi ayrı ayrı yazılsaydı
+     * kuralların zamanla ayrışmaması için hiçbir sebep olmazdı; ayrışan iki yetki
+     * kontrolünde gevşek olanı geçerli olur.
+     *
+     * @param user kuralların uygulanacağı özne — tarayıcıda çalıştıran kişi,
+     *             sunucuda makroyu onaylayan kişi
+     * @return reddetme gerekçesi, ya da izin varsa {@code null}
+     */
+    public String denialReason(CollabMacro macro, User user, UUID projectId,
+                               MacroTriggerType trigger) {
+        boolean approved = macro.isApproved(hash(macro.getSource()));
+        boolean isAuthor = macro.getCreatedBy() != null
+                && macro.getCreatedBy().getEmail().equalsIgnoreCase(user.getEmail());
+
         if (!Boolean.TRUE.equals(macro.getEnabled())) {
             return "Makro devre dışı.";
         }
@@ -325,6 +337,11 @@ public class CollabMacroService {
                         "macro", macro.getName(),
                         "status", run.getStatus().name(),
                         "phase", phase));
+    }
+
+    /** Oturumdaki kullanıcının makro yönetme yetkisini doğrular (dışarıdan çağrılabilir hâli). */
+    public void assertCanManage(UUID projectId) {
+        checkManageMacro(projectId, currentUser());
     }
 
     private void checkManageMacro(UUID projectId, User user) {

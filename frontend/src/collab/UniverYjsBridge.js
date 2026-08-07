@@ -504,6 +504,16 @@ export class UniverYjsBridge {
     }
   }
 
+  /**
+   * Makro kaydedicisi için (§9.3): şu an uzak bir değişiklik mi uygulanıyor.
+   *
+   * Kaydedici bu bayrak açıkken susmak zorunda — aksi hâlde yanınızda çalışan
+   * birinin düzenlemeleri sizin makronuza yazılırdı.
+   */
+  isApplyingRemote() {
+    return this.applyingRemote === true
+  }
+
   // ─── Awareness: hücre imleçleri ───────────────────────────────────────────
 
   publishSelection(params) {

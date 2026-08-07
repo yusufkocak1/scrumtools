@@ -268,4 +268,34 @@ router.beforeEach((to, from, next) => {
     }
 });
 
+/**
+ * Deploy sırasında açık kalmış sekmelerin kurtarılması.
+ *
+ * Sayfa yüklendiğinde `index.html` o anki chunk adlarını (hash'li) biliyordu;
+ * arada yeni bir sürüm yayınlanınca o dosyalar sunucudan silinir. Kullanıcı bir
+ * rotaya geçmeye çalıştığında tembel `import()` 404 alır ve ekran boş kalır —
+ * kullanıcının gördüğü tek şey hiçbir şeyin olmamasıdır.
+ *
+ * `vite:preloadError` (main.js) yalnızca modulepreload düşünce tetikleniyor;
+ * asıl `import()` çağrısı patladığında hata buraya, router'a düşüyor. İki
+ * kanalın da kapalı olması gerekiyor.
+ *
+ * Yenileme oturum başına 30 sn'de bir: chunk gerçekten erişilemez durumdaysa
+ * (yanlış deploy) sonsuz yeniden yükleme döngüsüne girmemeli.
+ */
+router.onError((error, to) => {
+    const message = String(error?.message || '')
+    const isChunkFailure = /dynamically imported module|Importing a module script failed|Failed to fetch/i
+        .test(message)
+    if (!isChunkFailure) return
+
+    const lastReload = Number(sessionStorage.getItem('chunk_reload_at') || 0)
+    if (Date.now() - lastReload < 30_000) return
+
+    sessionStorage.setItem('chunk_reload_at', String(Date.now()))
+    // Hedefe doğrudan gidiliyor: reload() kullanıcıyı bulunduğu sayfada
+    // bırakırdı, oysa niyeti `to`ya geçmekti.
+    window.location.assign(to.fullPath)
+})
+
 export default router

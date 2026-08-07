@@ -89,6 +89,20 @@ public class CollabMacro {
     @JoinColumn(name = "created_by")
     private User createdBy;
 
+    /**
+     * Webhook tetikleyicisinin paylaşılan sırrı (Faz 5).
+     *
+     * <p>Uç nokta kimlik doğrulamasının <b>arkasında değil</b> — çağıran yabancı
+     * bir sistem (CI, form aracı, ödeme sağlayıcı). Kimlik bu sırla kanıtlanır:
+     * gövdenin HMAC-SHA256'sı {@code X-ScrumTools-Signature} başlığında gelir.
+     *
+     * <p>Sırrı URL'e koymak daha kolay olurdu ama URL'ler proxy log'larına,
+     * tarayıcı geçmişine ve hata raporlarına düşer; imza gövdeye bağlı olduğu
+     * için ayrıca isteğin <i>değiştirilmediğini</i> de kanıtlar.
+     */
+    @Column(name = "webhook_secret", length = 64)
+    private String webhookSecret;
+
     @Column(name = "created_at", nullable = false)
     @Builder.Default
     private LocalDateTime createdAt = LocalDateTime.now();

@@ -955,20 +955,39 @@ kök sebebi araştırırken R5'in sanılandan büyük olduğu ortaya çıktı.
 | `ScrumTools.http` | Sunucu vekili; allowlist **boş = kapalı** | Yanlışlıkla açık kalmış bir vekil, sunucuyu isteğe bağlı bir istek üretecine çevirir. Yönlendirme takip edilmiyor — allowlist yalnızca ilk adresi doğrular, 302 zinciri o doğrulamayı anlamsız kılardı |
 | Kaydedici (§9.3) | Faz 4'te **yapılmadı**, Faz 5'e alındı ve tahmini 0.5 g → 2 g'ye çıktı | Faz 4 iş listesinde yer almıyordu. Ayrıca "köprü zaten komut akışını dinliyor, ince bir katman" varsayımı yanlış çıktı: köprü bilerek **mutation** dinliyor, kaydedicinin ihtiyacı olan **command** seviyesi ise ayrı bir filtre, ayrı bir eşleme tablosu ve geri-alma davranışı demek (§9.3) |
 
-### Faz 5 — Genişletme (7 gün)
+### Faz 5 — Genişletme (7 gün) ✅ *tamamlandı*
 
-- [ ] Docs içine canlı gömme (Y3): TipTap özel düğüm + salt-okunur render +
+- [x] Docs içine canlı gömme (Y3): TipTap özel düğüm + salt-okunur render +
       DOMPurify izni. *(2 g)*
-- [ ] Sunucu tarafı makro: GraalJS + bekçi iş parçacığı + **tek iş parçacıklı kuyruk**
+- [x] Sunucu tarafı makro: GraalJS + bekçi iş parçacığı + **tek iş parçacıklı kuyruk**
       + 10 sn zaman aşımı (K8 D3 notu). *(2 g)*
-- [ ] **Makro kaydedici (§9.3)** — kayıt deposu: `CommandType.COMMAND` filtresi,
+- [x] **Makro kaydedici (§9.3)** — kayıt deposu: `CommandType.COMMAND` filtresi,
       `applyingRemote` / `'macro'` origin dışlaması, geri-alma ile son adımı silme. *(0.5 g)*
-- [ ] **Makro kaydedici** — komut → API eşleme tablosu ve betik üretimi;
+- [x] **Makro kaydedici** — komut → API eşleme tablosu ve betik üretimi;
       eşlemesi olmayan komut için `// kaydedilemedi:` yorumu. *(1 g)*
-- [ ] **Makro kaydedici** — kayıt göstergesi, durdurunca düşen işlem raporu,
+- [x] **Makro kaydedici** — kayıt göstergesi, durdurunca düşen işlem raporu,
       üretilen kaynağın `MacroEditor`'a devri. *(0.5 g)*
-- [ ] Webhook tetikleyicisi + imzalı uç nokta. *(0.5 g)*
-- [ ] Collab kaynak izleme ekranı (§12). *(0.5 g)*
+- [x] Webhook tetikleyicisi + imzalı uç nokta. *(0.5 g)*
+- [x] Collab kaynak izleme ekranı (§12). *(0.5 g)*
+
+**Faz 5'te verilen ek kararlar:**
+
+| Konu | Karar | Gerekçe |
+|---|---|---|
+| Sunucu makrosu kimin yetkisiyle koşar | **Onaylayanın** (`approved_by`) | §9.2 "çalıştıranın yetkisiyle" diyor ama webhook geldiğinde çalıştıran bir insan yok. Onay zaten "bu kodu okudum, arkasındayım" beyanı ve `source_hash`'e bağlı — kaynak değişince webhook kendiliğinden durur. Yazarın yetkisi yanlış olurdu: "onaysızı yalnızca yazarı çalıştırır" bir *tolerans*, güvenilirlik beyanı değil |
+| Sunucu makrosunda doküman API'si | **Yok**, çağrılınca sebebini söyleyen hata verir | Sunucuda Yjs yok (K2); `Y.Doc` açmadan hücre okumak da yazmak da mümkün değil. Yarım çalışan bir doküman API'si, sessizce hiçbir şey yapmayan makrolar üretirdi |
+| Yetki kuralı | `denialReason` tek metoda toplandı, özne parametre | Tarayıcı ve sunucu yolları ayrı yazılsaydı ayrışmamaları için sebep yoktu; ayrışan iki kontrolde gevşek olan geçerli olur |
+| GraalJS sınırı | `HostAccess.NONE` + sınırdan yalnızca **JSON** | Worker sandbox'ında tutamaklar siliniyordu; buradaki karşılığı hiçbir Java nesnesinin sınırı geçmemesi. Sonuçlar `JSON.parse` ile veriliyor |
+| Yürütme ve DB işlemi | Yürütme **işlem dışında** | 10 sn'lik bir betik boyunca Hikari bağlantısı tutmak, dar sunucuda (D3) havuzu birkaç makroyla tüketirdi. `@Transactional`, kendi içinden çağrılan metotlara *konmadı* — proxy devrede olmadığı için etkisiz olur, okuyanı yanıltırdı |
+| Webhook hata cevapları | Bilinmeyen makro ve yanlış imza **aynı** 403 | Ayrım yapmak, sırrı bilmeyen birine hangi makro kimliklerinin var olduğunu söylerdi |
+| Webhook'ta makro hatası | 202 + gövdede durum, 5xx değil | Gönderen sistemler 5xx'i yeniden dener; başarısız bir betiği tekrar tekrar koşturmak dar sunucuda işleri kötüleştirir |
+| Webhook sırrı | Yalnızca üretildiği anda görünür, "göster" ucu yok | Ekranda kalıcı duran sır, ekran görüntüsü ve destek talebi yoluyla dolaşmaya başlar |
+| Y3 okuma modu | Canlı değil, `snapshot_text`'ten **salt-okunur önizleme** | Bir sayfada birkaç gömme olabilir; hepsi canlı olsaydı sayfayı *okuyan* herkes o kadar WS oturumu açardı ve D3'ün bağlantı bütçesi okuma trafiğiyle tükenirdi |
+| Y3 düzenleme modu | Canlı örnek bir **düğmenin arkasında** | Plan "düzenleme modunda canlı" diyordu; sayfayı düzenleyen çoğu zaman metne dokunuyor. Her açılışta Univer indirip oturum kurmak, tabloya bakmayacak kullanıcıya bedel çıkarırdı |
+| Gömmenin HTML'i | Yalnızca **kimlik**, içerik kopyası değil | Kopya ilk düzenlemede eskir; Y3'ün tamamı "canlı" olması üzerine kurulu. Yan faydası: içeriği okuyanın kendi oturumu çeker, yetkisi olmayan sayfayı okusa da tabloyu göremez |
+| Gömme düğümü `CollabTextEditor`'da da tanımlı | Evet | Eksik olsaydı gömme içeren bir sayfa "Ortak Düzenle" ile açıldığında TipTap tanımadığı düğümü atardı ve sayfa Docs'a geri yazılırken gömme sessizce kaybolurdu |
+| Kaydedicide komut kimlikleri | İçe aktarılmış sabit değil **dize** | Köprüde sabit kullanılıyor çünkü kaybolan bir mutation sessiz veri bozulması demek (R1). Kaydedicide eşleşmeyen komutun zaten güvenli bir davranışı var (`// kaydedilemedi:`); sabit kullanmak tek bir biçim komutu yüzünden derlemeyi kırardı |
+| İzleme | İstek üzerine, arka planda toplama yok | Sürekli metrik toplayan bir görev, dar sunucuda ölçmeye çalıştığı yükün kendisi olurdu. Ekranda otomatik yenileme de varsayılan **kapalı** |
 
 ---
 
@@ -1003,6 +1022,15 @@ kök sebebi araştırırken R5'in sanılandan büyük olduğu ortaya çıktı.
 - Makro kaynağı değiştirilince onay düşer ve tekrar onay istenir.
 
 **Faz 5**
+- Docs sayfasına gömülen tablo, sayfa okunurken **WS bağlantısı açmadan** görünür;
+  "Canlı düzenle" denince gerçek Univer örneği açılır.
+- Gömme içeren sayfa "Ortak Düzenle" ile açılıp Docs'a geri kaydedilince gömme
+  **kaybolmaz** (TipTap düğümü + jsoup safelist + DOMPurify izni).
+- İmzasız ya da yanlış imzalı webhook isteği 403 alır; doğru imzalı istek makroyu
+  onaylayanın yetkisiyle çalıştırır.
+- Makro onayı kaldırılınca webhook tetikleyicisi çalışmayı bırakır.
+- Sonsuz döngü içeren sunucu makrosu 10 sn'de bekçi tarafından durdurulur ve
+  uygulama yanıt vermeye devam eder.
 - Kayıt açıkken yapılan "değer gir → kalın yap → satır ekle" dizisi, çalıştırıldığında
   aynı sonucu veren okunabilir bir betik üretir.
 - Kayıt sırasında **başka bir kullanıcının** aynı tabloya yazdığı hücreler üretilen

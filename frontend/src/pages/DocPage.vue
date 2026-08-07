@@ -183,7 +183,7 @@
               class="h-full"
           />
         </div>
-        <article v-else class="prose prose-indigo max-w-3xl mx-auto px-4 sm:px-8 py-8 sm:py-10 overflow-x-auto" v-html="renderedContent"></article>
+        <DocRenderedContent v-else :html="renderedContent" :project-id="projectId"/>
       </div>
 
       <!-- Boş durum -->
@@ -282,6 +282,7 @@ import CollabApi from '../api/CollabApi.js'
 import {subscribe, unsubscribe} from '../api/websocket.js'
 import PageTree from '../components/docs/PageTree.vue'
 import TiptapEditor from '../components/docs/TiptapEditor.vue'
+import DocRenderedContent from '../components/docs/DocRenderedContent.vue'
 import VersionHistory from '../components/docs/VersionHistory.vue'
 import DocAttachments from '../components/docs/DocAttachments.vue'
 import DocPermissionDialog from '../components/docs/DocPermissionDialog.vue'
@@ -371,7 +372,11 @@ const renderedContent = computed(() => {
   if (content.trimStart().startsWith('<')) {
     return DOMPurify.sanitize(content, {
       ADD_TAGS: ['img', 'table', 'thead', 'tbody', 'tr', 'th', 'td', 'colgroup', 'col'],
-      ADD_ATTR: ['src', 'alt', 'href', 'target', 'colspan', 'rowspan', 'colwidth', 'style']
+      // data-collab-embed ailesi Y3 için: DOMPurify bu öznitelikleri süzerse
+      // gömme kabı kimliksiz kalır ve DocRenderedContent onu bulamaz.
+      // Taşıdıkları tek şey bir UUID; içerik yine yetkiyle sunucudan gelir.
+      ADD_ATTR: ['src', 'alt', 'href', 'target', 'colspan', 'rowspan', 'colwidth', 'style',
+        'data-collab-embed', 'data-document-id', 'data-type', 'data-height']
     })
   }
   // Eski markdown içerikler için fallback

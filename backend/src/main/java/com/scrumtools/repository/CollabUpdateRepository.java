@@ -38,4 +38,35 @@ public interface CollabUpdateRepository extends JpaRepository<CollabUpdate, Long
             FROM collab_updates WHERE document_id = :documentId
             """, nativeQuery = true)
     long sumPayloadBytes(@Param("documentId") UUID documentId);
+
+    /**
+     * İzleme ekranı (§12): sıkıştırılmamış yükü en büyük dokümanlar.
+     *
+     * <p>Amaç "kaynak tükenmeden görmek": disk şişmesi tek bir uzun ömürlü
+     * dokümandan gelir (R3) ve toplamda görünmez. Sorgu yalnızca yönetici
+     * ekranından, isteğe bağlı çalışır — sıcak yolda değil.
+     */
+    @Query(value = """
+            SELECT u.document_id AS documentId,
+                   d.title       AS title,
+                   COUNT(*)      AS updateCount,
+                   COALESCE(SUM(OCTET_LENGTH(u.payload)), 0) AS payloadBytes
+            FROM collab_updates u
+            JOIN collab_documents d ON d.id = u.document_id
+            GROUP BY u.document_id, d.title
+            ORDER BY payloadBytes DESC
+            LIMIT 10
+            """, nativeQuery = true)
+    List<TopDocumentRow> findTopDocumentsByPayload();
+
+    /** {@link #findTopDocumentsByPayload} satır izdüşümü. */
+    interface TopDocumentRow {
+        UUID getDocumentId();
+
+        String getTitle();
+
+        long getUpdateCount();
+
+        long getPayloadBytes();
+    }
 }

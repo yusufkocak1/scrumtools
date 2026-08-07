@@ -96,6 +96,15 @@
                   d="M3.75 6A2.25 2.25 0 016 3.75h12A2.25 2.25 0 0120.25 6v12A2.25 2.25 0 0118 20.25H6A2.25 2.25 0 013.75 18V6zM3.75 9.75h16.5M3.75 14.25h16.5M9.75 3.75v16.5M14.25 3.75v16.5"/>
           </svg>
         </button>
+        <!-- Y3: canlı ortak tablo gömme -->
+        <button @click="openEmbedPicker" v-if="!compact && projectId" :class="toolBtnClass(false)"
+                title="Canlı tablo göm (Ortak Çalışma)">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round"
+                  d="M3.75 6A2.25 2.25 0 016 3.75h12A2.25 2.25 0 0120.25 6v12A2.25 2.25 0 0118 20.25H6A2.25 2.25 0 013.75 18V6zM3.75 9.75h16.5M9 20.25V9.75"/>
+            <circle cx="17.5" cy="17.5" r="3" fill="currentColor" stroke="none" opacity="0.85"/>
+          </svg>
+        </button>
         <button @click="uploadFile" v-if="!compact" :class="toolBtnClass(false)" title="Dosya yükle">
           <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round"
@@ -186,6 +195,41 @@
     <!-- Hidden file inputs -->
     <input ref="fileInput" type="file" class="hidden" @change="onFileSelected"/>
     <input ref="imageFileInput" type="file" accept="image/*" class="hidden" @change="onImageFileSelected"/>
+
+    <!-- Gömme seçici (Y3) -->
+    <teleport to="body">
+      <div v-if="showEmbedPicker" data-editor-overlay
+           class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-sm px-4"
+           @click.self="showEmbedPicker = false">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden">
+          <div class="px-6 py-4 border-b border-slate-100">
+            <h3 class="font-semibold text-slate-800">Canlı tablo göm</h3>
+            <p class="text-xs text-slate-500 mt-0.5">
+              Sayfaya tablonun kopyası değil, kendisi gömülür — içerik her açılışta günceldir.
+            </p>
+          </div>
+          <div class="max-h-80 overflow-y-auto">
+            <p v-if="embedLoading" class="p-6 text-sm text-slate-400">Yükleniyor…</p>
+            <p v-else-if="!embedCandidates.length" class="p-6 text-sm text-slate-500">
+              Bu projede gömülebilecek bir hesap tablosu yok. Önce Ortak Çalışma
+              alanında bir tablo oluşturun.
+            </p>
+            <button v-for="candidate in embedCandidates" :key="candidate.id"
+                    @click="insertEmbed(candidate)"
+                    class="w-full text-left px-6 py-3 border-b border-slate-50 last:border-0 hover:bg-slate-50 transition">
+              <span class="block text-sm text-slate-800">{{ candidate.title }}</span>
+              <span class="block text-xs text-slate-400 mt-0.5">{{ candidate.type }}</span>
+            </button>
+          </div>
+          <div class="px-6 py-3 border-t border-slate-100 flex justify-end">
+            <button @click="showEmbedPicker = false"
+                    class="px-4 py-2 text-sm text-slate-600 hover:bg-slate-100 rounded-xl transition">
+              Kapat
+            </button>
+          </div>
+        </div>
+      </div>
+    </teleport>
 
     <!-- Image Insert Modal -->
     <teleport to="body">
@@ -367,7 +411,7 @@
 </template>
 
 <script setup>
-import {ref, onBeforeUnmount, watch, computed} from 'vue'
+import {ref, onBeforeUnmount, watch, computed, provide} from 'vue'
 import {useEditor, EditorContent} from '@tiptap/vue-3'
 import StarterKit from '@tiptap/starter-kit'
 import Image from '@tiptap/extension-image'
@@ -383,6 +427,8 @@ import {common, createLowlight} from 'lowlight'
 import {marked} from 'marked'
 import DOMPurify from 'dompurify'
 import DocApi from '../../api/DocApi.js'
+import CollabApi from '../../api/CollabApi.js'
+import CollabEmbed from './collabEmbedExtension.js'
 
 const lowlight = createLowlight(common)
 
@@ -401,6 +447,35 @@ const props = defineProps({
 const emit = defineEmits(['update:modelValue'])
 const fileInput = ref(null)
 const imageFileInput = ref(null)
+
+// Gömülü doküman düğümü ağacın derininde; projeyi prop zinciriyle taşımak
+// yerine buradan sağlanıyor (Y3).
+provide('collabEmbedProjectId', props.projectId)
+
+// Gömme seçici
+const showEmbedPicker = ref(false)
+const embedCandidates = ref([])
+const embedLoading = ref(false)
+
+async function openEmbedPicker() {
+  showEmbedPicker.value = true
+  embedLoading.value = true
+  try {
+    const {data} = await CollabApi.listDocuments(props.projectId, {type: 'SHEET'})
+    embedCandidates.value = data
+  } catch {
+    embedCandidates.value = []
+  } finally {
+    embedLoading.value = false
+  }
+}
+
+function insertEmbed(document) {
+  showEmbedPicker.value = false
+  editor.value?.chain().focus()
+      .insertCollabEmbed({documentId: document.id, docType: document.type, height: 420})
+      .run()
+}
 
 // Editor mode: 'visual' | 'html'
 const editorMode = ref('visual')
@@ -451,7 +526,9 @@ const editor = useEditor({
     TableHeader,
     Highlight,
     CodeBlockLowlight.configure({lowlight}),
-    Placeholder.configure({placeholder: props.placeholder})
+    Placeholder.configure({placeholder: props.placeholder}),
+    // Ortak çalışma dokümanı gömme (COLLAB_WORKSPACE_PLAN.md Y3)
+    CollabEmbed
   ],
   onUpdate: ({editor}) => {
     emit('update:modelValue', editor.getHTML())

@@ -120,6 +120,28 @@
             <version>5.4.0</version>
         </dependency>
 
+        <!-- GraalJS — sunucu tarafı makro yürütmesi (plan §9, Faz 5).
+             Tarayıcıda çalışamayan tetikleyiciler için gerekli: bir webhook
+             geldiğinde ortada açık sekme yoktur, betiği koşturacak tek yer sunucudur.
+
+             Stok JDK üzerinde Truffle **yorumlayıcı** modda çalışır (GraalVM JIT
+             yok). Yavaştır ve bu bilinçli bir tercih: D3'ün dar sunucusunda
+             makrolar tek iş parçacıklı kuyrukta, 10 sn bekçi altında koşar —
+             hedef hız değil, sınırlılık. `engine.WarnInterpreterOnly` bu yüzden
+             kapatılıyor, uyarı beklenen durumu bildiriyor. -->
+        <dependency>
+            <groupId>org.graalvm.polyglot</groupId>
+            <artifactId>polyglot</artifactId>
+            <version>24.1.2</version>
+        </dependency>
+        <dependency>
+            <groupId>org.graalvm.polyglot</groupId>
+            <artifactId>js-community</artifactId>
+            <version>24.1.2</version>
+            <type>pom</type>
+            <scope>runtime</scope>
+        </dependency>
+
         <!-- MinIO S3-Compatible Object Storage -->
         <dependency>
             <groupId>io.minio</groupId>

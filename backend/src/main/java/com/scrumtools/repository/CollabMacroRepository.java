@@ -6,6 +6,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 public interface CollabMacroRepository extends JpaRepository<CollabMacro, UUID> {
@@ -25,4 +26,22 @@ public interface CollabMacroRepository extends JpaRepository<CollabMacro, UUID> 
                                       @Param("documentId") UUID documentId);
 
     List<CollabMacro> findByProjectIdAndDocumentIsNullOrderByNameAsc(UUID projectId);
+
+    /**
+     * Sunucu tarafı yürütme için makro + gerekli ilişkiler tek sorguda.
+     *
+     * <p>Fetch join şart: yürütme kuyruk iş parçacığında ve açık bir işlem
+     * dışında koşuyor. Tembel bırakılan {@code project} ya da {@code approvedBy}
+     * orada okunmaya çalışılınca {@code LazyInitializationException} verirdi —
+     * üstelik hata yürütmenin ortasında, makronun yarısı çalışmışken gelirdi.
+     */
+    @Query("""
+            SELECT m FROM CollabMacro m
+            JOIN FETCH m.project p
+            LEFT JOIN FETCH p.organization
+            LEFT JOIN FETCH m.approvedBy
+            LEFT JOIN FETCH m.createdBy
+            WHERE m.id = :id
+            """)
+    Optional<CollabMacro> findByIdForExecution(@Param("id") UUID id);
 }

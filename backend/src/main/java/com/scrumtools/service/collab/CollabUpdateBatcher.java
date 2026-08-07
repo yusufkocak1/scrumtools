@@ -50,6 +50,13 @@ public class CollabUpdateBatcher {
     private final AtomicLong bufferedBytes = new AtomicLong();
 
     /**
+     * İzleme sayacı (§12): uygulama açıldığından beri kabul edilen güncelleme
+     * sayısı. Oran hesabı burada değil ekranda yapılıyor — iki ölçüm arasındaki
+     * farkı almak, sunucuda kayan pencere tutmaktan hem ucuz hem doğru.
+     */
+    private final AtomicLong acceptedUpdates = new AtomicLong();
+
+    /**
      * Röle yapıldıktan <b>sonra</b> çağrılır — kalıcılaştırma yayını hiçbir zaman
      * geciktirmemelidir.
      */
@@ -57,6 +64,7 @@ public class CollabUpdateBatcher {
         if (documentId == null || payload == null || payload.length == 0) {
             return;
         }
+        acceptedUpdates.incrementAndGet();
         var update = new CollabUpdateSink.PendingUpdate(authorEmail, payload, Instant.now());
 
         // compute/computeIfPresent çifti anahtar bazında atomiktir; düz
@@ -126,6 +134,11 @@ public class CollabUpdateBatcher {
         long freed = drained.stream().mapToLong(u -> u.payload().length).sum();
         bufferedBytes.addAndGet(-freed);
         return drained;
+    }
+
+    /** İzleme için (§12): açılıştan beri kabul edilen toplam güncelleme sayısı. */
+    public long acceptedUpdates() {
+        return acceptedUpdates.get();
     }
 
     /** İzleme için (§12): o an kalıcılaştırılmayı bekleyen bayt miktarı. */

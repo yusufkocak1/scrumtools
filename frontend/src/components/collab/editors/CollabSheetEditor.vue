@@ -128,7 +128,16 @@ function applyMacroOps(ops) {
   bridge?.applyMacroOps(ops)
 }
 
-defineExpose({ seedContent, getSnapshotModel, applyMacroOps })
+/**
+ * Makro kaydedicisinin ihtiyaç duyduğu iki şey (§9.3): komut akışına abone
+ * olabilmek için Facade, ve uzak değişiklikleri elemek için köprünün bayrağı.
+ */
+function getRecorderHandles() {
+  if (!univerAPI || !bridge) return null
+  return { univerAPI, isApplyingRemote: () => bridge.isApplyingRemote() }
+}
+
+defineExpose({ seedContent, getSnapshotModel, applyMacroOps, getRecorderHandles })
 
 onBeforeUnmount(() => {
   if (awarenessHandler) props.awareness.off('change', awarenessHandler)

@@ -10,6 +10,29 @@
               class="p-1 text-slate-400 hover:text-slate-700 transition" title="Kapat">✕</button>
     </div>
 
+    <!-- Kaydedici (§9.3). Yalnızca SHEET'te: TEXT/CODE'da kayıt, son içeriği
+         yazan tek bir setText üretirdi — makro değil, dokümanın kopyası. -->
+    <div v-if="canRecord" class="px-4 py-2.5 border-b border-slate-100 bg-slate-50/60">
+      <div class="flex items-center gap-2">
+        <button @click="$emit('toggle-record')"
+                :class="['px-2.5 py-1 text-xs rounded-lg font-medium transition flex items-center gap-1.5',
+                         recording
+                           ? 'bg-rose-600 text-white hover:bg-rose-500'
+                           : 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-100']">
+          <span v-if="recording" class="w-2 h-2 rounded-full bg-white animate-pulse"></span>
+          <span v-else class="w-2 h-2 rounded-full bg-rose-500"></span>
+          {{ recording ? 'Kaydı durdur' : 'Makroyu kaydet' }}
+        </button>
+        <span v-if="recording" class="text-[11px] text-slate-500">
+          {{ recordedCount }} adım
+          <span v-if="skippedCount" class="text-amber-600">· {{ skippedCount }} atlandı</span>
+        </span>
+      </div>
+      <p v-if="recording" class="text-[11px] text-slate-500 mt-1.5">
+        Yaptığınız işlemler betiğe çevriliyor. Başkalarının düzenlemeleri kaydedilmez.
+      </p>
+    </div>
+
     <div class="flex-1 overflow-y-auto">
       <div v-if="loading" class="p-4 text-sm text-slate-400">Yükleniyor…</div>
 
@@ -133,10 +156,15 @@ import { SCOPE_LABELS } from '../../../collab/macro/macroTypeDefs.js'
 const props = defineProps({
   projectId: { type: String, required: true },
   documentId: { type: String, required: true },
-  running: { type: Boolean, default: false }
+  running: { type: Boolean, default: false },
+  /** Kaydedici yalnızca hesap tablosunda anlamlı (§9.3). */
+  canRecord: { type: Boolean, default: false },
+  recording: { type: Boolean, default: false },
+  recordedCount: { type: Number, default: 0 },
+  skippedCount: { type: Number, default: 0 }
 })
 
-const emit = defineEmits(['close', 'run'])
+const emit = defineEmits(['close', 'run', 'toggle-record'])
 
 const STATUS_LABEL = {
   RUNNING: 'çalışıyor', SUCCESS: 'başarılı', FAILED: 'hata',
@@ -228,5 +256,17 @@ async function toggleRuns(macro) {
   }
 }
 
-defineExpose({ reload: load })
+/**
+ * Kaydedicinin ürettiği betikle düzenleyiciyi açar.
+ *
+ * Taslak <b>kaydedilmiş bir makro değil</b>: id'si yok, dolayısıyla düzenleyici
+ * onu yeni makro olarak kaydeder ve makro onaysız doğar. Kaydedici, onaydan
+ * kaçmanın yolu değildir (§9.3).
+ */
+function openDraft(source, name) {
+  editing.value = { name, source, triggerType: 'MANUAL' }
+  editorOpen.value = true
+}
+
+defineExpose({ reload: load, openDraft })
 </script>
