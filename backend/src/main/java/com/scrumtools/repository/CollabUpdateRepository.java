@@ -25,6 +25,17 @@ public interface CollabUpdateRepository extends JpaRepository<CollabUpdate, Long
 
     long countByDocumentId(UUID documentId);
 
-    @Query("SELECT COALESCE(SUM(LENGTH(u.payload)), 0) FROM CollabUpdate u WHERE u.document.id = :documentId")
+    /**
+     * Sıkıştırma eşiği için toplam ham yük boyutu (§5).
+     *
+     * <p>Native sorgu, çünkü HQL'in {@code LENGTH()}'i {@code character_length()}
+     * olarak çözülüyor ve Hibernate 6 bunu {@code bytea} üzerinde reddediyor —
+     * uygulama açılışta sorgu doğrulamasında patlıyordu. {@code bytea} için
+     * doğru karşılık PostgreSQL'in {@code octet_length()}'i.
+     */
+    @Query(value = """
+            SELECT COALESCE(SUM(OCTET_LENGTH(payload)), 0)
+            FROM collab_updates WHERE document_id = :documentId
+            """, nativeQuery = true)
     long sumPayloadBytes(@Param("documentId") UUID documentId);
 }
