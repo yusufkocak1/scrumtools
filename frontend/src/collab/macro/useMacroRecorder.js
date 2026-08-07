@@ -23,8 +23,6 @@ export function useMacroRecorder() {
 
   let disposer = null
   let lastSelection = null
-  /** Kayıt başladıktan sonra atılan geri-alma sayısı aşarsa kayıt durur. */
-  let undoBudget = 0
 
   const stepCount = computed(() => steps.value.length)
   const skippedCount = computed(() => skipped.value.length)
@@ -38,19 +36,19 @@ export function useMacroRecorder() {
     recording.value = true
     steps.value = []
     skipped.value = []
-    undoBudget = 0
 
     const subscription = univerAPI.onCommandExecuted((command) => {
       if (!recording.value) return
 
-      // Uzak değişiklikler köprünün `applyLocally`'si üzerinden geliyor.
-      // Kaydedilirlerse yanınızda çalışan birinin düzenlemeleri sizin makronuza
-      // yazılırdı — kaydedicinin en sinsi hatası bu olurdu.
+      // Uzak değişiklikler köprünün `applyLocally`'si üzerinden geliyor ve o
+      // sırada bu bayrak açık. Kaydedilirlerse yanınızda çalışan birinin
+      // düzenlemeleri sizin makronuza yazılırdı — en sinsi hata bu olurdu.
+      //
+      // Aynı bayrak **makro yazımlarını da** kapsıyor: `applyMacroOps` CRDT'ye
+      // `'macro'` origin'iyle yazıyor, gözlemciler tetikleniyor ve değişiklik
+      // Univer'e yine `applyLocally` üzerinden giriyor. Yani "çalışan makronun
+      // yanında kayıt" durumu için ayrı bir kontrol gerekmiyor.
       if (isApplyingRemote?.()) return
-
-      // Makro yazımları da hariç: çalışan bir makronun yanında kayıt yapmak,
-      // kendini çağıran bir betik üretirdi.
-      if (command.params?.__origin === 'macro') return
 
       if (command.id === 'univer.command.undo') {
         onUndo()
@@ -92,7 +90,6 @@ export function useMacroRecorder() {
         return
       }
       steps.value.push(result)
-      undoBudget++
     } catch (error) {
       // Univer'in parametre biçimi sürümle değişebilir (R1). Kaydedicide bu
       // ölümcül değil: adım düşer, kullanıcı görür.
@@ -104,18 +101,19 @@ export function useMacroRecorder() {
 
   /**
    * Geri alma, kaydedicinin tuzağı: kullanıcı bir şey yapar, beğenmez, geri
-   * alır. İkisini birden yazarsak betik hatayı da tekrarlar. Son adımı siliyoruz;
-   * yığın kaydın başlangıcından geriye giderse kayıt durur — geri alma
-   * geçmişini betiğe tam olarak yansıtmaya çalışmak kazandırdığından çok daha
-   * karmaşık.
+   * alır. İkisini birden yazarsak betik hatayı da tekrarlar.
+   *
+   * Ölçüt listenin kendisi, ayrı bir sayaç değil: kayıt her zaman boş listeyle
+   * başlıyor, dolayısıyla "liste boşken gelen geri alma" ile "kayıttan önceki
+   * bir işlemi geri alıyor" aynı şey. Ayrı sayaç tutmak, `// kaydedilemedi:`
+   * satırları sayılmadığı için listeden kayardı ve yanlış adımı sildirirdi.
    */
   function onUndo() {
-    if (undoBudget > 0) {
-      steps.value.pop()
-      undoBudget--
+    if (steps.value.length === 0) {
+      stop()
       return
     }
-    stop()
+    steps.value.pop()
   }
 
   function stop() {

@@ -411,7 +411,7 @@
 </template>
 
 <script setup>
-import {ref, onBeforeUnmount, watch, computed, provide} from 'vue'
+import {ref, onBeforeUnmount, watch, computed, provide, toRef} from 'vue'
 import {useEditor, EditorContent} from '@tiptap/vue-3'
 import StarterKit from '@tiptap/starter-kit'
 import Image from '@tiptap/extension-image'
@@ -449,8 +449,9 @@ const fileInput = ref(null)
 const imageFileInput = ref(null)
 
 // Gömülü doküman düğümü ağacın derininde; projeyi prop zinciriyle taşımak
-// yerine buradan sağlanıyor (Y3).
-provide('collabEmbedProjectId', props.projectId)
+// yerine buradan sağlanıyor (Y3). Ham değer değil ref: düz değer verilseydi
+// prop sonradan değişince düğüm görünümü eski projeyi kullanmaya devam ederdi.
+provide('collabEmbedProjectId', toRef(props, 'projectId'))
 
 // Gömme seçici
 const showEmbedPicker = ref(false)

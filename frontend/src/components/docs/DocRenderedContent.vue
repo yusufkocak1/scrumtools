@@ -5,7 +5,7 @@
 </template>
 
 <script setup>
-import { ref, h, render, watch, onBeforeUnmount, nextTick } from 'vue'
+import { ref, h, render, watch, onBeforeUnmount } from 'vue'
 import CollabEmbed from '../collab/CollabEmbed.vue'
 
 /**
@@ -40,9 +40,8 @@ function unmountAll() {
   mounted = []
 }
 
-async function hydrate() {
+function hydrate() {
   unmountAll()
-  await nextTick()
   if (!root.value) return
 
   for (const holder of root.value.querySelectorAll('[data-collab-embed]')) {
@@ -62,6 +61,10 @@ async function hydrate() {
   }
 }
 
-watch(() => props.html, hydrate, { immediate: true })
+// `flush: 'post'` şart: varsayılan 'pre' ile izleyici DOM güncellenmeden önce
+// koşar ve `v-html`'in yeni çıktısı henüz basılmamış olur — gömme kapları
+// bulunamaz. `nextTick` ile beklemek de işe yarardı ama ilk çalıştırmada
+// (`immediate`) bileşen henüz bağlanmadığı için `root` boş kalırdı.
+watch(() => props.html, hydrate, { immediate: true, flush: 'post' })
 onBeforeUnmount(unmountAll)
 </script>

@@ -24,7 +24,7 @@
 </template>
 
 <script setup>
-import { ref, inject } from 'vue'
+import { ref, inject, computed, unref } from 'vue'
 import { NodeViewWrapper } from '@tiptap/vue-3'
 import CollabEmbed from '../collab/CollabEmbed.vue'
 
@@ -47,6 +47,8 @@ defineProps({
 const live = ref(false)
 
 // Düzenleyici projeyi prop olarak alıyor; düğüm görünümü ağacın içinde
-// olduğundan provide/inject ile ulaşıyor.
-const projectId = inject('collabEmbedProjectId', null)
+// olduğundan provide/inject ile ulaşıyor. `unref`, sağlayanın ref mi düz değer
+// mi verdiğine bakmadan çalışsın diye.
+const injectedProjectId = inject('collabEmbedProjectId', null)
+const projectId = computed(() => unref(injectedProjectId) || null)
 </script>

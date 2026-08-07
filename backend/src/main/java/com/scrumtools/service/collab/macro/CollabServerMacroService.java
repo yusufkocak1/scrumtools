@@ -22,6 +22,7 @@ import java.security.MessageDigest;
 import java.security.SecureRandom;
 import java.time.LocalDateTime;
 import java.util.HexFormat;
+import java.util.Locale;
 import java.util.Map;
 import java.util.UUID;
 
@@ -77,10 +78,21 @@ public class CollabServerMacroService {
     public MacroRunStatus triggerByWebhook(UUID macroId, String signature, String rawBody) {
         Prepared prepared = prepare(macroId, signature, rawBody);
 
-        ServerMacroRunner.Result result = queue.submit(
-                "webhook:" + macroId, TOTAL_TIMEOUT_MS,
-                () -> runner.run(prepared.source(), prepared.projectId(),
-                        prepared.identityEmail(), prepared.payload(), EXEC_TIMEOUT_MS));
+        ServerMacroRunner.Result result;
+        try {
+            result = queue.submit(
+                    "webhook:" + macroId, TOTAL_TIMEOUT_MS,
+                    () -> runner.run(prepared.source(), prepared.projectId(),
+                            prepared.identityEmail(), prepared.payload(), EXEC_TIMEOUT_MS));
+        } catch (RuntimeException e) {
+            // Kuyruk dolduysa ya da beklerken zaman aşımına uğradıysak, açtığımız
+            // RUNNING kaydı öksüz kalır: hiçbir zaman kapanmaz ve günlükte
+            // sonsuza kadar "çalışıyor" görünür. Kapatıp hatayı yeniden atıyoruz.
+            finish(prepared.runId(), new ServerMacroRunner.Result(
+                    MacroRunStatus.FAILED, null,
+                    e.getMessage() != null ? e.getMessage() : "Makro başlatılamadı.", 0L));
+            throw e;
+        }
 
         finish(prepared.runId(), result);
         return result.status();
@@ -187,7 +199,7 @@ public class CollabServerMacroService {
         // harcadığı süreyle imzayı bayt bayt tahmin etmeye kapı aralar.
         if (!MessageDigest.isEqual(
                 expected.getBytes(StandardCharsets.UTF_8),
-                signature.trim().toLowerCase().getBytes(StandardCharsets.UTF_8))) {
+                signature.trim().toLowerCase(Locale.ROOT).getBytes(StandardCharsets.UTF_8))) {
             throw new SecurityException("Webhook imzası doğrulanamadı.");
         }
     }

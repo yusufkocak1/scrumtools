@@ -102,7 +102,6 @@ public class ServerMacroRunner {
             return new Result(MacroRunStatus.FAILED, log.toString(),
                     e.getMessage(), elapsed(startedAt));
         } catch (Exception e) {
-            log.append("");
             return new Result(MacroRunStatus.FAILED, log.toString(),
                     e.getMessage() != null ? e.getMessage() : e.toString(), elapsed(startedAt));
         } finally {
@@ -138,21 +137,24 @@ public class ServerMacroRunner {
      * boşalıyor — bu yüzden sonucu okumak için ayrı bir bekleme gerekmiyor.
      * {@code done} yine de kontrol ediliyor: makro çözülmeyen bir söz beklerse
      * bunu sessiz bir başarı olarak raporlamak yanlış olurdu.
+     *
+     * <p><b>Birleştirme, {@code formatted()} değil:</b> kullanıcı kaynağı biçim
+     * dizesi olarak yorumlanamaz. {@code i % 2} yazan ilk makro
+     * {@code UnknownFormatConversionException} ile patlardı — üstelik hata JS'ten
+     * değil Java'dan geleceği için mesajı kullanıcıya hiçbir şey anlatmazdı.
      */
     private String wrap(String source) {
-        return """
-                globalThis.__macroResult = { done: false, error: null };
-                (async () => {
-                %s
-                })().then(
-                  () => { globalThis.__macroResult.done = true; },
-                  (e) => {
-                    globalThis.__macroResult.done = true;
-                    globalThis.__macroResult.error = String((e && (e.stack || e.message)) || e);
-                  }
-                );
-                globalThis.__macroResult;
-                """.formatted(source);
+        return "globalThis.__macroResult = { done: false, error: null };\n"
+                + "(async () => {\n"
+                + source
+                + "\n})().then(\n"
+                + "  () => { globalThis.__macroResult.done = true; },\n"
+                + "  (e) => {\n"
+                + "    globalThis.__macroResult.done = true;\n"
+                + "    globalThis.__macroResult.error = String((e && (e.stack || e.message)) || e);\n"
+                + "  }\n"
+                + ");\n"
+                + "globalThis.__macroResult;\n";
     }
 
     private String readError(Value outcome) {

@@ -68,7 +68,15 @@ public class CollabMacroWebhookController {
             // Kuyruk dolu ya da zaman aşımı — burada 503 doğru cevap, çünkü
             // isteğin kendisinde bir sorun yok, sunucu şu an alamıyor.
             return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
-                    .body(Map.of("accepted", false, "error", e.getMessage()));
+                    .body(Map.of("accepted", false, "error", "Sunucu şu an meşgul."));
+
+        } catch (RuntimeException e) {
+            // Paket kısıtı (PlanLimitExceededException) gibi diğer her şey.
+            // Genel işleyiciye bırakılsaydı iç hata metni kimliği doğrulanmamış
+            // bir çağırana sızabilirdi; buradaki uç dış dünyaya açık.
+            log.error("Makro webhook'u işlenemedi: macroId={}", macroId, e);
+            return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                    .body(Map.of("accepted", false, "error", "Reddedildi."));
         }
     }
 }

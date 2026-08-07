@@ -46,15 +46,20 @@ public interface CollabUpdateRepository extends JpaRepository<CollabUpdate, Long
      * dokümandan gelir (R3) ve toplamda görünmez. Sorgu yalnızca yönetici
      * ekranından, isteğe bağlı çalışır — sıcak yolda değil.
      */
+    /*
+     * Takma adlar tırnak içinde: PostgreSQL tırnaksız tanımlayıcıları küçük
+     * harfe katlar ({@code payloadBytes} → {@code payloadbytes}) ve arayüz
+     * izdüşümünün getter eşlemesi bundan etkilenir.
+     */
     @Query(value = """
-            SELECT u.document_id AS documentId,
-                   d.title       AS title,
-                   COUNT(*)      AS updateCount,
-                   COALESCE(SUM(OCTET_LENGTH(u.payload)), 0) AS payloadBytes
+            SELECT u.document_id AS "documentId",
+                   d.title       AS "title",
+                   COUNT(*)      AS "updateCount",
+                   COALESCE(SUM(OCTET_LENGTH(u.payload)), 0) AS "payloadBytes"
             FROM collab_updates u
             JOIN collab_documents d ON d.id = u.document_id
             GROUP BY u.document_id, d.title
-            ORDER BY payloadBytes DESC
+            ORDER BY "payloadBytes" DESC
             LIMIT 10
             """, nativeQuery = true)
     List<TopDocumentRow> findTopDocumentsByPayload();

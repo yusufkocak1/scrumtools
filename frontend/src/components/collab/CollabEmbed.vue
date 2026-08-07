@@ -51,7 +51,9 @@
 <script setup>
 import { ref, computed, onMounted, shallowRef } from 'vue'
 import CollabApi from '../../api/CollabApi.js'
-import { parseCellKey } from '../../collab/UniverYjsBridge.js'
+// Köprüden değil `cellAddress`'ten: köprü Univer'i statik import ediyor ve
+// buradan bir import, okuma modunun Univer'siz kalma tasarımını bozardı (Y3).
+import { parseCellKey } from '../../collab/cellAddress.js'
 
 /**
  * Docs sayfasına gömülü ortak doküman (COLLAB_WORKSPACE_PLAN.md Y3).

@@ -1,4 +1,5 @@
 import * as Y from 'yjs'
+import { cellKey, parseCellKey } from './cellAddress.js'
 import { CommandType } from '@univerjs/core'
 import {
   SetRangeValuesMutation,
@@ -50,17 +51,11 @@ const DEFAULT_COLS = 40
 /** Univer `ICellData` içinden CRDT'ye taşıdığımız alanlar. */
 const CELL_FIELDS = ['v', 'f', 'si', 't', 's']
 
-export function cellKey(row, col) {
-  return `R${row}C${col}`
-}
-
-export function parseCellKey(key) {
-  const separator = key.indexOf('C', 1)
-  if (key[0] !== 'R' || separator < 0) return null
-  const row = Number(key.slice(1, separator))
-  const col = Number(key.slice(separator + 1))
-  return Number.isFinite(row) && Number.isFinite(col) ? { row, col } : null
-}
+// Hücre anahtarı yardımcıları ayrı bir modülde: bu dosya Univer'i statik import
+// ediyor, dolayısıyla buradan bir fonksiyon almak Univer'in tamamını çağıranın
+// paketine sokar (bkz. cellAddress.js). Yeniden dışa aktarılıyorlar ki mevcut
+// çağıranlar için bu dosyanın API'si değişmesin.
+export { cellKey, parseCellKey }
 
 export class UniverYjsBridge {
   constructor({ ydoc, univer, univerAPI, awareness, unitId }) {
