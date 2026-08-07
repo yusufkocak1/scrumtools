@@ -18,7 +18,6 @@ Disallow: /retrospective
 Disallow: /retroBoard/
 Disallow: /scrumPoker/
 Disallow: /workList/
-Disallow: /codeShare/
 Disallow: /quiz/
 
 Sitemap: https://scrumtools.kocak.net.tr/sitemap.xml

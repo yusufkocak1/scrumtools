@@ -16,7 +16,7 @@ Canlı ortam: [scrumtools.kocak.net.tr](https://scrumtools.kocak.net.tr)
 - **Scrum Poker** — planlama pokeri ile eforlama oturumları
 - **Retro Board** — retrospektif panoları; madde sıralama, oylama ve yorumlar
 - **Quiz** — takım içi bilgi yarışmaları
-- **Code Share** — Monaco Editor tabanlı canlı kod paylaşımı
+- **Ortak Çalışma Alanı (Collab)** — eş zamanlı metin/kod düzenleme (geliştiriliyor; bkz. `COLLAB_WORKSPACE_PLAN.md`). Yerini aldığı Code Share modülü kaldırıldı.
 
 ### Organizasyon ve İşbirliği
 - **Organizasyon / Takım yapısı** — çoklu takım, davet sistemi, rol tabanlı yetkilendirme

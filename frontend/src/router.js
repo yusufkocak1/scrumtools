@@ -9,7 +9,6 @@ import ScrumPoker from "./pages/ScrumPoker.vue";
 import Teams from "./pages/Teams.vue";
 import Settings from "./pages/Settings.vue";
 import WorkList from "./pages/WorkList.vue";
-import CodeShare from "./pages/CodeShare.vue";
 import TaskDetail from "./pages/TaskDetail.vue";
 import GameBox from "./pages/GameBox.vue";
 // Faz 1 - Yeni sayfalar
@@ -109,9 +108,23 @@ const routes = [{
     props: true,
     meta: {requiresAuth: true}
 }, {
+    // Code Share kaldırıldı (COLLAB_WORKSPACE_PLAN.md — D1/K10). Veri taşınmadığı
+    // için eski içerik gelmez; amaç yalnızca eski yer imlerinin 404 olmaması.
+    // Ortak çalışma alanı proje kapsamlı olduğu için takım kimliğiyle doğrudan
+    // eşlenemiyor; kullanıcı proje seçim ekranına düşer.
     path: '/codeShare/:teamId',
-    name: 'CodeShare',
-    component: CodeShare,
+    redirect: '/organizations'
+}, {
+    // Ortak Çalışma Alanı — proje birincil kapsam (plan D4)
+    path: '/projects/:projectId/collab',
+    name: 'CollabHome',
+    component: () => import('./pages/CollabHome.vue'),
+    props: true,
+    meta: {requiresAuth: true}
+}, {
+    path: '/projects/:projectId/collab/:documentId',
+    name: 'CollabDocument',
+    component: () => import('./pages/CollabDocument.vue'),
     props: true,
     meta: {requiresAuth: true}
 }, {

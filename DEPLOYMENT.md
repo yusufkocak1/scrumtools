@@ -12,6 +12,7 @@ Internet ──HTTPS──> nginx-proxy-manager (proxy network)
                                 ├── /            → Vue SPA (static)
                                 ├── /api/        → scrumtools-backend:8080
                                 ├── /ws          → scrumtools-backend:8080 (SockJS/STOMP)
+                                ├── /ws/collab   → scrumtools-backend:8080 (ham WS, CRDT ikili)
                                 └── /scrumtools-attachments/ → scrumtools-minio:9000 (presigned URL)
                         (internal network: postgres, minio, backend, frontend)
 ```
@@ -41,7 +42,7 @@ Yeni Proxy Host:
 | Scheme | `http` |
 | Forward Hostname | `scrumtools-frontend` |
 | Forward Port | `80` |
-| **Websockets Support** | **AÇIK (zorunlu — SockJS/STOMP için)** |
+| **Websockets Support** | **AÇIK (zorunlu — SockJS/STOMP ve `/ws/collab` için)** |
 | Block Common Exploits | Açık |
 | SSL | Let's Encrypt, Force SSL + HTTP/2 |
 
@@ -82,8 +83,33 @@ docker compose up -d --remove-orphans
 docker compose logs -f backend   # kontrol
 ```
 
+## ⚠️ Backend ölçeklenemez (ortak çalışma alanı)
+
+`docker compose up --scale backend=N` **çalıştırılmamalıdır.**
+
+STOMP broker'ı süreç-içidir (`enableSimpleBroker`) ve ortak çalışma oturumları
+(`/ws/collab`) bellekte tutulur — Redis rölesi yoktur (COLLAB_WORKSPACE_PLAN.md D3/K9).
+İkinci bir örnek hata vermez, **sessizce yanlış çalışır**: A örneğine bağlı kullanıcı
+B örneğine bağlı kullanıcının düzenlemesini görmez ve iki taraf da kendi anlık
+görüntüsünü yazar.
+
+- `docker-compose.yml`'daki `container_name: scrumtools-backend` `--scale`'i zaten
+  hata verdirir; bu bir güvenlik ağıdır, kural değil.
+- Çalışan mod `/actuator/health` içindeki `collab` bileşeninde ve açılış log'unda
+  raporlanır (`COLLAB_SINGLE_INSTANCE`).
+- İleride ölçek gerekirse doğru yol Redis değil **doküman yapışkanlığı**dır:
+  NPM/nginx'te `/ws/collab` yolunu `hash $arg_doc consistent` ile yönlendirmek.
+
+**Yeniden başlatma:** deploy sırasında tüm ortak çalışma oturumları düşer. Veri kaybı
+olmaz (güncellemeler Postgres'te append log'dadır), istemciler üstel geri çekilmeyle
+yeniden bağlanır; kullanıcı 2–5 sn "yeniden bağlanılıyor" görür.
+
 ## Notlar
 
+- Backend container'ına bellek limiti (`mem_limit`) ve `JAVA_TOOL_OPTIONS` ile
+  `-XX:MaxRAMPercentage` tanımlıdır. Limit, Postgres ve MinIO'yu sıkıştırmayacak
+  şekilde seçilmelidir — aksi hâlde Excel dışa aktarma pikleri (Faz 3) OOM Killer'ı
+  yanlış container'da tetikler.
 - Postgres verisi `scrumtools-postgres-data`, MinIO verisi `scrumtools-minio-data`
   volume'ünde kalıcıdır. İlk açılışta `db/init/01-create-schema.sh` şemayı oluşturur
   (sadece boş volume ile çalışır).

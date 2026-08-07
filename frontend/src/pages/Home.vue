@@ -115,26 +115,6 @@
         </div>
 
 
-        <!-- Code Share Card -->
-        <div @click="gotoCodeShare"
-             class="bg-white rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 cursor-pointer transform hover:-translate-y-2 border border-gray-200">
-          <div class="p-8">
-            <div class="w-16 h-16 bg-orange-100 rounded-lg flex items-center justify-center mb-6">
-              <svg class="w-8 h-8 text-orange-600" fill="currentColor" viewBox="0 0 20 20">
-                <path fill-rule="evenodd" d="M12.316 3.051a1 1 0 01.633 1.265l-4 12a1 1 0 11-1.898-.632l4-12a1 1 0 011.265-.633zM5.707 6.293a1 1 0 010 1.414L3.414 10l2.293 2.293a1 1 0 11-1.414 1.414l-3-3a1 1 0 010-1.414l3-3a1 1 0 011.414 0zm8.586 0a1 1 0 011.414 0l3 3a1 1 0 010 1.414l-3 3a1 1 0 11-1.414-1.414L16.586 10l-2.293-2.293a1 1 0 010-1.414z" clip-rule="evenodd"></path>
-              </svg>
-            </div>
-            <h3 class="text-2xl font-semibold text-gray-900 mb-3">Code Share</h3>
-            <p class="text-gray-600 mb-4">Share code snippets and collaborate with your team</p>
-            <div class="flex items-center text-orange-600 font-medium">
-              <span>Start</span>
-              <svg class="w-4 h-4 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
-              </svg>
-            </div>
-          </div>
-        </div>
-
         <!-- GameBox Card -->
         <div @click="gotoQuiz"
              class="bg-white rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 cursor-pointer transform hover:-translate-y-2 border border-gray-200">
@@ -226,9 +206,6 @@ export default {
     },
     gotoWorkList() {
       this.$router.push(`/workList/${this.selectedTeam}`)
-    },
-    gotoCodeShare() {
-      this.$router.push(`/codeShare/${this.selectedTeam}`)
     },
     gotoQuiz() {
       this.$router.push(`/quiz/${this.selectedTeam}`)

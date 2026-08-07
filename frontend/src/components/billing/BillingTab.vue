@@ -149,7 +149,6 @@ const FEATURE_LABELS = {
   SCRUM_POKER: 'Scrum Poker',
   RETRO: 'Retrospektif',
   WORK_BOARD: 'İş Panosu',
-  CODE_SHARE: 'Kod Paylaşımı',
   QUIZ: 'GameBox',
   DOCS: 'Dokümanlar',
   DASHBOARD_REPORTS: 'Raporlar',
@@ -158,6 +157,7 @@ const FEATURE_LABELS = {
   GIT_INTEGRATION: 'Git Entegrasyonu',
   CI_CD_INTEGRATION: 'CI/CD Entegrasyonu',
   RICH_FILTERS: 'Zengin Filtreler',
+  COLLAB_WORKSPACE: 'Ortak Çalışma Alanı',
 }
 
 const props = defineProps({

@@ -47,12 +47,21 @@ services:
       dockerfile: Dockerfile
     container_name: scrumtools-backend
     restart: always
+    # COLLAB_WORKSPACE_PLAN.md §12 — kaynak butcesi.
+    # Acik bir limit olmadan JVM host RAM'inin 1/4'unu "kullanilabilir" sayar ve
+    # heap'i buna gore buyutur; Excel G/C pikleri (Faz 3) Postgres/MinIO'yu
+    # sikistirip OOM Killer'i yanlis container'da tetikleyebilir.
+    # NOT: backend YATAY OLCEKLENEMEZ (K9) — bkz. DEPLOYMENT.md.
+    mem_limit: ${BACKEND_MEM_LIMIT:-1g}
     depends_on:
       postgres:
         condition: service_healthy
       minio:
         condition: service_healthy
     environment:
+      # Heap'i container limitine bagla (mem_limit ile birlikte anlamlidir).
+      # Kalan %25 metaspace, thread stack'leri ve WebSocket tamponlari icindir.
+      JAVA_TOOL_OPTIONS: ${BACKEND_JAVA_OPTS:--XX:MaxRAMPercentage=75}
       SPRING_DATASOURCE_URL: jdbc:postgresql://${DB_HOST:-postgres}:${DB_PORT:-5432}/${DB_NAME:-scrumtools}?currentSchema=${DB_SCHEMA:-scrumtools}
       SPRING_DATASOURCE_USERNAME: ${DB_USER:-scrumtools}
       SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD}
@@ -95,6 +104,10 @@ services:
       SCM_CRYPTO_KEY: ${SCM_CRYPTO_KEY:-}
       SCM_WEBHOOK_BASE_URL: ${SCM_WEBHOOK_BASE_URL:-}
       SCM_ALLOW_PRIVATE_HOSTS: ${SCM_ALLOW_PRIVATE_HOSTS:-false}
+      # Ortak calisma alani (COLLAB_WORKSPACE_PLAN.md K9/§12)
+      COLLAB_SINGLE_INSTANCE: ${COLLAB_SINGLE_INSTANCE:-true}
+      COLLAB_MAX_BINARY_MESSAGE_SIZE: ${COLLAB_MAX_BINARY_MESSAGE_SIZE:-1048576}
+      COLLAB_APPEND_BATCH_WINDOW_MS: ${COLLAB_APPEND_BATCH_WINDOW_MS:-1000}
     expose:
       - "8080"
     networks:

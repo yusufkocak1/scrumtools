@@ -67,6 +67,13 @@ public enum Permission {
     SCM_CREATE_BRANCH,
     SCM_CREATE_PULL_REQUEST,
 
+    // Ortak Çalışma Alanı (COLLAB_WORKSPACE_PLAN.md §11).
+    // Doküman bir DocPage'e bağlıysa karar DocPermissionService'e devredilir —
+    // çift yetki kaynağı olmaz.
+    COLLAB_READ,
+    COLLAB_WRITE,
+    COLLAB_MANAGE,
+
     // Admin
     ADMIN_FULL_ACCESS
 }

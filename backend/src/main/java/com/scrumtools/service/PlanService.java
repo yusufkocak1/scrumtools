@@ -118,14 +118,15 @@ public class PlanService {
     public void seedDefaultPlans() {
         seedPlan("FREE", "Free", "Küçük ekipler için ücretsiz başlangıç paketi.",
                 5, 1,
-                EnumSet.of(PlanFeature.SCRUM_POKER, PlanFeature.RETRO, PlanFeature.WORK_BOARD),
+                EnumSet.of(PlanFeature.SCRUM_POKER, PlanFeature.RETRO, PlanFeature.WORK_BOARD,
+                        PlanFeature.COLLAB_WORKSPACE),
                 BigDecimal.ZERO, BigDecimal.ZERO,
                 null, true, 0);
 
         seedPlan("PRO", "Pro", "Büyüyen ekipler için tüm temel modüller.",
                 25, 10,
                 EnumSet.of(PlanFeature.SCRUM_POKER, PlanFeature.RETRO, PlanFeature.WORK_BOARD,
-                        PlanFeature.CODE_SHARE, PlanFeature.QUIZ, PlanFeature.DOCS,
+                        PlanFeature.COLLAB_WORKSPACE, PlanFeature.QUIZ, PlanFeature.DOCS,
                         PlanFeature.DASHBOARD_REPORTS, PlanFeature.ATTACHMENTS,
                         PlanFeature.GIT_INTEGRATION, PlanFeature.CI_CD_INTEGRATION,
                         PlanFeature.RICH_FILTERS),

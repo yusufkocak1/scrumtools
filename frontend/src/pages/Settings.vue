@@ -9,7 +9,7 @@
         </div>
 
         <!-- Çalışma Alanı: aktif organizasyon + takım TEK yerden seçilir.
-             Board, Retrospective, Scrum Poker, GameBox, CodeShare ve Dashboard
+             Board, Retrospective, Scrum Poker, GameBox ve Dashboard
              bu seçimi merkezi context'ten okur. -->
         <div class="mb-8 bg-white rounded-xl shadow-sm border border-indigo-200 overflow-hidden">
           <div class="px-6 py-4 border-b border-gray-200 bg-indigo-50/60 flex items-center justify-between">

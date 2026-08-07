@@ -2,7 +2,7 @@
  * useTeamContext.js
  *
  * Aktif takım context'i — "şu an hangi takımla çalışıyoruz" sorusunun TEK kaynağı.
- * Board, Retrospective, Scrum Poker, GameBox, CodeShare ve Dashboard hepsi seçimi
+ * Board, Retrospective, Scrum Poker, GameBox ve Dashboard hepsi seçimi
  * buradan okur; sayfa içi takım seçicileri kaldırıldı, seçim Ayarlar'dan yönetilir.
  *
  * Organizasyonla ilişki: her takım bir organizasyona bağlıdır (TeamResponse.organizationId).
@@ -122,7 +122,7 @@ function selectTeam(teamOrId) {
 }
 
 /**
- * URL'de :teamId taşıyan sayfalar (Board, Scrum Poker, CodeShare, GameBox, Retro
+ * URL'de :teamId taşıyan sayfalar (Board, Scrum Poker, GameBox, Retro
  * board) için: paylaşılan/derin linkteki takım context'e adopte edilir — URL her
  * zaman kazanır, sonraki gezinmeler aynı takımda devam eder. Takım listede yoksa
  * (üyelikten çıkarılmış link olabilir) context'e dokunulmaz.

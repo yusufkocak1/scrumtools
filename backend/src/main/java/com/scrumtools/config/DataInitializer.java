@@ -67,22 +67,42 @@ public class DataInitializer implements ApplicationRunner {
                 PlanFeature.CI_CD_INTEGRATION,
                 PlanFeature.RICH_FILTERS));
 
+        // Ortak çalışma alanı (metin + kod) her pakette açıktır; FREE'de doküman ve
+        // eşzamanlı kullanıcı kotasıyla sınırlanır (COLLAB_WORKSPACE_PLAN.md §11).
+        // PRO/MAX'ta zaten CODE_SHARE'den göç etmiş olabilir — grant idempotent.
+        grantPlanFeatures(List.of("FREE", "PRO", "MAX"), List.of(
+                PlanFeature.COLLAB_WORKSPACE));
+
         for (String roleName : List.of("Project Admin", "Developer")) {
-            roleRepository.findByNameAndScope(roleName, RoleScope.PROJECT)
-                    .filter(Role::getIsDefault)
-                    .ifPresent(role -> {
-                        boolean changed = false;
-                        for (Permission permission : List.of(Permission.SCM_CREATE_BRANCH,
-                                Permission.SCM_CREATE_PULL_REQUEST)) {
-                            if (!role.getPermissions().contains(permission)) {
-                                role.getPermissions().add(permission);
-                                changed = true;
-                                log.info("'{}' rolüne {} izni eklendi.", roleName, permission);
-                            }
-                        }
-                        if (changed) roleRepository.save(role);
-                    });
+            grantRolePermissions(roleName, List.of(Permission.SCM_CREATE_BRANCH,
+                    Permission.SCM_CREATE_PULL_REQUEST));
         }
+
+        // Ortak çalışma alanı izinleri. Okuma herkeste; yazma, gözlemci dışındaki
+        // proje rollerinde; doküman oluşturma/arşivleme yalnızca proje yöneticisinde.
+        for (String roleName : List.of("Project Admin", "Scrum Master", "Product Owner",
+                "Developer", "QA / Tester", "Analyst")) {
+            grantRolePermissions(roleName, List.of(Permission.COLLAB_READ, Permission.COLLAB_WRITE));
+        }
+        grantRolePermissions("Viewer / Observer", List.of(Permission.COLLAB_READ));
+        grantRolePermissions("Project Admin", List.of(Permission.COLLAB_MANAGE));
+    }
+
+    /** Varsayılan bir rol şablonuna eksik izinleri ekler; zaten varsa dokunmaz. */
+    private void grantRolePermissions(String roleName, List<Permission> permissions) {
+        roleRepository.findByNameAndScope(roleName, RoleScope.PROJECT)
+                .filter(Role::getIsDefault)
+                .ifPresent(role -> {
+                    boolean changed = false;
+                    for (Permission permission : permissions) {
+                        if (!role.getPermissions().contains(permission)) {
+                            role.getPermissions().add(permission);
+                            changed = true;
+                            log.info("'{}' rolüne {} izni eklendi.", roleName, permission);
+                        }
+                    }
+                    if (changed) roleRepository.save(role);
+                });
     }
 
     /** Verilen paketlere eksik özellikleri ekler; zaten varsa dokunmaz. */

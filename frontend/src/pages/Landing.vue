@@ -316,12 +316,9 @@ export default {
         bg: 'bg-teal-100', color: 'text-teal-600',
         icon: '<path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zM8.94 6.94a.75.75 0 11-1.061-1.061 3 3 0 112.871 5.026v.345a.75.75 0 01-1.5 0v-.5c0-.72.57-1.172 1.081-1.287A1.5 1.5 0 108.94 6.94zM10 15a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd"/>'
       },
-      {
-        title: 'Kod Paylaşımı',
-        description: 'Monaco editör tabanlı gerçek zamanlı kod paylaşımıyla pair programming ve teknik tartışmalar.',
-        bg: 'bg-cyan-100', color: 'text-cyan-600',
-        icon: '<path fill-rule="evenodd" d="M12.316 3.051a1 1 0 01.633 1.265l-4 12a1 1 0 11-1.898-.632l4-12a1 1 0 011.265-.633zM5.707 6.293a1 1 0 010 1.414L3.414 10l2.293 2.293a1 1 0 11-1.414 1.414l-3-3a1 1 0 010-1.414l3-3a1 1 0 011.414 0zm8.586 0a1 1 0 011.414 0l3 3a1 1 0 010 1.414l-3 3a1 1 0 11-1.414-1.414L16.586 10l-2.293-2.293a1 1 0 010-1.414z" clip-rule="evenodd"/>'
-      },
+      // NOT: "Kod Paylaşımı" kartı kaldırıldı — modül Ortak Çalışma Alanı'na
+      // dönüşüyor (COLLAB_WORKSPACE_PLAN.md). Faz 1 canlıya çıkınca eş zamanlı
+      // düzenleme anlatan yeni kart buraya eklenecek.
     ],
     steps: [
       {

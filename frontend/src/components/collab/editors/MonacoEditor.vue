@@ -11,7 +11,7 @@
 <script setup>
 import { ref, watch, computed } from 'vue'
 import { loader, VueMonacoEditor } from '@guolao/vue-monaco-editor'
-import customLang from '../../..//custom-lang-monarch.js'
+import customLang from '../../../../custom-lang-monarch.js'
 
 // VS CDN yapılandırması (bileşen içinde lokal kurulum)
 loader.config({

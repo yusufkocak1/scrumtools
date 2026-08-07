@@ -12,6 +12,12 @@ spring:
         dialect: org.hibernate.dialect.PostgreSQLDialect
         default_schema: scrumtools
         format_sql: true
+        # Ortak çalışma append gruplaması (COLLAB_WORKSPACE_PLAN.md §12) biriken
+        # güncellemeleri tek gidiş-gelişte yazsın diye JDBC toplu ekleme açık.
+        jdbc:
+          batch_size: 50
+        order_inserts: true
+        order_updates: true
     show-sql: false
 
   flyway:
@@ -37,6 +43,22 @@ spring:
 
 server:
   port: 8080
+
+# ─── Actuator ────────────────────────────────────────────────────────────────
+# Yalnızca health açık; endpoint SecurityConfig'teki anyRequest().authenticated()
+# altında kaldığı için token gerektirir. diskspace kapalı — giriş yapmış her
+# kullanıcıya sunucunun boş disk baytını göstermenin bir faydası yok.
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+  endpoint:
+    health:
+      show-details: when_authorized
+  health:
+    diskspace:
+      enabled: false
 
 # ─── iyzico (iyzilink ödeme linkleri) ────────────────────────────────────────
 iyzico:
@@ -100,6 +122,16 @@ app:
     secret: ${JWT_SECRET:ScrumToolsSuperSecretKeyForJWTSigningMustBe256Bits1yusuf}
     # Token süresi ms cinsinden (default: 24 saat)
     expiration: ${JWT_EXPIRATION:86400000}
+  # ─── Ortak Çalışma Alanı (Collab) — COLLAB_WORKSPACE_PLAN.md ───────────────
+  collab:
+    # K9: broker ve oturum kaydı süreç-içidir; backend YATAY ÖLÇEKLENEMEZ.
+    # Bu bayrak ölçeklemeyi açmaz, yalnızca açılış uyarısını ve
+    # /actuator/health içindeki collab raporunu kontrol eder.
+    single-instance: ${COLLAB_SINGLE_INSTANCE:true}
+    # /ws/collab üzerinde tek ikili çerçevenin üst sınırı (bayt)
+    max-binary-message-size: ${COLLAB_MAX_BINARY_MESSAGE_SIZE:1048576}
+    # §12: aynı dokümana gelen güncellemelerin tek INSERT'e toplandığı pencere (ms)
+    append-batch-window-ms: ${COLLAB_APPEND_BATCH_WINDOW_MS:1000}
   media:
     # İçeriğe gömülü görsellerin kalıcı /api/media linklerini imzalayan anahtar.
     # Varsayılan olarak JWT secret'ı kullanılır; DEĞİŞTİRİLİRSE eski içerikteki tüm
