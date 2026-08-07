@@ -1,0 +1,13 @@
+{
+  "name": "scrumtools-collab-loadtest",
+  "version": "0.1.0",
+  "private": true,
+  "description": "COLLAB_WORKSPACE_PLAN.md Faz 0 — /ws/collab yuk testi iskeleti",
+  "type": "module",
+  "scripts": {
+    "start": "node loadtest.js"
+  },
+  "dependencies": {
+    "ws": "^8.18.0"
+  }
+}
