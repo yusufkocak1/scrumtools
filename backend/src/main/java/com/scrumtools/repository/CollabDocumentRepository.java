@@ -19,11 +19,26 @@ import java.util.UUID;
 public interface CollabDocumentRepository extends JpaRepository<CollabDocument, UUID> {
 
     /**
-     * Liste ekranı: tip, takım ve serbest metin filtreleri isteğe bağlıdır
-     * ({@code null} geçilirse o filtre uygulanmaz).
+     * Liste ekranı: tip ve takım filtreleri isteğe bağlıdır ({@code null} geçilirse
+     * uygulanmaz). Serbest metin filtresi için "filtre yok" karşılığı <b>boş dize</b>'dir.
      *
      * <p>Arama hem başlığa hem {@code snapshot_text}'e bakar — kullanıcı çoğu zaman
      * dokümanın adını değil içinde geçen bir kelimeyi hatırlar.
+     *
+     * <p><b>{@code query} asla {@code null} geçilmemeli</b> ve boşluk kontrolü neden
+     * {@code IS NULL} değil {@code = ''}: Hibernate bir parametrenin tipini ya çalışma
+     * anındaki değerin sınıfından ya da JPQL'deki kullanımından çıkarır. Bu parametrenin
+     * diğer bütün kullanımları {@code LOWER(CONCAT(...))} fonksiyon çağrılarının içinde
+     * ve çıkarım oraya inmiyor; {@code :query IS NULL} de tip taşımadığından, değer null
+     * geldiğinde çıkarım tamamen başarısız oluyordu. O durumda Hibernate parametreyi
+     * "serileştirilebilir nesne" varsayıp {@code VARBINARY} bağlıyor, PostgreSQL
+     * {@code '%' || $n} ifadesini bytea birleştirmesi olarak çözüyor ve sorgu
+     * <i>function lower(bytea) does not exist</i> ile patlıyordu — üstelik hata mesajı
+     * {@code snapshot_text} kolonunu değil bu parametreyi işaret ediyor.
+     * {@code = ''} biçimi iki yönden de kapatıyor: değer hep {@code String} oluyor ve
+     * dize sabitiyle karşılaştırma tipi JPQL'den de çıkarılabilir kılıyor.
+     * ({@code :type}/{@code :teamId} aynı {@code IS NULL} deseninde sorunsuz, çünkü
+     * onların {@code d.type = :type} karşılaştırması Hibernate'e tipi veriyor.)
      */
     @Query("""
             SELECT d FROM CollabDocument d
@@ -31,7 +46,7 @@ public interface CollabDocumentRepository extends JpaRepository<CollabDocument, 
               AND d.archivedAt IS NULL
               AND (:type IS NULL OR d.type = :type)
               AND (:teamId IS NULL OR d.team.id = :teamId)
-              AND (:query IS NULL OR LOWER(d.title) LIKE LOWER(CONCAT('%', :query, '%'))
+              AND (:query = '' OR LOWER(d.title) LIKE LOWER(CONCAT('%', :query, '%'))
                    OR LOWER(d.snapshotText) LIKE LOWER(CONCAT('%', :query, '%')))
             ORDER BY d.updatedAt DESC
             """)

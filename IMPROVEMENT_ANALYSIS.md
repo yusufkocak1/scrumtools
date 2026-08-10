@@ -125,11 +125,14 @@ SchemaConstraintFixRunner, DashboardMigrationRunner, BillingDataMigrationRunner,
 TaskProjectBackfillRunner, MediaUrlBackfillRunner, CollabCleanupRunner, CollabInstanceGuard
 ```
 
-Bu desen bugüne kadar çalıştı ama **bu hafta bedelini ödedi**:
-`collab_documents.snapshot_text` canlıda `bytea` olarak oluşmuştu, entity `TEXT`
-diyordu, `ddl-auto: update` var olan kolonun tipini asla değiştirmediği için
-liste ekranı `lower(bytea) does not exist` ile patladı ve elle bir `ALTER`
-yazmak gerekti.
+Bu desen bugüne kadar çalıştı, ama asıl bedeli **teşhiste** ödetiyor: liste ekranı
+`lower(bytea) does not exist` ile patladığında ilk akla gelen açıklama
+`collab_documents.snapshot_text`'in canlıda `bytea` olarak oluşmuş olmasıydı ve
+`SchemaConstraintFixRunner`'a bir `ALTER` yazıldı. Gerçek sebep şema değil,
+`search()` sorgusuna null geçilen `:query` parametresinin Hibernate'te tipsiz
+kalıp `VARBINARY` bağlanmasıydı — yazılan göç üç gün boyunca hiçbir şey yapmadan
+canlıda durdu. Şemanın gözden geçirilebilir bir dosyada olmaması, "acaba kolon mu
+kaydı?" sorusunun cevaplanmasını da zorlaştırıyor.
 
 `ddl-auto: update`'in yapısal sınırları:
 - Kolon **tipini** değiştirmez.

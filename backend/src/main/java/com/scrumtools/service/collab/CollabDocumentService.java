@@ -102,7 +102,9 @@ public class CollabDocumentService {
         if (!permissionService.canReadInProject(projectId, user)) {
             throw new SecurityException("Bu projedeki dokümanları görüntüleme yetkiniz yok");
         }
-        String normalized = (query == null || query.isBlank()) ? null : query.trim();
+        // "Filtre yok" karşılığı boş dize — null DEĞİL. Gerekçe: search() javadoc'u
+        // (null parametre Hibernate'te tipsiz kalıp bytea olarak bağlanıyor).
+        String normalized = query == null ? "" : query.trim();
         return documentRepository.search(projectId, type, teamId, normalized).stream()
                 .map(CollabDocumentSummaryResponse::from)
                 .toList();

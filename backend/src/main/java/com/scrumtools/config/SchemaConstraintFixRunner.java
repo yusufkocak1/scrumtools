@@ -46,11 +46,14 @@ public class SchemaConstraintFixRunner implements ApplicationRunner {
         // patlatıyordu. Kolon artık ölü — verisi korunsun diye sadece NOT NULL kaldırılıyor.
         dropNotNull("hangman_words", "team_id");
 
-        // Ortak çalışma anlık görüntüleri: entity `String` (TEXT) diyor ama canlı
-        // veritabanında kolon `bytea` olarak oluşmuştu. Liste ekranı `LOWER(...)`
-        // uyguladığı anda "function lower(bytea) does not exist" ile patlıyordu;
-        // yazma yolu da aynı uyuşmazlıkla bozuk. ddl-auto:update var olan bir
-        // kolonun tipini asla değiştirmediği için elle düzeltilmesi gerekiyor.
+        // DİKKAT — buradaki iki satır "lower(bytea) does not exist" hatasının çaresi
+        // DEĞİL: o hata kolon tipinden değil, `CollabDocumentRepository.search`'e
+        // null geçilen `:query` parametresinin Hibernate'te tipsiz kalıp VARBINARY
+        // bağlanmasından geliyordu (bkz. o metodun javadoc'u) ve orada çözüldü.
+        // Satırlar yine de duruyor: canlıdaki kolon tipi hiç doğrulanmadı ve kolon
+        // zaten `text` ise çağrı tipi sorgulayıp sessizce dönüyor — yani gerçek bir
+        // sürüklenme varsa onarır, yoksa bedeli yok. ddl-auto:update var olan bir
+        // kolonun tipini asla değiştirmediği için tek onarım yolu bu.
         widenToText("collab_documents", "snapshot_text");
         widenToText("collab_snapshots", "snapshot_text");
     }
