@@ -37,9 +37,28 @@ public class CollabHtmlSanitizer {
                 .addTags("mark", "u", "s")
                 .addAttributes("li", "data-checked")
                 .addAttributes("ul", "data-type")
-                // Tablo hizalama/birleştirme
-                .addAttributes("td", "colspan", "rowspan", "colwidth")
-                .addAttributes("th", "colspan", "rowspan", "colwidth")
+                // Tablo. Bu liste, istemcideki
+                // `frontend/src/components/docs/table/tableSchema.js` içindeki
+                // TABLE_HTML_ATTRIBUTES ile <b>elle eşlenmiş</b> durumda —
+                // jsoup o diziyi okuyamıyor. Oradaki listeye bir öznitelik
+                // eklenip buraya eklenmezse, sayfa ortak düzenlemeden geçtiği
+                // anda (Y1/Y2 aynalama) öznitelik sessizce silinir ve tablonun
+                // sütun tipleri, renkleri, toplam satırı kaybolur
+                // (DOCS_TABLE_PLAN.md §6).
+                .addAttributes("td", "colspan", "rowspan", "colwidth",
+                        "data-align", "data-bg", "data-col-type", "data-v")
+                .addAttributes("th", "colspan", "rowspan", "colwidth",
+                        "data-align", "data-bg", "data-col-type", "data-v",
+                        "data-col-format", "data-col-agg", "data-sorted")
+                .addAttributes("tr", "data-total-row")
+                .addAttributes("table", "data-sort-col", "data-sort-dir", "data-table-layout")
+                // TipTap'in kendi çıktısında <colgroup> yok — sütun genişliği
+                // hücrenin `colwidth` özniteliğinde taşınıyor ve okuma
+                // görünümünde tableView.js tarafından <colgroup>'a çevriliyor.
+                // Bu izin, dışarıdan yapıştırılmış tabloların genişliklerini
+                // korumak için: relaxed listesi `col` etiketine yalnızca
+                // span/width veriyor, style'a vermiyor.
+                .addAttributes("col", "style")
                 // Uygulama içi kalıcı medya bağlantıları /api/media üzerinden gelir
                 .addProtocols("img", "src", "http", "https", "data")
                 // target="_blank" korunur; jsoup rel=nofollow ekler

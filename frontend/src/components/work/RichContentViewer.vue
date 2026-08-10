@@ -1,21 +1,25 @@
 <template>
   <div
-    class="rich-content-viewer prose prose-sm sm:prose max-w-none
+    ref="root"
+    class="rich-content-viewer doc-content prose prose-sm sm:prose max-w-none
            prose-headings:text-gray-900 prose-p:text-gray-700
            prose-a:text-blue-600 prose-a:underline
            prose-img:rounded-lg prose-img:max-w-full prose-img:shadow-sm
            prose-code:bg-gray-100 prose-code:px-1 prose-code:py-0.5 prose-code:rounded prose-code:text-sm
            prose-pre:bg-gray-900 prose-pre:text-gray-100
-           prose-blockquote:border-l-blue-500
-           prose-table:border prose-th:bg-gray-50"
+           prose-blockquote:border-l-blue-500"
     v-html="renderedHtml"
   ></div>
 </template>
 
 <script setup>
-import { computed } from 'vue'
+import { ref, computed, watch } from 'vue'
 import { marked } from 'marked'
 import DOMPurify from 'dompurify'
+import { RICH_CONTENT_SANITIZE_CONFIG } from '../docs/table/tableSchema.js'
+import { wrapTables } from '../docs/table/tableView.js'
+
+const root = ref(null)
 
 const props = defineProps({
   content: { type: String, default: '' }
@@ -31,23 +35,27 @@ function isHtml(text) {
   return trimmed.startsWith('<')
 }
 
+/**
+ * İzin listesi `docs/table/tableSchema.js`'ten geliyor (DOCS_TABLE_PLAN.md §6).
+ *
+ * Buradaki liste daha önce yalnızca `colspan`/`rowspan` içeriyordu; `colwidth`
+ * bile yoktu, yani görev açıklamasındaki bir tablonun sütun genişlikleri
+ * kaydediliyor ama <b>gösterilmiyordu</b>. Tam olarak planın uyardığı sessiz
+ * kayıp türü — düzeltmenin yolu listeyi tek kaynağa bağlamaktan geçiyor.
+ */
 const renderedHtml = computed(() => {
   if (!props.content) return ''
 
-  let html
-  if (isHtml(props.content)) {
-    // Already HTML (TipTap output) — sanitize and display
-    html = props.content
-  } else {
-    // Legacy Markdown content — convert to HTML
-    html = marked.parse(props.content, { breaks: true, gfm: true })
-  }
+  const html = isHtml(props.content)
+      ? props.content
+      : marked.parse(props.content, { breaks: true, gfm: true })
 
-  return DOMPurify.sanitize(html, {
-    ADD_TAGS: ['img', 'table', 'thead', 'tbody', 'tr', 'th', 'td'],
-    ADD_ATTR: ['src', 'alt', 'title', 'target', 'rel', 'href', 'colspan', 'rowspan']
-  })
+  return DOMPurify.sanitize(html, RICH_CONTENT_SANITIZE_CONFIG)
 })
+
+// `flush: 'post'` şart: varsayılan 'pre' ile izleyici DOM güncellenmeden önce
+// koşar ve `v-html`'in yeni çıktısı henüz basılmamış olur.
+watch(renderedHtml, () => wrapTables(root.value), { immediate: true, flush: 'post' })
 </script>
 
 <style scoped>
@@ -62,15 +70,8 @@ const renderedHtml = computed(() => {
   transform: scale(1.01);
   box-shadow: 0 4px 12px rgba(0,0,0,0.15);
 }
-.rich-content-viewer :deep(table) {
-  border-collapse: collapse;
-  width: 100%;
-}
-.rich-content-viewer :deep(th),
-.rich-content-viewer :deep(td) {
-  border: 1px solid #e5e7eb;
-  padding: 0.5rem 0.75rem;
-}
+/* Tablo stilleri `assets/doc-table.css` içinde, `.doc-content` kapsamında —
+   burada tekrar tanımlanırsa aynı tablo Docs'ta ve görevde farklı görünür. */
 .rich-content-viewer :deep(input[type="checkbox"]) {
   margin-right: 0.5rem;
 }

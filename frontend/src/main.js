@@ -1,5 +1,10 @@
 import { createApp } from 'vue'
 import './style.css'
+// Docs/görev tablolarının ortak görünümü. `style.css`'ten sonra: Tailwind'in
+// `prose` tablo kuralları ezilebilsin (DOCS_TABLE_PLAN.md Faz 1). CSS `@import`
+// yerine buradan alınıyor — @import'un kural dosyasının başında olma zorunluluğu
+// Tailwind direktifleriyle çakışıyor.
+import './assets/doc-table.css'
 import App from './App.vue'
 import router from "./router.js"
 import 'mosha-vue-toastify/dist/style.css';

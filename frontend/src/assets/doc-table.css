@@ -1,0 +1,238 @@
+/**
+ * Docs tablo görünümü (DOCS_TABLE_PLAN.md Faz 1–2).
+ *
+ * <b>Neden global bir dosya:</b> aynı tablo HTML'i dört yerde gösteriliyor —
+ * TipTap editörü, Docs okuma görünümü, görev açıklaması/yorumu ve ortak
+ * düzenleme editörü. Stiller bileşenlerin `<style>` bloklarında dursaydı, aynı
+ * tablo bulunduğu yere göre farklı görünürdü; bugün de öyleydi (editörde
+ * 2px kenarlık, görev görüntüleyicisinde 1px).
+ *
+ * Kapsam sınıfı `.doc-content`: yukarıdaki dört kap bu sınıfı taşır. Sınıfı
+ * `<table>` üzerine koymak daha doğrudan olurdu ama eski kayıtlı içerikteki
+ * tablolarda o sınıf yok — okuma modu HTML'i olduğu gibi bastığı için eski
+ * sayfalar stilsiz kalırdı.
+ */
+
+/* ─── Kaydırma sarmalayıcı ──────────────────────────────────────────────────
+   Editörde sarmalayıcıyı prosemirror-tables üretir (.tableWrapper); okuma
+   görünümlerinde JS ile ekleniyor (DocRenderedContent / RichContentViewer). */
+
+.doc-content .tableWrapper,
+.doc-content .doc-table-wrapper {
+  overflow-x: auto;
+  margin: 1rem 0;
+  /* Kaydırılabilir olduğunu göstermek için ince bir gölge; içerik sığıyorsa
+     görünmez (background-attachment: local hilesi). */
+  background:
+    linear-gradient(to right, white 30%, rgba(255, 255, 255, 0)) left center / 24px 100% no-repeat local,
+    linear-gradient(to left, white 30%, rgba(255, 255, 255, 0)) right center / 24px 100% no-repeat local,
+    radial-gradient(farthest-side at 0 50%, rgba(15, 23, 42, 0.12), transparent) left center / 8px 100% no-repeat scroll,
+    radial-gradient(farthest-side at 100% 50%, rgba(15, 23, 42, 0.12), transparent) right center / 8px 100% no-repeat scroll;
+}
+
+/* Uzun tablolarda kendi dikey kaydırması + yapışkan başlık.
+   Kısa tablolarda uygulanmıyor: `overflow-x: auto` dikey ekseni de kaydırma
+   kabına çevirdiği için, max-height olmadan yapışkan başlık zaten çalışmaz. */
+.doc-content .doc-table-wrapper[data-tall] {
+  max-height: 70vh;
+  overflow-y: auto;
+}
+
+/* Başlık satırı hem `thead th` (markdown'dan gelen tablolar) hem
+   `tr:first-child th` (TipTap; renderHTML yalnızca `tbody` üretiyor, `thead`
+   yok) biçiminde karşımıza çıkıyor — ikisi de hedeflenmeli. */
+.doc-content .doc-table-wrapper[data-tall] thead th,
+.doc-content .doc-table-wrapper[data-tall] tr:first-child th {
+  position: sticky;
+  top: 0;
+  z-index: 3;
+}
+
+/* ─── Tablo ─────────────────────────────────────────────────────────────── */
+
+.doc-content table {
+  border-collapse: collapse;
+  margin: 0;
+  width: 100%;
+  /* prosemirror-tables sütun genişliklerini <col> ile veriyor; `fixed` olmadan
+     sürükleyerek ayarlanan genişlikler tarayıcı tarafından yok sayılır. */
+  table-layout: fixed;
+}
+
+/* Sarmalayıcısı olmayan (eski) tablolar da taşmasın */
+.doc-content > table {
+  display: block;
+  overflow-x: auto;
+  min-width: 100%;
+}
+
+.doc-content th,
+.doc-content td {
+  border: 1px solid #d8dee9;
+  padding: 0.4rem 0.65rem;
+  min-width: 72px;
+  position: relative;
+  vertical-align: top;
+  /* Uzun metin hücreyi patlatmasın */
+  overflow-wrap: anywhere;
+}
+
+.doc-content th {
+  background-color: #f1f5f9;
+  font-weight: 600;
+  text-align: left;
+}
+
+.doc-content th > *,
+.doc-content td > * {
+  margin: 0;
+}
+
+.doc-content caption {
+  caption-side: top;
+  text-align: left;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: #475569;
+  padding: 0 0 0.4rem;
+}
+
+/* İlk sütunu dondur — geniş tabloda satırın kimliği kaybolmasın */
+.doc-content table[data-table-layout~="freeze-first"] tr > *:first-child {
+  position: sticky;
+  left: 0;
+  z-index: 2;
+  background-color: #f8fafc;
+}
+
+.doc-content table[data-table-layout~="freeze-first"] thead th:first-child,
+.doc-content table[data-table-layout~="freeze-first"] tr:first-child th:first-child {
+  z-index: 4;
+}
+
+.doc-content table[data-table-layout~="compact"] th,
+.doc-content table[data-table-layout~="compact"] td {
+  padding: 0.2rem 0.45rem;
+  font-size: 0.8125rem;
+}
+
+/* Satır çizgili gösterim — uzun tabloda satır takibi için.
+   `nth-child(even)` başlık satırını da sayar; TipTap çıktısında başlık
+   `tbody`nin ilk satırı olduğu için ilk veri satırı çift sayılıyor ve
+   çizgilenme başlığın hemen altından başlıyor. İstenen davranış bu. */
+.doc-content table[data-table-layout~="striped"] tbody tr:nth-child(even) > *:not([data-bg]) {
+  background-color: #fafbfc;
+}
+
+/* ─── Hizalama ──────────────────────────────────────────────────────────────
+   Sütun tipinden gelen varsayılan önce, kullanıcının açık seçimi sonra:
+   sıralama önemli, `data-align` her zaman kazanmalı. */
+
+.doc-content [data-col-type="number"],
+.doc-content [data-col-type="currency"],
+.doc-content [data-col-type="percent"] {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.doc-content [data-col-type="checkbox"] {
+  text-align: center;
+}
+
+.doc-content [data-align="left"] { text-align: left; }
+.doc-content [data-align="center"] { text-align: center; }
+.doc-content [data-align="right"] { text-align: right; }
+
+/* ─── Hücre arka planı ───────────────────────────────────────────────────── */
+
+.doc-content [data-bg="slate"] { background-color: #e2e8f0; }
+.doc-content [data-bg="red"] { background-color: #fee2e2; }
+.doc-content [data-bg="amber"] { background-color: #fef3c7; }
+.doc-content [data-bg="green"] { background-color: #dcfce7; }
+.doc-content [data-bg="blue"] { background-color: #dbeafe; }
+.doc-content [data-bg="violet"] { background-color: #ede9fe; }
+.doc-content [data-bg="pink"] { background-color: #fce7f3; }
+
+/* ─── Etiket sütunu ──────────────────────────────────────────────────────── */
+
+.doc-content td[data-col-type="select"] > p:not(:empty) {
+  display: inline-block;
+  padding: 0.05rem 0.5rem;
+  border-radius: 9999px;
+  background-color: #e2e8f0;
+  color: #334155;
+  font-size: 0.75rem;
+  font-weight: 500;
+  line-height: 1.5;
+}
+
+/* Etiket hücresine renk verilmişse rozet o rengi alır, hücre değil */
+.doc-content td[data-col-type="select"][data-bg] {
+  background-color: transparent;
+}
+.doc-content td[data-col-type="select"][data-bg="red"] > p:not(:empty) { background-color: #fee2e2; color: #991b1b; }
+.doc-content td[data-col-type="select"][data-bg="amber"] > p:not(:empty) { background-color: #fef3c7; color: #92400e; }
+.doc-content td[data-col-type="select"][data-bg="green"] > p:not(:empty) { background-color: #dcfce7; color: #166534; }
+.doc-content td[data-col-type="select"][data-bg="blue"] > p:not(:empty) { background-color: #dbeafe; color: #1e40af; }
+.doc-content td[data-col-type="select"][data-bg="violet"] > p:not(:empty) { background-color: #ede9fe; color: #5b21b6; }
+.doc-content td[data-col-type="select"][data-bg="pink"] > p:not(:empty) { background-color: #fce7f3; color: #9d174d; }
+.doc-content td[data-col-type="select"][data-bg="slate"] > p:not(:empty) { background-color: #e2e8f0; color: #334155; }
+
+/* ─── Sıralama göstergesi ────────────────────────────────────────────────── */
+
+.doc-content th[data-sorted]::after {
+  content: '▲';
+  font-size: 0.6rem;
+  color: #6366f1;
+  margin-left: 0.35rem;
+  vertical-align: middle;
+}
+
+.doc-content th[data-sorted="desc"]::after {
+  content: '▼';
+}
+
+/* ─── Toplam satırı ──────────────────────────────────────────────────────── */
+
+.doc-content tr[data-total-row] > * {
+  background-color: #f8fafc;
+  font-weight: 600;
+  border-top: 2px solid #cbd5e1;
+  color: #334155;
+}
+
+/* ─── Editöre özgü ───────────────────────────────────────────────────────── */
+
+.doc-content .selectedCell::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: rgba(99, 102, 241, 0.12);
+  pointer-events: none;
+  z-index: 2;
+}
+
+.doc-content .column-resize-handle {
+  position: absolute;
+  right: -2px;
+  top: 0;
+  bottom: -2px;
+  width: 4px;
+  background-color: #6366f1;
+  cursor: col-resize;
+  z-index: 10;
+}
+
+.ProseMirror.resize-cursor {
+  cursor: col-resize;
+}
+
+/* Filtre gizlemesi — belgeye dokunmayan görüntü kararı (plan T4) */
+.doc-content tr.doc-table-filtered {
+  display: none;
+}
+
+/* Yalnız editörde: hücreye girildiğinde sütun başlığını vurgula */
+.doc-content .doc-table-active-column {
+  box-shadow: inset 0 -2px 0 #6366f1;
+}

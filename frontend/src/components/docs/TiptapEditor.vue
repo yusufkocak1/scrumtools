@@ -123,60 +123,16 @@
       </template>
     </div>
 
-    <!-- Table Toolbar (visible when cursor is inside a table) -->
-    <div v-if="editorMode === 'visual' && editor?.isActive('table')"
-         class="bg-slate-50 border-b border-slate-200 px-4 py-1.5 flex flex-wrap items-center gap-1">
-      <span class="text-xs text-slate-500 mr-2 font-medium">Tablo:</span>
-      <button @click="editor?.chain().focus().addRowBefore().run()"
-              class="table-tool-btn" title="Üste satır ekle">
-        ↑ Satır
-      </button>
-      <button @click="editor?.chain().focus().addRowAfter().run()"
-              class="table-tool-btn" title="Alta satır ekle">
-        ↓ Satır
-      </button>
-      <button @click="editor?.chain().focus().addColumnBefore().run()"
-              class="table-tool-btn" title="Sola sütun ekle">
-        ← Sütun
-      </button>
-      <button @click="editor?.chain().focus().addColumnAfter().run()"
-              class="table-tool-btn" title="Sağa sütun ekle">
-        → Sütun
-      </button>
-      <span class="w-px h-4 bg-slate-200 mx-1"></span>
-      <button @click="editor?.chain().focus().deleteRow().run()"
-              class="table-tool-btn text-rose-600 hover:!bg-rose-50" title="Satır sil">
-        ✕ Satır
-      </button>
-      <button @click="editor?.chain().focus().deleteColumn().run()"
-              class="table-tool-btn text-rose-600 hover:!bg-rose-50" title="Sütun sil">
-        ✕ Sütun
-      </button>
-      <span class="w-px h-4 bg-slate-200 mx-1"></span>
-      <button @click="editor?.chain().focus().mergeCells().run()"
-              class="table-tool-btn" title="Hücreleri birleştir">
-        ⊞ Birleştir
-      </button>
-      <button @click="editor?.chain().focus().splitCell().run()"
-              class="table-tool-btn" title="Hücreyi ayır">
-        ⊟ Ayır
-      </button>
-      <button @click="editor?.chain().focus().toggleHeaderRow().run()"
-              class="table-tool-btn" title="Başlık satırı">
-        ▤ Başlık
-      </button>
-      <span class="w-px h-4 bg-slate-200 mx-1"></span>
-      <button @click="editor?.chain().focus().deleteTable().run()"
-              class="table-tool-btn text-rose-600 hover:!bg-rose-50" title="Tabloyu sil">
-        Tabloyu Sil
-      </button>
-    </div>
+    <!-- Tablo bağlam araç çubuğu: imleç tabloya girdiğinde seçime yapışır.
+         Eskiden burada sabit bir şerit vardı ve belirdiğinde tüm içeriği aşağı
+         iterek sayfayı zıplatıyordu (DOCS_TABLE_PLAN.md Faz 1). -->
+    <TableContextToolbar v-if="editorMode === 'visual'" :editor="editor"/>
 
     <!-- Visual Editor Content -->
     <div v-show="editorMode === 'visual'" class="flex-1 overflow-y-auto"
          @dragover.prevent
          @drop.prevent="onDrop">
-      <editor-content :editor="editor" class="prose prose-indigo max-w-none p-6 min-h-full"/>
+      <editor-content :editor="editor" class="doc-content prose prose-indigo max-w-none p-6 min-h-full"/>
     </div>
 
     <!-- HTML Source Editor -->
@@ -387,7 +343,7 @@
                 {{ mdShowPreview ? '▼ Önizlemeyi gizle' : '▶ Önizlemeyi göster' }}
               </button>
               <div v-if="mdShowPreview"
-                   class="border border-slate-200 rounded-xl p-3 bg-slate-50 prose prose-sm prose-indigo max-w-none max-h-40 overflow-y-auto"
+                   class="doc-content border border-slate-200 rounded-xl p-3 bg-slate-50 prose prose-sm prose-indigo max-w-none max-h-40 overflow-y-auto"
                    v-html="mdPreviewHtml">
               </div>
             </div>
@@ -416,10 +372,6 @@ import {useEditor, EditorContent} from '@tiptap/vue-3'
 import StarterKit from '@tiptap/starter-kit'
 import Image from '@tiptap/extension-image'
 import Link from '@tiptap/extension-link'
-import {Table} from '@tiptap/extension-table'
-import {TableRow} from '@tiptap/extension-table-row'
-import {TableCell} from '@tiptap/extension-table-cell'
-import {TableHeader} from '@tiptap/extension-table-header'
 import Highlight from '@tiptap/extension-highlight'
 import CodeBlockLowlight from '@tiptap/extension-code-block-lowlight'
 import Placeholder from '@tiptap/extension-placeholder'
@@ -429,6 +381,11 @@ import DOMPurify from 'dompurify'
 import DocApi from '../../api/DocApi.js'
 import CollabApi from '../../api/CollabApi.js'
 import CollabEmbed from './collabEmbedExtension.js'
+import TableContextToolbar from './table/TableContextToolbar.vue'
+import {docTableExtensions} from './table/tableExtensions.js'
+import {capacityFromCursor} from './table/tableUtils.js'
+import {parseClipboardGrid, parseHtmlTableGrid} from './table/tableClipboard.js'
+import {DOC_CONTENT_SANITIZE_CONFIG} from './table/tableSchema.js'
 
 const lowlight = createLowlight(common)
 
@@ -503,7 +460,7 @@ const mdPreviewHtml = computed(() => {
   if (!mdImportContent.value) return ''
   try {
     const html = marked(mdImportContent.value)
-    return DOMPurify.sanitize(html)
+    return DOMPurify.sanitize(html, DOC_CONTENT_SANITIZE_CONFIG)
   } catch {
     return '<p class="text-red-500">Önizleme oluşturulamadı</p>'
   }
@@ -521,10 +478,9 @@ const editor = useEditor({
       },
     }),
     Link.configure({openOnClick: false}),
-    Table.configure({resizable: true}),
-    TableRow,
-    TableCell,
-    TableHeader,
+    // Zenginleştirilmiş tablo: sütun tipi, sıralama, toplam satırı, renk,
+    // hizalama (DOCS_TABLE_PLAN.md Faz 1–2).
+    ...docTableExtensions({resizable: true}),
     Highlight,
     CodeBlockLowlight.configure({lowlight}),
     Placeholder.configure({placeholder: props.placeholder}),
@@ -547,7 +503,7 @@ const editor = useEditor({
           return true
         }
       }
-      return false
+      return handleGridPaste(view, event)
     },
     handleDrop(view, event) {
       const files = event.dataTransfer?.files
@@ -597,10 +553,7 @@ function applyMarkdownImport() {
 
   try {
     const html = marked(mdImportContent.value)
-    const sanitized = DOMPurify.sanitize(html, {
-      ADD_TAGS: ['img', 'table', 'thead', 'tbody', 'tr', 'th', 'td'],
-      ADD_ATTR: ['src', 'alt', 'href', 'target', 'colspan', 'rowspan']
-    })
+    const sanitized = DOMPurify.sanitize(html, DOC_CONTENT_SANITIZE_CONFIG)
 
     if (mdImportMode.value === 'replace') {
       editor.value?.commands.setContent(sanitized, false)
@@ -744,6 +697,52 @@ function insertTable() {
   editor.value.chain().focus().insertTable({rows: 3, cols: 3, withHeaderRow: true}).run()
 }
 
+/**
+ * Excel/Sheets'ten yapıştırma (DOCS_TABLE_PLAN.md Faz 1).
+ *
+ * İki boşluğu kapatıyor:
+ *
+ * 1. **Düz metin (TSV) tablo olmuyordu.** Kullanıcı bir aralığı kopyalayıp
+ *    "yalnızca metni yapıştır" dediğinde ya da pano HTML taşımadığında,
+ *    sekmeyle ayrılmış satırlar tek bir paragrafa dönüşüyordu.
+ * 2. **Yapıştırma tabloyu büyütmüyordu.** prosemirror-tables yapıştırılan
+ *    aralığı hedef tabloya <i>kırpar</i>; 3 satırlık tabloya 30 satır
+ *    yapıştıran kullanıcı 27 satırı sessizce kaybediyordu.
+ *
+ * Zengin yapıştırma bilerek korunuyor: <b>yalnızca hedefe sığmadığında</b> düz
+ * ızgara yoluna geçiliyor. Sığdığında ProseMirror'ın kendi yolu çalışır ve
+ * hücre içi kalın/link biçimlendirmesi kaybolmaz.
+ */
+function handleGridPaste(view, event) {
+  const clipboard = event.clipboardData
+  if (!clipboard) return false
+
+  const html = clipboard.getData('text/html')
+  const text = clipboard.getData('text/plain')
+
+  const capacity = capacityFromCursor(view.state)
+  let grid = null
+
+  if (html && /<table/i.test(html)) {
+    // Tablo hedefin dışına taşacaksa ızgara yolu; taşmıyorsa varsayılan.
+    const parsed = parseHtmlTableGrid(html)
+    if (!parsed) return false
+    if (!capacity) return false
+    const fits = parsed.length <= capacity.rows
+        && Math.max(...parsed.map((row) => row.length)) <= capacity.columns
+    if (fits) return false
+    grid = parsed
+  } else {
+    grid = parseClipboardGrid(text)
+  }
+
+  if (!grid) return false
+
+  event.preventDefault()
+  editor.value?.chain().focus().insertGrid(grid).run()
+  return true
+}
+
 // ─── File Upload ──────────────────────────────────────────────────────────────
 
 function uploadFile() {
@@ -816,60 +815,10 @@ function onDrop(event) {
   pointer-events: none;
 }
 
-/* ─── Table Styles ───────────────────────────────────────────────────────── */
-
-.tiptap-editor .ProseMirror table {
-  border-collapse: collapse;
-  margin: 1rem 0;
-  width: 100%;
-  table-layout: fixed;
-  overflow: hidden;
-}
-
-.tiptap-editor .ProseMirror th,
-.tiptap-editor .ProseMirror td {
-  border: 2px solid #d1d5db;
-  padding: 0.5rem 0.75rem;
-  min-width: 80px;
-  position: relative;
-  vertical-align: top;
-}
-
-.tiptap-editor .ProseMirror th {
-  background-color: #f3f4f6;
-  font-weight: 600;
-}
-
-.tiptap-editor .ProseMirror td > *,
-.tiptap-editor .ProseMirror th > * {
-  margin: 0;
-}
-
-/* Selected cells */
-.tiptap-editor .ProseMirror .selectedCell::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background: rgba(99, 102, 241, 0.1);
-  pointer-events: none;
-  z-index: 2;
-}
-
-/* Column resize handle */
-.tiptap-editor .ProseMirror .column-resize-handle {
-  position: absolute;
-  right: -2px;
-  top: 0;
-  bottom: -2px;
-  width: 4px;
-  background-color: #6366f1;
-  cursor: col-resize;
-  z-index: 10;
-}
-
-.tiptap-editor .ProseMirror.resize-cursor {
-  cursor: col-resize;
-}
+/* Tablo stilleri `src/assets/doc-table.css` dosyasında, `.doc-content` kapsamı
+   altında. Buradan taşındılar çünkü aynı HTML dört ayrı yerde gösteriliyor ve
+   her biri kendi tablo stilini yazdığında tablo bulunduğu yere göre farklı
+   görünüyordu (DOCS_TABLE_PLAN.md Faz 1). */
 
 /* ─── Image Styles ───────────────────────────────────────────────────────── */
 
@@ -888,20 +837,5 @@ function onDrop(event) {
   box-shadow: 0 4px 12px rgba(99, 102, 241, 0.2);
 }
 
-/* ─── Table Toolbar Button ───────────────────────────────────────────────── */
-
-.table-tool-btn {
-  padding: 2px 8px;
-  border-radius: 6px;
-  font-size: 0.75rem;
-  font-weight: 500;
-  color: #475569;
-  transition: all 0.15s;
-  white-space: nowrap;
-}
-
-.table-tool-btn:hover {
-  background-color: #e2e8f0;
-}
 </style>
 

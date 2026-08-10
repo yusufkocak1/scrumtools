@@ -282,6 +282,7 @@ import CollabApi from '../api/CollabApi.js'
 import {subscribe, unsubscribe} from '../api/websocket.js'
 import PageTree from '../components/docs/PageTree.vue'
 import TiptapEditor from '../components/docs/TiptapEditor.vue'
+import {DOC_CONTENT_SANITIZE_CONFIG} from '../components/docs/table/tableSchema.js'
 import DocRenderedContent from '../components/docs/DocRenderedContent.vue'
 import VersionHistory from '../components/docs/VersionHistory.vue'
 import DocAttachments from '../components/docs/DocAttachments.vue'
@@ -364,27 +365,18 @@ function panelBtnClass(active) {
 }
 
 // İçerik render - TipTap HTML çıktısı ürettiği için sadece sanitize ediyoruz
-// Eski markdown içerikler için de marked ile fallback yapılır
+// Eski markdown içerikler için de marked ile fallback yapılır.
+//
+// İzin listesi `table/tableSchema.js` içinde tek yerde tanımlı: tabloya eklenen
+// bir öznitelik dört ayrı sanitize noktasında birden beyaz listeye girmek
+// zorunda ve biri unutulduğunda öznitelik *kaydedilir ama gösterilmez*
+// (DOCS_TABLE_PLAN.md §6). `data-collab-embed` ailesi de aynı listede: gömme
+// kabı kimliksiz kalırsa DocRenderedContent onu bulamaz.
 const renderedContent = computed(() => {
   if (!currentPage.value?.content) return ''
   const content = currentPage.value.content
-  // TipTap HTML ile başlıyorsa doğrudan sanitize et
-  if (content.trimStart().startsWith('<')) {
-    return DOMPurify.sanitize(content, {
-      ADD_TAGS: ['img', 'table', 'thead', 'tbody', 'tr', 'th', 'td', 'colgroup', 'col'],
-      // data-collab-embed ailesi Y3 için: DOMPurify bu öznitelikleri süzerse
-      // gömme kabı kimliksiz kalır ve DocRenderedContent onu bulamaz.
-      // Taşıdıkları tek şey bir UUID; içerik yine yetkiyle sunucudan gelir.
-      ADD_ATTR: ['src', 'alt', 'href', 'target', 'colspan', 'rowspan', 'colwidth', 'style',
-        'data-collab-embed', 'data-document-id', 'data-type', 'data-height']
-    })
-  }
-  // Eski markdown içerikler için fallback
-  const html = marked(content)
-  return DOMPurify.sanitize(html, {
-    ADD_TAGS: ['img', 'table', 'thead', 'tbody', 'tr', 'th', 'td'],
-    ADD_ATTR: ['src', 'alt', 'href', 'target', 'colspan', 'rowspan']
-  })
+  const html = content.trimStart().startsWith('<') ? content : marked(content)
+  return DOMPurify.sanitize(html, DOC_CONTENT_SANITIZE_CONFIG)
 })
 
 onMounted(async () => {

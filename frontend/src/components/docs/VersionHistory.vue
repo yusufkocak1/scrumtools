@@ -58,7 +58,7 @@
       <div class="text-xs text-slate-500 font-medium">
         v{{ selectedVersion.versionNumber }} önizlemesi
       </div>
-      <div class="max-h-40 overflow-y-auto text-xs bg-white border border-slate-200 rounded-lg p-2.5 prose prose-sm max-w-none"
+      <div class="doc-content max-h-40 overflow-y-auto text-xs bg-white border border-slate-200 rounded-lg p-2.5 prose prose-sm max-w-none"
            v-html="previewHtml"></div>
       <button @click="showRestoreConfirm = true"
               class="w-full inline-flex items-center justify-center gap-1.5 bg-amber-500 hover:bg-amber-400 text-white text-sm font-medium px-3 py-2 rounded-xl shadow-sm shadow-amber-200 transition">
@@ -87,6 +87,7 @@ import {marked} from 'marked'
 import DOMPurify from 'dompurify'
 import DocApi from '../../api/DocApi.js'
 import ConfirmDialog from '../common/ConfirmDialog.vue'
+import {DOC_CONTENT_SANITIZE_CONFIG} from './table/tableSchema.js'
 
 const props = defineProps({
   projectId: {type: String, required: true},
@@ -101,9 +102,19 @@ const loading = ref(false)
 const selectedVersion = ref(null)
 const showRestoreConfirm = ref(false)
 
+/**
+ * Sürüm önizlemesi.
+ *
+ * İçerik TipTap HTML'i; `marked` gereksiz yere üzerinden geçiyordu ve
+ * DOMPurify varsayılan ayarla çağrıldığı için tablonun tüm `data-*`
+ * öznitelikleri süzülüyordu — yani "eski sürüm" biçimsiz görünüyordu. Okuma
+ * görünümüyle aynı izin listesi kullanılıyor (DOCS_TABLE_PLAN.md §6).
+ */
 const previewHtml = computed(() => {
-  if (!selectedVersion.value) return ''
-  return DOMPurify.sanitize(marked(selectedVersion.value.content || ''))
+  const content = selectedVersion.value?.content
+  if (!content) return ''
+  const html = content.trimStart().startsWith('<') ? content : marked(content)
+  return DOMPurify.sanitize(html, DOC_CONTENT_SANITIZE_CONFIG)
 })
 
 watch(() => props.pageId, loadVersions, {immediate: true})

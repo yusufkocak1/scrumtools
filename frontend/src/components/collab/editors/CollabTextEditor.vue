@@ -31,7 +31,7 @@
     </div>
 
     <div class="flex-1 overflow-y-auto">
-      <editor-content :editor="editor" class="prose prose-indigo max-w-none p-6 min-h-full"/>
+      <editor-content :editor="editor" class="doc-content prose prose-indigo max-w-none p-6 min-h-full"/>
     </div>
   </div>
 </template>
@@ -43,13 +43,10 @@ import StarterKit from '@tiptap/starter-kit'
 import Highlight from '@tiptap/extension-highlight'
 import Link from '@tiptap/extension-link'
 import Placeholder from '@tiptap/extension-placeholder'
-import { Table } from '@tiptap/extension-table'
-import { TableRow } from '@tiptap/extension-table-row'
-import { TableCell } from '@tiptap/extension-table-cell'
-import { TableHeader } from '@tiptap/extension-table-header'
 import Collaboration from '@tiptap/extension-collaboration'
 import CollaborationCaret from '@tiptap/extension-collaboration-caret'
 import CollabEmbed from '../../docs/collabEmbedExtension.js'
+import { docTableExtensions } from '../../docs/table/tableExtensions.js'
 
 /**
  * Eş zamanlı zengin metin editörü — TipTap + @tiptap/y-tiptap (plan K1).
@@ -77,10 +74,12 @@ const editor = useEditor({
     StarterKit.configure({ undoRedo: false }),
     Highlight,
     Link.configure({ openOnClick: false }),
-    Table.configure({ resizable: true }),
-    TableRow,
-    TableCell,
-    TableHeader,
+    // Docs ile <b>aynı</b> tablo tanımları. Burada sade `Table` kullanılsaydı,
+    // zengin bir tablo içeren sayfa "Ortak Düzenle" ile açıldığında TipTap
+    // tanımadığı öznitelikleri ayrıştırırken atardı ve sayfa Docs'a geri
+    // yazılırken sütun tipleri, renkler ve toplam satırı sessizce kaybolurdu
+    // (DOCS_TABLE_PLAN.md §6 — dördüncü sanitize noktası).
+    ...docTableExtensions({ resizable: true }),
     Placeholder.configure({ placeholder: 'Yazmaya başlayın — ekibiniz anlık olarak görecek…' }),
     // Y3 gömme düğümü burada da tanımlı olmak zorunda. Eksik olsaydı, gömme
     // içeren bir Docs sayfası "Ortak Düzenle" ile açıldığında TipTap tanımadığı
@@ -174,23 +173,5 @@ onBeforeUnmount(() => {
   white-space: nowrap;
 }
 
-.collab-text-editor .ProseMirror table {
-  border-collapse: collapse;
-  margin: 1rem 0;
-  width: 100%;
-  table-layout: fixed;
-}
-
-.collab-text-editor .ProseMirror th,
-.collab-text-editor .ProseMirror td {
-  border: 2px solid #d1d5db;
-  padding: 0.5rem 0.75rem;
-  min-width: 80px;
-  vertical-align: top;
-}
-
-.collab-text-editor .ProseMirror th {
-  background-color: #f3f4f6;
-  font-weight: 600;
-}
+/* Tablo stilleri `assets/doc-table.css` içinde, `.doc-content` kapsamında. */
 </style>

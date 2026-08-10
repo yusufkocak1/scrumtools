@@ -7,13 +7,14 @@
     tablo düzenlemeye geçince sığıyordu.
   -->
   <article ref="root"
-           class="prose prose-indigo max-w-none px-4 sm:px-8 py-8 sm:py-10 overflow-x-auto"
+           class="doc-content prose prose-indigo max-w-none px-4 sm:px-8 py-8 sm:py-10"
            v-html="html"></article>
 </template>
 
 <script setup>
 import { ref, h, render, watch, onBeforeUnmount } from 'vue'
 import CollabEmbed from '../collab/CollabEmbed.vue'
+import { wrapTables } from './table/tableView.js'
 
 /**
  * Docs sayfasının okuma görünümü + gömülü ortak dokümanların canlandırılması
@@ -50,6 +51,10 @@ function unmountAll() {
 function hydrate() {
   unmountAll()
   if (!root.value) return
+
+  // Tabloları kaydırma sarmalayıcısına al: kaydedilen HTML'de sarmalayıcı yok,
+  // editörde ise prosemirror-tables üretiyor (bkz. tableView.js).
+  wrapTables(root.value)
 
   for (const holder of root.value.querySelectorAll('[data-collab-embed]')) {
     const documentId = holder.getAttribute('data-document-id')

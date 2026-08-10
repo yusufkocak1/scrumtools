@@ -1,13 +1,12 @@
 <template>
   <div
-    class="markdown-viewer prose prose-sm sm:prose max-w-none
+    class="markdown-viewer doc-content prose prose-sm sm:prose max-w-none
            prose-headings:text-gray-900 prose-p:text-gray-700
            prose-a:text-blue-600 prose-a:underline
            prose-img:rounded-lg prose-img:max-w-full prose-img:shadow-sm
            prose-code:bg-gray-100 prose-code:px-1 prose-code:py-0.5 prose-code:rounded prose-code:text-sm
            prose-pre:bg-gray-900 prose-pre:text-gray-100
-           prose-blockquote:border-l-blue-500
-           prose-table:border prose-th:bg-gray-50"
+           prose-blockquote:border-l-blue-500"
     v-html="renderedHtml"
   ></div>
 </template>
