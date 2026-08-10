@@ -32,6 +32,19 @@ const SNAPSHOT_MAX_INTERVAL_MS = 5 * 60_000
 const RECONNECT_MIN_MS = 1_000
 const RECONNECT_MAX_MS = 30_000
 
+/**
+ * WebSocket el sıkışması bu süre içinde bitmezse soket kapatılıp yeniden
+ * denenir.
+ *
+ * <b>Neden gerekli:</b> yanlış yapılandırılmış bir vekil (Upgrade başlıklarını
+ * iletmeyen nginx/Cloudflare kuralı, ya da geliştirmede vekilsiz Vite sunucusu)
+ * TCP bağlantısını kabul edip yükseltmeyi hiç tamamlamayabiliyor. Bu durumda
+ * tarayıcı soketi CONNECTING'de <b>süresiz</b> asılı bırakır: ne `onopen` ne
+ * `onclose` tetiklenir. Kullanıcının gördüğü şey "Bağlanılıyor…" yazısının hiç
+ * geçmemesidir — ve zaman aşımı olmadan bu durumdan çıkış yoktur.
+ */
+const HANDSHAKE_TIMEOUT_MS = 10_000
+
 export function useCollabDoc(projectId, documentId) {
     const ydoc = new Y.Doc()
     const awareness = new Awareness(ydoc)
@@ -44,6 +57,10 @@ export function useCollabDoc(projectId, documentId) {
     const participants = ref([])
     const lastSavedAt = ref(null)
     const pendingChanges = ref(false)
+    /** Elle kaydetme sürüyor mu (REST). */
+    const saving = ref(false)
+    /** Son bağlantı arızasının insan okunur açıklaması; arayüz bunu gösterir. */
+    const connectionError = ref('')
 
     let destroyed = false
     let lastSeq = 0
@@ -75,12 +92,33 @@ export function useCollabDoc(projectId, documentId) {
             // Yetki hatasında yeniden denemek anlamsız; ağ hatasında geri çekil.
             if (e?.response?.status === 403) {
                 status.value = 'forbidden'
+                connectionError.value = 'Bu dokümanda okuma yetkiniz yok.'
                 return
             }
+            connectionError.value = e?.message
+                ? `Doküman durumu alınamadı: ${e.message}`
+                : 'Doküman durumu alınamadı.'
             scheduleReconnect()
             return
         }
         openSocket()
+    }
+
+    /**
+     * `connect()` her zaman bu sarmalayıcıdan çağrılır.
+     *
+     * <b>Neden:</b> `connect` bir `async` fonksiyon ve içinden beklenmedik bir
+     * hata çıkarsa (örneğin `new WebSocket` senkron fırlatırsa) ortaya
+     * <i>yakalanmamış bir promise reddi</i> çıkıyordu. Sonucu şuydu: durum
+     * `connecting` üzerinde <b>kalıcı olarak</b> takılı kalır, yeniden bağlanma
+     * hiç planlanmaz ve kullanıcı sonsuza kadar "Bağlanılıyor…" görür. Sessiz
+     * ölüm yerine görünür bir arıza + yeniden deneme.
+     */
+    function safeConnect() {
+        connect().catch((error) => {
+            connectionError.value = `Bağlantı kurulamadı: ${error?.message || error}`
+            scheduleReconnect()
+        })
     }
 
     async function loadState() {
@@ -98,32 +136,70 @@ export function useCollabDoc(projectId, documentId) {
     }
 
     function openSocket() {
-        const ws = new WebSocket(buildWsUrl(documentId, lastSeq))
+        let ws
+        try {
+            ws = new WebSocket(buildWsUrl(documentId, lastSeq))
+        } catch (error) {
+            // `new WebSocket` **senkron fırlatabilir**: geçersiz URL, desteklenmeyen
+            // şema ya da karışık içerik (https sayfadan ws://). Sarmalanmadığında
+            // bu hata `connect`'i yarıda kesiyor ve durum `connecting`de kalıyordu.
+            connectionError.value = `WebSocket açılamadı: ${error?.message || error}`
+            scheduleReconnect()
+            return
+        }
+
         ws.binaryType = 'arraybuffer'
         socket.value = ws
 
+        let handshakeTimer = setTimeout(() => {
+            handshakeTimer = null
+            if (ws.readyState !== WebSocket.CONNECTING) return
+            connectionError.value =
+                'Sunucuya WebSocket bağlantısı kurulamadı (el sıkışma zaman aşımı). '
+                + 'Vekil sunucu Upgrade başlıklarını iletmiyor olabilir.'
+            // `close()` CONNECTING durumunda el sıkışmayı iptal eder ve `onclose`
+            // tetiklenir — yeniden bağlanma oradan planlanır.
+            try { ws.close() } catch { /* zaten kapanmış olabilir */ }
+        }, HANDSHAKE_TIMEOUT_MS)
+
+        const clearHandshakeTimer = () => {
+            if (handshakeTimer) {
+                clearTimeout(handshakeTimer)
+                handshakeTimer = null
+            }
+        }
+
         ws.onopen = () => {
+            clearHandshakeTimer()
             reconnectDelay = RECONNECT_MIN_MS
+            connectionError.value = ''
             status.value = 'synced'
             // Bağlantı kurulur kurulmaz kendi varlığımızı duyur; aksi hâlde
             // diğerleri bizi ancak ilk imleç hareketinde görür.
             broadcastAwareness([ydoc.clientID])
+            // Kopukken biriken paketler burada boşaltılır (bkz. flushUpdates).
+            flushUpdates()
         }
 
         ws.onmessage = (event) => handleFrame(new Uint8Array(event.data))
 
         ws.onclose = (event) => {
+            clearHandshakeTimer()
             socket.value = null
             if (destroyed) return
             if (event.code === CLOSE_FORBIDDEN) {
                 status.value = 'forbidden'
+                connectionError.value = 'Bu dokümana erişim yetkiniz yok.'
                 return
             }
             status.value = 'offline'
             if (event.code === CLOSE_QUOTA_EXCEEDED) {
+                connectionError.value = 'Eşzamanlı düzenleyici sınırına ulaşıldı.'
                 // Kota geçici bir durumdur (biri çıkınca yer açılır), ama hızlı
                 // yeniden denemek sunucuyu döver — uzun aralıkla bekle.
                 reconnectDelay = RECONNECT_MAX_MS
+            } else if (!connectionError.value) {
+                connectionError.value = `Bağlantı kapandı (kod ${event.code}).`
             }
             scheduleReconnect()
         }
@@ -140,7 +216,7 @@ export function useCollabDoc(projectId, documentId) {
         const delay = reconnectDelay + jitter
         reconnectTimer = setTimeout(() => {
             reconnectTimer = null
-            connect()
+            safeConnect()
         }, delay)
         reconnectDelay = Math.min(reconnectDelay * 2, RECONNECT_MAX_MS)
     }
@@ -192,13 +268,20 @@ export function useCollabDoc(projectId, documentId) {
         }
     }
 
+    /** @returns gerçekten gönderildi mi — çağıran buna göre paketi saklar. */
     function send(type, payload) {
         const ws = socket.value
-        if (!ws || ws.readyState !== WebSocket.OPEN) return
+        if (!ws || ws.readyState !== WebSocket.OPEN) return false
         const frame = new Uint8Array(payload.length + 1)
         frame[0] = type
         frame.set(payload, 1)
-        ws.send(frame)
+        try {
+            ws.send(frame)
+            return true
+        } catch {
+            // Soket bu arada kapanmış olabilir; paket çağırana geri bırakılır.
+            return false
+        }
     }
 
     // ─── Giden güncellemeler ─────────────────────────────────────────────────
@@ -217,6 +300,15 @@ export function useCollabDoc(projectId, documentId) {
      * Tuş başına paket göndermek yerine 200 ms'lik pencerede biriktirip
      * `Y.mergeUpdates` ile **tek** pakete indirger (§12 madde 1). Sunucudaki
      * append gruplaması bunun üstüne biner.
+     *
+     * <b>Düzeltilen veri kaybı:</b> önceki sürüm paketi <i>göndermeden önce</i>
+     * kuyruğu boşaltıyordu. Soket kapalıyken `send` sessizce hiçbir şey yapmıyor,
+     * kuyruk ise yine de temizleniyordu — yani çevrimdışı yazılan her şey 200 ms
+     * sonra <b>çöpe gidiyordu</b>. Bağlantı geri geldiğinde de kimse o paketleri
+     * göndermiyordu; arayüzdeki "bağlantı gelince değişiklikleriniz
+     * birleştirilecek" sözü tutulmuyordu. Artık kuyruk yalnızca gönderim
+     * başarılıysa temizleniyor, aksi hâlde tek pakete indirgenip bekletiliyor —
+     * böylece bellek de sınırsız büyümüyor.
      */
     function flushUpdates() {
         batchTimer = null
@@ -224,8 +316,12 @@ export function useCollabDoc(projectId, documentId) {
         const merged = pendingUpdates.length === 1
             ? pendingUpdates[0]
             : Y.mergeUpdates(pendingUpdates)
-        pendingUpdates = []
-        send(MESSAGE_SYNC, merged)
+        pendingUpdates = send(MESSAGE_SYNC, merged) ? [] : [merged]
+    }
+
+    /** Sunucuya ulaşmamış değişiklik var mı (çevrimdışı yazılanlar dâhil). */
+    function hasUnsentUpdates() {
+        return pendingUpdates.length > 0
     }
 
     awareness.on('update', ({ added, updated, removed }) => {
@@ -261,8 +357,30 @@ export function useCollabDoc(projectId, documentId) {
         snapshotTextProvider = fn
     }
 
-    async function sendSnapshot() {
-        if (!isWriter.value || !canWrite.value) return
+    /**
+     * Anlık görüntüyü REST ile kaydeder — **WebSocket'ten tamamen bağımsız**.
+     *
+     * <b>Neden ayrı bir yol:</b> otomatik kaydetme yalnızca "yazar" seçilen
+     * istemcide çalışıyor ve o seçim WS üzerinden gelen `hello` mesajıyla
+     * yapılıyor. Bağlantı hiç kurulamadığında `isWriter` sonsuza kadar `false`
+     * kalıyor, dolayısıyla <b>hiçbir şey kaydedilmiyordu</b> — kullanıcının
+     * çalışması yalnızca sekmesinin belleğinde duruyordu.
+     *
+     * Sunucu tarafında bir engel yok: {@code /snapshot} ucu yazar seçimine değil
+     * yalnızca <i>yazma yetkisine</i> bakıyor. Yetki de REST'ten (`getState`)
+     * geldiği için WS olmadan da biliniyor.
+     *
+     * Anlık görüntü `Y.encodeStateAsUpdate` ile üretiliyor: çevrimdışıyken
+     * yazılan ve sunucuya hiç ulaşmamış değişiklikler de içinde. Yani bu tek
+     * çağrı, kopuk oturumdaki işin tamamını kurtarır.
+     */
+    async function saveNow() {
+        if (!canWrite.value) {
+            return { ok: false, reason: 'read-only' }
+        }
+        if (saving.value) return { ok: false, reason: 'busy' }
+
+        saving.value = true
         // Bekleyen paketler önce gitsin; yoksa sunucudaki lastSeq anlık
         // görüntünün gerisinde kalır ve sıkıştırma erken budama yapar.
         flushUpdates()
@@ -275,10 +393,23 @@ export function useCollabDoc(projectId, documentId) {
             })
             pendingChanges.value = false
             lastSavedAt.value = new Date()
-        } catch {
-            // Kaydedilemedi ama içerik kaybolmadı: ham güncellemeler zaten
-            // sunucudaki append log'unda. Bir sonraki tetikte tekrar denenir.
+            return { ok: true }
+        } catch (error) {
+            return { ok: false, reason: 'error', error }
+        } finally {
+            saving.value = false
         }
+    }
+
+    /**
+     * Otomatik (zamanlayıcı tetikli) kaydetme — yalnızca seçilmiş yazar çalıştırır.
+     * Böylece on kişilik bir odada her tetikte on anlık görüntü POST'lanmaz.
+     */
+    async function sendSnapshot() {
+        if (!isWriter.value || !canWrite.value) return
+        // Kaydedilemezse içerik kaybolmaz: ham güncellemeler sunucudaki append
+        // log'unda. Bir sonraki tetikte tekrar denenir.
+        await saveNow()
     }
 
     function restartSnapshotIdleTimer() {
@@ -307,10 +438,16 @@ export function useCollabDoc(projectId, documentId) {
         clearTimeout(snapshotIdleTimer)
         clearInterval(snapshotMaxTimer)
 
-        // Sekme kapanırken son pencereyi ve (yazarsak) anlık görüntüyü kurtar.
+        // Sekme kapanırken son pencereyi ve anlık görüntüyü kurtar.
+        //
+        // Yazar seçimi normalde gereksiz POST'ları önlüyor, ama bağlantı yoksa
+        // seçim de yok: o durumda kaydetmeyi atlamak, kopukken yazılan her şeyi
+        // sekmeyle birlikte silmek demekti. Bu yüzden koşul "yazarım" değil
+        // "yazabiliyorum ve gönderilmemiş iş var".
         flushUpdates()
-        if (isWriter.value && pendingChanges.value) {
-            await sendSnapshot()
+        const unsaved = pendingChanges.value || hasUnsentUpdates()
+        if (canWrite.value && unsaved && (isWriter.value || status.value !== 'synced')) {
+            await saveNow()
         }
 
         removeAwarenessStates(awareness, [ydoc.clientID], 'unmount')
@@ -320,7 +457,7 @@ export function useCollabDoc(projectId, documentId) {
     }
 
     onBeforeUnmount(destroy)
-    connect()
+    safeConnect()
 
     return {
         ydoc,
@@ -331,9 +468,18 @@ export function useCollabDoc(projectId, documentId) {
         participants,
         pendingChanges,
         lastSavedAt,
+        saving,
+        connectionError,
         setSnapshotTextProvider,
         requestSnapshot: sendSnapshot,
-        reconnect: () => { reconnectDelay = RECONNECT_MIN_MS; connect() },
+        /** Elle kaydetme — bağlantı olmasa da çalışır. */
+        saveNow,
+        reconnect: () => {
+            clearTimeout(reconnectTimer)
+            reconnectTimer = null
+            reconnectDelay = RECONNECT_MIN_MS
+            safeConnect()
+        },
         destroy
     }
 }
@@ -346,15 +492,21 @@ export function useCollabDoc(projectId, documentId) {
  */
 function buildWsUrl(documentId, since) {
     const base = import.meta.env.VITE_WS_BASE_URL || '/ws'
+    const securePage = window.location.protocol === 'https:'
     let root
     if (/^wss?:\/\//i.test(base)) {
         root = base
     } else if (/^https?:\/\//i.test(base)) {
         root = base.replace(/^http/i, 'ws')
     } else {
-        const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
         const path = base.startsWith('/') ? base : `/${base}`
-        root = `${protocol}//${window.location.host}${path}`
+        root = `${securePage ? 'wss:' : 'ws:'}//${window.location.host}${path}`
+    }
+    // https sayfadan `ws://` açmak karışık içerik sayılır: tarayıcı bağlantıyı
+    // <b>sessizce</b> engeller, `onerror` bile çoğu tarayıcıda gecikmeli gelir.
+    // Yapılandırmadaki bir şema hatası, teşhisi en zor arıza türüne dönüşmesin.
+    if (securePage && root.startsWith('ws://')) {
+        root = `wss://${root.slice('ws://'.length)}`
     }
     const token = localStorage.getItem('jwt') || ''
     return `${root.replace(/\/$/, '')}/collab`

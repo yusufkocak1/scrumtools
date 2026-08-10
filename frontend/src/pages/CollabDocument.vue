@@ -27,10 +27,13 @@
           :participants="participants"
           :doc-page-link="docPageLink"
           :history-open="showHistory"
+          :saving="saving"
+          :connection-error="connectionError"
           @back="goBack"
           @rename="rename"
           @language="changeLanguage"
           @retry="reconnect"
+          @save="save"
           @publish="showPublish = true"
           @export="exportSheet"
           @toggle-macros="showMacros = !showMacros"
@@ -95,7 +98,7 @@
 </template>
 
 <script setup>
-import { ref, computed, watch, onMounted } from 'vue'
+import { ref, computed, watch, onMounted, onBeforeUnmount } from 'vue'
 import { useRouter } from 'vue-router'
 import { createToast } from 'mosha-vue-toastify'
 import CollabApi from '../api/CollabApi.js'
@@ -140,8 +143,47 @@ const exporting = ref(false)
 // onBeforeUnmount'unda bağlantıyı kapatıp son anlık görüntüyü gönderir.
 const {
   ydoc, awareness, status, canWrite, isWriter, participants,
-  pendingChanges, lastSavedAt, setSnapshotTextProvider, requestSnapshot, reconnect
+  pendingChanges, lastSavedAt, saving, connectionError,
+  setSnapshotTextProvider, requestSnapshot, saveNow, reconnect
 } = useCollabDoc(props.projectId, props.documentId)
+
+/**
+ * Elle kaydetme.
+ *
+ * WebSocket kurulamadığında otomatik kaydetme hiç tetiklenmiyordu (yazar seçimi
+ * `hello` mesajıyla geliyor), yani kullanıcının işi yalnızca sekmesinde
+ * duruyordu. Bu düğme REST üzerinden kaydediyor ve bağlantı durumundan bağımsız
+ * çalışıyor.
+ */
+async function save() {
+  const result = await saveNow()
+  if (result.ok) {
+    createToast('Kaydedildi', { type: 'success', timeout: 2000, showIcon: true })
+    return
+  }
+  if (result.reason === 'busy') return
+  if (result.reason === 'read-only') {
+    createToast('Bu dokümanda yazma yetkiniz yok.', { type: 'warning', showIcon: true })
+    return
+  }
+  // Kaydedilemedi: içerik hâlâ sekmedeki CRDT'de. Kullanıcıya "sekmeyi kapatma"
+  // demek, sessizce başarısız olmaktan iyidir.
+  createToast('Kaydedilemedi — sekmeyi kapatmayın, bağlantı gelince tekrar deneyin.',
+      { type: 'danger', showIcon: true })
+}
+
+/**
+ * Ctrl/Cmd+S. Tarayıcının "sayfayı kaydet" iletişim kutusu engelleniyor:
+ * bir düzenleyicinin içindeyken kullanıcının kastettiği şey her zaman budur.
+ */
+function onSaveShortcut(event) {
+  if (!(event.ctrlKey || event.metaKey) || event.key.toLowerCase() !== 's') return
+  event.preventDefault()
+  if (canWrite.value) save()
+}
+
+onMounted(() => window.addEventListener('keydown', onSaveShortcut))
+onBeforeUnmount(() => window.removeEventListener('keydown', onSaveShortcut))
 
 /**
  * Makro çalışma zamanı (plan §9 / K8).

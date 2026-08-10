@@ -7,9 +7,12 @@
       <path stroke-linecap="round" stroke-linejoin="round"
             d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z"/>
     </svg>
-    <span>{{ message }}</span>
-    <button v-if="status === 'offline'" @click="$emit('retry')"
-            class="ml-auto text-xs font-medium underline underline-offset-2 hover:no-underline">
+    <span class="min-w-0">
+      {{ message }}
+      <span v-if="detail" class="block text-xs opacity-75 mt-0.5">{{ detail }}</span>
+    </span>
+    <button v-if="status === 'offline' || status === 'connecting'" @click="$emit('retry')"
+            class="ml-auto shrink-0 text-xs font-medium underline underline-offset-2 hover:no-underline">
       Şimdi dene
     </button>
   </div>
@@ -26,13 +29,22 @@ import { computed } from 'vue'
  * (plan K1/R7). Bunu söylemezsek kullanıcı yazmayı bırakır.
  */
 const props = defineProps({
-  status: { type: String, default: 'connecting' }
+  status: { type: String, default: 'connecting' },
+  /** Arızanın teknik açıklaması — teşhis edilemeyen "Bağlanılıyor…" yerine. */
+  detail: { type: String, default: '' }
 })
 defineEmits(['retry'])
 
+/**
+ * "Kaydet" düğmesinden söz etmek bilinçli: bağlantı kurulamadığında kullanıcının
+ * ilk sorusu "işim kayboluyor mu" oluyor ve doğru cevap "hayır, elle
+ * kaydedebilirsin". Bunu söylemeyen bir şerit, kullanıcıyı yazmayı bırakmaya
+ * ya da içeriği kopyalayıp başka yere yapıştırmaya itiyor.
+ */
 const message = computed(() => ({
   connecting: 'Bağlanılıyor…',
-  offline: 'Bağlantı koptu — yazmaya devam edebilirsiniz, bağlantı gelince değişiklikleriniz birleştirilecek.',
+  offline: 'Bağlantı yok — yazmaya devam edebilirsiniz. "Kaydet" ile şimdi kaydedebilir, '
+      + 'bağlantı gelince değişiklikleri birleştirebilirsiniz.',
   forbidden: 'Bu dokümana erişim yetkiniz yok.',
   synced: ''
 }[props.status] || ''))

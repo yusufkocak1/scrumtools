@@ -36,6 +36,19 @@
 
       <span class="text-xs text-slate-400 whitespace-nowrap min-w-[7rem] text-right">{{ saveLabel }}</span>
 
+      <!-- Elle kaydetme (REST). Bağlantı durumundan bağımsız çalışır: otomatik
+           kaydetme WS üzerinden seçilen "yazar"a bağlı ve bağlantı yokken hiç
+           tetiklenmiyor. -->
+      <button v-if="canWrite" @click="$emit('save')" :disabled="saving"
+              :class="['px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition shadow-sm',
+                       needsSave
+                         ? 'bg-indigo-600 text-white hover:bg-indigo-500 shadow-indigo-200'
+                         : 'bg-slate-100 text-slate-600 hover:bg-slate-200',
+                       saving ? 'opacity-60 cursor-wait' : '']"
+              :title="status === 'synced' ? 'Kaydet (Ctrl+S)' : 'Bağlantı olmadan da kaydeder (Ctrl+S)'">
+        {{ saving ? 'Kaydediliyor…' : 'Kaydet' }}
+      </button>
+
       <PresenceBar :participants="participants"/>
 
       <a v-if="docPageLink" :href="docPageLink"
@@ -83,7 +96,7 @@
       </button>
     </header>
 
-    <ConnectionBanner :status="status" @retry="$emit('retry')"/>
+    <ConnectionBanner :status="status" :detail="connectionError" @retry="$emit('retry')"/>
 
     <div class="flex-1 min-h-0">
       <slot/>
@@ -112,11 +125,15 @@ const props = defineProps({
   participants: { type: Array, default: () => [] },
   /** Docs'a bağlıysa sayfanın adresi; boşsa "Docs'a Kaydet" düğmesi gösterilir. */
   docPageLink: { type: String, default: '' },
-  historyOpen: { type: Boolean, default: false }
+  historyOpen: { type: Boolean, default: false },
+  /** Elle kaydetme sürüyor mu. */
+  saving: { type: Boolean, default: false },
+  /** Bağlantı arızasının teknik açıklaması. */
+  connectionError: { type: String, default: '' }
 })
 
 const emit = defineEmits(['back', 'rename', 'language', 'retry', 'publish', 'export',
-  'toggle-macros', 'toggle-history'])
+  'save', 'toggle-macros', 'toggle-history'])
 
 const exportOpen = ref(false)
 
@@ -137,15 +154,25 @@ const TYPE_BADGES = {
 }
 const typeBadge = computed(() => TYPE_BADGES[props.type] || TYPE_BADGES.TEXT)
 
+/** Kaydet düğmesi vurgulansın mı — bekleyen değişiklik varsa. */
+const needsSave = computed(() => props.pendingChanges || props.status !== 'synced')
+
 /**
  * Kaydetme göstergesi.
  *
- * "Kaydedilmedi" yerine "kaydediliyor" deniyor, çünkü CRDT'de değişiklik zaten
- * sunucudaki append log'una yazıldı — bekleyen tek şey okunabilir anlık
- * görüntü. Kullanıcıyı veri kaybı endişesine sokmanın anlamı yok (plan K6).
+ * Bağlıyken "kaydedilmedi" yerine "kaydediliyor" deniyor, çünkü CRDT'de
+ * değişiklik zaten sunucudaki append log'una yazıldı — bekleyen tek şey
+ * okunabilir anlık görüntü (plan K6).
+ *
+ * <b>Bağlantı yokken bu doğru değil</b> ve etiket eskiden bu durumda tamamen
+ * boşalıyordu: kullanıcı ne "kaydedildi" ne "kaydedilmedi" görüyor, hiçbir şey
+ * görmüyordu. Kopukken değişiklikler gerçekten yalnızca sekmede duruyor, bu
+ * yüzden açıkça söyleniyor.
  */
 const saveLabel = computed(() => {
-  if (props.status !== 'synced') return ''
+  if (props.status !== 'synced') {
+    return props.pendingChanges ? 'Kaydedilmedi' : ''
+  }
   if (props.pendingChanges) return 'Kaydediliyor…'
   if (props.lastSavedAt) {
     return `Kaydedildi ${props.lastSavedAt.toLocaleTimeString('tr-TR', {

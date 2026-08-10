@@ -51,6 +51,34 @@ Dosya yükleme limiti için proxy host'un **Advanced** sekmesine ekleyin:
 client_max_body_size 25M;
 ```
 
+### "Ortak çalışmada sürekli *Bağlanılıyor…* yazıyor"
+
+Neredeyse her zaman tek bir sebebi var: proxy host'ta **Websockets Support kapalı**.
+
+Bu arızanın teşhisi zor, çünkü **uygulamanın geri kalanı sorunsuz çalışmaya devam
+eder.** Bildirimler, retro, poker ve quiz SockJS kullanıyor; SockJS WebSocket
+başarısız olduğunda sessizce XHR-streaming'e düşer. Ortak çalışma ise ham
+WebSocket kullanır (ikili CRDT trafiği için) ve geri düşeceği bir yol yoktur.
+Yani "her şey çalışıyor, sadece ortak çalışma bağlanmıyor" tablosu tam olarak bu
+ayarın kapalı olduğunu gösterir.
+
+Ayrıca kapalıyken NPM `Upgrade` başlığını iletmediği için el sıkışma
+**tamamlanmaz ama reddedilmez de**: tarayıcı soketi CONNECTING durumunda asılı
+bırakır, `onclose` hiç tetiklenmez. İstemcide 10 saniyelik el sıkışma zaman aşımı
+vardır; süre dolduğunda bağlantı şeridi "el sıkışma zaman aşımı — vekil sunucu
+Upgrade başlıklarını iletmiyor olabilir" yazar. Bu mesajı görüyorsanız önce
+buraya bakın.
+
+Kontrol listesi:
+
+1. NPM → Proxy Host → **Websockets Support** açık mı.
+2. Tarayıcı ağ sekmesinde `/ws/collab` isteği: `101 Switching Protocols` almalı.
+   `200` ya da askıda kalıyorsa yükseltme bir vekilde takılıyor.
+3. Cloudflare gibi ikinci bir katman varsa orada da WebSocket açık olmalı.
+
+Ayar açılana kadar kullanıcı kilitlenmez: doküman başlığındaki **Kaydet** düğmesi
+(Ctrl+S) anlık görüntüyü REST üzerinden yazar ve WebSocket'ten bağımsız çalışır.
+
 ## Ortam değişkenleri
 
 `.env` dosyası repo'da yoktur (gitignore). Örnek için `backend/.env.example`.
