@@ -24,6 +24,10 @@
       <component :is="LiveSheet" v-if="LiveSheet"
                  :project-id="projectId"
                  :document-id="documentId"/>
+      <div v-else class="h-full flex items-center justify-center gap-2 text-xs text-slate-400">
+        <span class="w-3 h-3 border-2 border-indigo-400 border-t-transparent rounded-full animate-spin"></span>
+        Tablo motoru yükleniyor…
+      </div>
     </div>
 
     <!-- Salt okunur önizleme (Docs okuma modu): anlık görüntüden üretiliyor,
@@ -49,7 +53,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, shallowRef } from 'vue'
+import { ref, computed, onMounted, shallowRef, watch } from 'vue'
 import CollabApi from '../../api/CollabApi.js'
 // Köprüden değil `cellAddress`'ten: köprü Univer'i statik import ediyor ve
 // buradan bir import, okuma modunun Univer'siz kalma tasarımını bozardı (Y3).
@@ -131,6 +135,29 @@ const preview = computed(() => {
   return { rows, truncated: totalRows > 0 && maxRow >= PREVIEW_ROWS - 1 }
 })
 
+/**
+ * Univer birkaç MB ve React'i de getiriyor; okuma modunda hiç yüklenmiyor.
+ *
+ * <b>Düzeltilen hata:</b> yükleme yalnızca `onMounted` içinde, üstelik yalnızca
+ * `live` <i>o an</i> açıksa yapılıyordu. Oysa gömme her zaman önizleme modunda
+ * kuruluyor ve kullanıcı "Canlı düzenle"ye <i>sonra</i> basıyor — o anda
+ * `LiveSheet` hâlâ `null` olduğu için `v-if` hiçbir şey çizmiyor ve kullanıcı
+ * <b>boş bir kutu</b> görüyordu. Artık `live` her açıldığında yükleniyor.
+ */
+async function ensureLiveSheet() {
+  if (LiveSheet.value) return
+  try {
+    const module = await import('./EmbeddedCollabSheet.vue')
+    LiveSheet.value = module.default
+  } catch {
+    error.value = 'Tablo motoru yüklenemedi.'
+  }
+}
+
+watch(() => props.live, (live) => {
+  if (live) ensureLiveSheet()
+})
+
 onMounted(async () => {
   try {
     const { data } = await CollabApi.getDocument(props.projectId, props.documentId)
@@ -143,11 +170,7 @@ onMounted(async () => {
     return
   }
 
-  if (props.live) {
-    // Univer birkaç MB ve React'i de getiriyor; okuma modunda hiç yüklenmiyor.
-    const module = await import('./EmbeddedCollabSheet.vue')
-    LiveSheet.value = module.default
-  }
+  if (props.live) await ensureLiveSheet()
   loading.value = false
 })
 </script>

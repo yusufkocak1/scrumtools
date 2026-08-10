@@ -399,9 +399,17 @@ export class UniverYjsBridge {
   }
 
   applyRemoteMerges(sheetId, event) {
-    // Birleşimler seyrek değişir; farkı hesaplamak yerine hedef durumu kuruyoruz:
-    // önce mevcut birleşimler kaldırılıyor, sonra CRDT'deki liste uygulanıyor.
     if (!event.changes.added.size && !event.changes.deleted.size) return
+    this.syncMerges(sheetId)
+  }
+
+  /**
+   * CRDT'deki birleşim listesini Univer'e uygular.
+   *
+   * Birleşimler seyrek değişir; farkı hesaplamak yerine hedef durumu kuruyoruz:
+   * önce mevcut birleşimler kaldırılıyor, sonra CRDT'deki liste uygulanıyor.
+   */
+  syncMerges(sheetId) {
     const merges = this.sheetMerges(sheetId).toArray()
     const sheet = this.worksheet(sheetId)
     if (!sheet) return
@@ -652,6 +660,14 @@ export class UniverYjsBridge {
   seedFromModel(model) {
     if (!model || !Array.isArray(model.sheets) || model.sheets.length === 0) return
 
+    // Tohumlamadan <i>önceki</i> hücre anahtarları: aşağıdaki yenilemede,
+    // modelde artık bulunmayan hücreleri Univer'de de temizleyebilmek için
+    // gerekiyor (geçmişten geri yükleme bunu kullanıyor).
+    const previousKeys = new Map()
+    for (const id of this.sheetOrder()) {
+      previousKeys.set(id, new Set(this.sheetCells(id).keys()))
+    }
+
     this.transact(() => {
       const order = this.orderArray()
       order.delete(0, order.length)
@@ -692,6 +708,75 @@ export class UniverYjsBridge {
         if (Array.isArray(sheet.merges) && sheet.merges.length) merges.push(sheet.merges)
       }
     })
+
+    this.renderFromCrdt(previousKeys)
+  }
+
+  /**
+   * CRDT'nin tamamını Univer ızgarasına basar.
+   *
+   * <b>Neden gerekli:</b> {@link seedFromModel} yazarken `transact()` kullanıyor,
+   * yani işlem {@code LOCAL_ORIGIN} ile damgalanıyor ve köprünün kendi Yjs
+   * gözlemcileri "bunu zaten ben yaptım" diyerek atlıyor. Yazma tarafında bu
+   * doğru — ama tohumlamada Univer'e yazan <i>yok</i>: veri CRDT'ye giriyor,
+   * ağdaki herkes görüyor, <b>tohumlayan kişinin ekranı boş kalıyordu</b>.
+   * Görünen belirti: içe aktarılan/geri yüklenen tablo ilk açılışta boş,
+   * ikinci açılışta dolu (ikincide çalışma kitabı doğrudan CRDT'den kuruluyor).
+   *
+   * Gözlemcilere güvenip origin'i değiştirmek yetmezdi: yeni bir sayfa
+   * kimliğinin hücre gözlemcisi ancak `syncSheetList` içinde kaydediliyor ve
+   * Yjs, işlem sırasında eklenen gözlemcileri o işlem için çağırmıyor — yani
+   * yeni sayfanın hücreleri yine kaçardı. Bu yüzden yenileme açıkça yapılıyor.
+   *
+   * @param previousKeys sayfa kimliği → tohumlama öncesi hücre anahtarları
+   */
+  renderFromCrdt(previousKeys = new Map()) {
+    if (!this.workbook || this.destroyed) return
+
+    this.syncSheetList()
+    this.syncSheetNames()
+
+    for (const id of this.sheetOrder()) {
+      this.observeSheet(id)
+
+      const cells = this.sheetCells(id)
+      const cellValue = {}
+      let count = 0
+
+      // Artık modelde olmayan hücreler: Univer'de `null` "hücreyi temizle".
+      for (const key of previousKeys.get(id) || []) {
+        if (cells.has(key)) continue
+        const position = parseCellKey(key)
+        if (!position) continue
+        cellValue[position.row] = cellValue[position.row] || {}
+        cellValue[position.row][position.col] = null
+        count++
+      }
+
+      cells.forEach((value, key) => {
+        const position = parseCellKey(key)
+        if (!position) return
+        cellValue[position.row] = cellValue[position.row] || {}
+        cellValue[position.row][position.col] = { ...value }
+        count++
+      })
+
+      if (count > 0) {
+        this.applyLocally(SetRangeValuesMutation.id, {
+          unitId: this.unitId,
+          subUnitId: id,
+          cellValue
+        })
+      }
+
+      // Satır/sütun boyutları ve birleşimler: gözlemcilerin beklediği "değişen
+      // anahtarlar" yapısı bir Map ile birebir taklit ediliyor.
+      const rows = this.sheetChild(id, 'rows')
+      this.applyRemoteSizes(id, rows, new Map([...rows.keys()].map((k) => [k, null])), 'rows')
+      const cols = this.sheetChild(id, 'cols')
+      this.applyRemoteSizes(id, cols, new Map([...cols.keys()].map((k) => [k, null])), 'cols')
+      this.syncMerges(id)
+    }
   }
 
   // ─── Makro işlemleri (plan §9.1 / K8) ─────────────────────────────────────

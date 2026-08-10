@@ -34,6 +34,17 @@ let univer = null
 let univerAPI = null
 let bridge = null
 let awarenessHandler = null
+/**
+ * Köprü hazır olmadan gelen tohumlama içeriği.
+ *
+ * <b>Neden gerekiyor:</b> tohumlama hakkı sunucudan WS bağlantısı kurulur
+ * kurulmaz isteniyor, oysa köprü Univer paketinin (birkaç MB) tembel import'u
+ * bittikten sonra doğuyor. Aradaki boşlukta gelen `seedContent` eskiden sessizce
+ * atılıyordu — sunucu ise hakkı çoktan tüketmiş (`seeded_at` yazılmış) oluyordu,
+ * yani içe aktarılan tablo <b>bir daha hiç yüklenemiyordu</b>. Artık bekletilip
+ * köprü ayağa kalkınca uygulanıyor.
+ */
+let pendingSeed = null
 
 /**
  * R8 — mobilde salt okunur.
@@ -75,6 +86,12 @@ onMounted(async () => {
   const workbook = univerAPI.createWorkbook(workbookData)
   bridge.start(workbook)
 
+  if (pendingSeed != null) {
+    const content = pendingSeed
+    pendingSeed = null
+    seedContent(content)
+  }
+
   if (effectiveReadOnly.value) {
     // Univer'in kendi izin motorunu kurmak yerine giriş katmanı kapatılıyor:
     // yazma yetkisi olmayanın paketleri sunucuda zaten atılıyor (plan §6), bu
@@ -105,7 +122,11 @@ watch(() => props.readOnly, (value) => {
 
 /** İçe aktarma tohumlaması ve geçmişten geri yükleme için (plan §10 / §6). */
 function seedContent(json) {
-  if (!bridge || !json) return
+  if (!json) return
+  if (!bridge) {
+    pendingSeed = json
+    return
+  }
   try {
     bridge.seedFromModel(typeof json === 'string' ? JSON.parse(json) : json)
   } catch (error) {
