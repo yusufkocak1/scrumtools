@@ -9,6 +9,7 @@ public enum QuizSessionStatus {
     /** Yarışma devam ediyor */
     IN_PROGRESS,
     /** Yarışma tamamlandı */
-    FINISHED
+    FINISHED,
+    /** Lobi başlamadan kapatıldı — rapor geçmişinde görünmez */
+    CANCELLED
 }
-

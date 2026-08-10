@@ -2,8 +2,8 @@
   <div class="flex w-full min-h-screen">
     <div class="flex-1 min-w-0 p-4 sm:p-6 bg-gray-50 overflow-auto">
 
-      <!-- Oyun Merkezi (henüz oyun seçilmedi ve aktif takım oturumu yok) -->
-      <div v-if="!currentGame && !activeSession && !hangmanSession">
+      <!-- Oyun Merkezi — süren oyun olsa bile kullanıcı buradan seçer, otomatik girilmez -->
+      <div v-if="!currentGame">
         <div class="mb-8">
           <h1 class="text-3xl font-bold text-gray-900">🎮 GameBox</h1>
           <p class="text-gray-500 mt-1">Takımınla oyna, eğlen, öğren</p>
@@ -12,8 +12,15 @@
         <div class="grid sm:grid-cols-2 gap-6 max-w-3xl">
           <div @click="currentGame = 'quiz'"
                class="bg-white rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 cursor-pointer transform hover:-translate-y-1 border border-gray-200 p-6">
-            <div class="w-14 h-14 bg-yellow-100 rounded-xl flex items-center justify-center mb-4">
-              <span class="text-3xl">🧠</span>
+            <div class="flex items-start justify-between mb-4">
+              <div class="w-14 h-14 bg-yellow-100 rounded-xl flex items-center justify-center">
+                <span class="text-3xl">🧠</span>
+              </div>
+              <span v-if="activeSessions.length > 0"
+                    class="px-2.5 py-1 bg-red-50 text-red-600 rounded-full text-xs font-medium flex items-center gap-1.5">
+                <span class="w-1.5 h-1.5 bg-red-500 rounded-full animate-pulse"></span>
+                {{ activeSessions.length }} aktif
+              </span>
             </div>
             <h3 class="text-xl font-semibold text-gray-900 mb-2">Quiz</h3>
             <p class="text-gray-600 text-sm">Kahoot benzeri takım yarışması — kendi sorularını hazırla, takımınla yarış</p>
@@ -21,8 +28,15 @@
 
           <div @click="currentGame = 'hangman'"
                class="bg-white rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 cursor-pointer transform hover:-translate-y-1 border border-gray-200 p-6">
-            <div class="w-14 h-14 bg-indigo-100 rounded-xl flex items-center justify-center mb-4">
-              <span class="text-3xl">🪢</span>
+            <div class="flex items-start justify-between mb-4">
+              <div class="w-14 h-14 bg-indigo-100 rounded-xl flex items-center justify-center">
+                <span class="text-3xl">🪢</span>
+              </div>
+              <span v-if="hasActiveHangman"
+                    class="px-2.5 py-1 bg-red-50 text-red-600 rounded-full text-xs font-medium flex items-center gap-1.5">
+                <span class="w-1.5 h-1.5 bg-red-500 rounded-full animate-pulse"></span>
+                Devam eden oyun
+              </span>
             </div>
             <h3 class="text-xl font-semibold text-gray-900 mb-2">Adam Asmaca</h3>
             <p class="text-gray-600 text-sm">Türkçe ve İngilizce kelime havuzuyla klasik adam asmaca oyunu</p>
@@ -100,22 +114,24 @@
         </template>
       </div>
 
-      <!-- Quiz: Aktif Oturum Varsa -->
-      <div v-else-if="activeSession">
+      <!-- Quiz: Girilen Oturum -->
+      <div v-else-if="currentSession">
         <!-- LOBBY -->
         <QuizLobby
-            v-if="activeSession.status === 'LOBBY'"
-            :session="activeSession"
+            v-if="currentSession.status === 'LOBBY'"
+            :session="currentSession"
             :isHost="isHost"
             :teamId="teamId"
             @start="handleNextQuestion"
             @joined="refreshSession"
+            @leave="leaveSession"
+            @cancelled="leaveSession"
         />
 
         <!-- IN_PROGRESS — moderatör sunar, diğerleri oynar -->
         <QuizModeratorPanel
-            v-else-if="activeSession.status === 'IN_PROGRESS' && isModerator"
-            :session="activeSession"
+            v-else-if="currentSession.status === 'IN_PROGRESS' && isModerator"
+            :session="currentSession"
             :teamId="teamId"
             :answeredInfo="answeredInfo"
             @next="handleNextQuestion"
@@ -124,8 +140,8 @@
         />
 
         <QuizPlay
-            v-else-if="activeSession.status === 'IN_PROGRESS'"
-            :session="activeSession"
+            v-else-if="currentSession.status === 'IN_PROGRESS'"
+            :session="currentSession"
             :isHost="isHost"
             :teamId="teamId"
             :answeredInfo="answeredInfo"
@@ -137,14 +153,14 @@
 
         <!-- FINISHED -->
         <QuizLeaderboard
-            v-else-if="activeSession.status === 'FINISHED'"
-            :session="activeSession"
+            v-else-if="currentSession.status === 'FINISHED'"
+            :session="currentSession"
             :teamId="teamId"
-            @back="closeSession"
+            @back="leaveSession"
         />
       </div>
 
-      <!-- Quiz: Aktif Oturum Yoksa → Şablon Listesi -->
+      <!-- Quiz: Aktif yarışmalar + şablonlar -->
       <div v-else>
         <div class="flex items-center justify-between mb-6">
           <div>
@@ -177,6 +193,15 @@
             </button>
           </div>
         </div>
+
+        <!-- Süren yarışmalar — kullanıcı buradan girer -->
+        <QuizActiveSessions
+            v-if="!showHistory && !showCreateForm && !editingTemplate"
+            :sessions="activeSessions"
+            :teamId="teamId"
+            @open="openSession"
+            @cancelled="handleSessionCancelled"
+        />
 
         <!-- Geçmiş Raporlar -->
         <QuizReport
@@ -215,6 +240,7 @@ import QuizTemplateForm from '../components/quiz/QuizTemplateForm.vue'
 import QuizLobby from '../components/quiz/QuizLobby.vue'
 import QuizPlay from '../components/quiz/QuizPlay.vue'
 import QuizModeratorPanel from '../components/quiz/QuizModeratorPanel.vue'
+import QuizActiveSessions from '../components/quiz/QuizActiveSessions.vue'
 import QuizLeaderboard from '../components/quiz/QuizLeaderboard.vue'
 import QuizReport from '../components/quiz/QuizReport.vue'
 import HangmanGame from '../components/gamebox/HangmanGame.vue'
@@ -224,7 +250,7 @@ import HangmanPlay from '../components/gamebox/HangmanPlay.vue'
 import HangmanResult from '../components/gamebox/HangmanResult.vue'
 import {
   getTemplates, getTemplate, deleteTemplate,
-  startSession, getActiveSession, nextQuestion,
+  startSession, getActiveSessions, getSession, nextQuestion,
   showQuestionResult, finishSession
 } from '../api/QuizApi.js'
 import {
@@ -243,6 +269,7 @@ export default {
     QuizLobby,
     QuizPlay,
     QuizModeratorPanel,
+    QuizActiveSessions,
     QuizLeaderboard,
     QuizReport,
     HangmanGame,
@@ -265,7 +292,8 @@ export default {
     loading: true,
     showCreateForm: false,
     editingTemplate: null,
-    activeSession: null,
+    activeSessions: [],   // takımda süren tüm yarışmalar (liste ekranı)
+    currentSession: null, // kullanıcının içine girdiği oturum
     showHistory: false,
     answeredInfo: null,
     // Adam Asmaca
@@ -274,18 +302,21 @@ export default {
   }),
   computed: {
     isHost() {
-      if (!this.activeSession) return false
+      if (!this.currentSession) return false
       const email = localStorage.getItem('user') || ''
-      return this.activeSession.hostEmail === email
+      return this.currentSession.hostEmail === email
     },
     /** Moderatör modunda oturumu başlatan kişi yarışmaz — oyun ekranı yerine panel görür. */
     isModerator() {
-      return this.isHost && this.activeSession?.moderatorMode === true
+      return this.isHost && this.currentSession?.moderatorMode === true
     },
     isHangmanHost() {
       if (!this.hangmanSession) return false
       const email = localStorage.getItem('user') || ''
       return this.hangmanSession.hostEmail === email
+    },
+    hasActiveHangman() {
+      return !!this.hangmanSession && this.hangmanSession.status !== 'FINISHED'
     }
   },
   methods: {
@@ -299,15 +330,51 @@ export default {
       this.loading = false
     },
 
-    async checkActiveSession() {
+    /**
+     * Süren yarışmaları yükler — kullanıcıyı otomatik oyuna sokmaz.
+     * Aynı takımda paralel oturumlar olabildiği için hangisine girileceği
+     * kullanıcının seçimi.
+     */
+    async loadActiveSessions() {
       try {
-        const session = await getActiveSession(this.teamId)
-        if (session && session.id) {
-          this.activeSession = session
-        }
+        this.activeSessions = await getActiveSessions(this.teamId)
       } catch {
-        // aktif oturum yok
+        this.activeSessions = []
       }
+    },
+
+    /** Listeden bir oturuma girer — güncel durumu sunucudan alarak. */
+    async openSession(session) {
+      this.answeredInfo = null
+      this.currentSession = session
+      this.currentGame = 'quiz'
+      try {
+        this.currentSession = await getSession(this.teamId, session.id)
+      } catch (e) {
+        // Liste verisiyle devam edilir
+      }
+    },
+
+    /** Oturumdan çıkar (oyun bitmez) — liste ekranına döner. */
+    leaveSession() {
+      this.currentSession = null
+      this.answeredInfo = null
+      this.loadActiveSessions()
+      this.loadTemplates()
+    },
+
+    handleSessionCancelled(sessionId) {
+      this.activeSessions = this.activeSessions.filter(s => s.id !== sessionId)
+      if (this.currentSession?.id === sessionId) {
+        this.currentSession = null
+      }
+    },
+
+    /** WS'ten gelen durumu aktif liste ile eşitler. */
+    mergeActiveSession(session) {
+      const isActive = session.status === 'LOBBY' || session.status === 'IN_PROGRESS'
+      const rest = this.activeSessions.filter(s => s.id !== session.id)
+      this.activeSessions = isActive ? [session, ...rest] : rest
     },
 
     handleTemplateSaved() {
@@ -342,7 +409,9 @@ export default {
 
     async handleStartSession({ templateId, moderatorMode }) {
       try {
-        this.activeSession = await startSession(this.teamId, templateId, moderatorMode)
+        this.answeredInfo = null
+        this.currentSession = await startSession(this.teamId, templateId, moderatorMode)
+        this.mergeActiveSession(this.currentSession)
         createToast(moderatorMode
             ? 'Quiz lobby oluşturuldu — moderatörsünüz'
             : 'Quiz lobby oluşturuldu!', { type: 'success' })
@@ -353,7 +422,8 @@ export default {
 
     async handleNextQuestion() {
       try {
-        this.activeSession = await nextQuestion(this.teamId, this.activeSession.id)
+        this.answeredInfo = null
+        this.currentSession = await nextQuestion(this.teamId, this.currentSession.id)
       } catch (e) {
         // Hata interceptor tarafından otomatik gösterilir
       }
@@ -361,18 +431,16 @@ export default {
 
     async handleShowResult() {
       try {
-        const result = await showQuestionResult(this.teamId, this.activeSession.id)
-        console.log('[Quiz] showQuestionResult response:', JSON.stringify(result, null, 2))
-        console.log('[Quiz] resultsRevealed:', result.resultsRevealed, 'correctOptionIndex:', result.correctOptionIndex)
-        this.activeSession = result
+        this.currentSession = await showQuestionResult(this.teamId, this.currentSession.id)
       } catch (e) {
-        console.error('[Quiz] showQuestionResult error:', e)
+        // Hata interceptor tarafından otomatik gösterilir
       }
     },
 
     async handleFinish() {
       try {
-        this.activeSession = await finishSession(this.teamId, this.activeSession.id)
+        this.currentSession = await finishSession(this.teamId, this.currentSession.id)
+        this.mergeActiveSession(this.currentSession)
       } catch (e) {
         // Hata interceptor tarafından otomatik gösterilir
       }
@@ -383,30 +451,25 @@ export default {
     },
 
     async refreshSession() {
-      if (this.activeSession) {
-        try {
-          const { getSession } = await import('../api/QuizApi.js')
-          this.activeSession = await getSession(this.teamId, this.activeSession.id)
-        } catch (e) {
-          console.error('Session yenilenemedi:', e)
-        }
+      if (!this.currentSession) return
+      try {
+        this.currentSession = await getSession(this.teamId, this.currentSession.id)
+      } catch (e) {
+        console.error('Session yenilenemedi:', e)
       }
-    },
-
-    closeSession() {
-      this.activeSession = null
-      this.loadTemplates()
     },
 
     // ─── Adam Asmaca ────────────────────────────────────────────────────────
 
+    /**
+     * Süren oturumu yükler ama ekranı değiştirmez — kullanıcı GameBox'tan
+     * kartın üzerindeki "devam eden oyun" rozetini görüp kendisi girer.
+     */
     async checkActiveHangmanSession() {
       try {
         const session = await getActiveHangmanSession(this.teamId)
         if (session && session.id) {
-          // Takımda oturum varsa oyuncular doğrudan görsün.
           this.hangmanSession = session
-          this.currentGame = 'hangman'
         }
       } catch {
         // aktif oturum yok
@@ -466,20 +529,41 @@ export default {
         subscribe(`/topic/hangman/${this.teamId}/state`, (data) => {
           // Oturumu kapatmış bir kullanıcıyı bitmiş oyuna geri sürükleme.
           if (!this.hangmanSession && data.status === 'FINISHED') return
+          // Ekran değiştirilmez: kullanıcı oyuna GameBox'tan kendisi girer.
           this.hangmanSession = data
-          this.currentGame = 'hangman'
         })
         subscribe(`/topic/quiz/${this.teamId}/state`, (data) => {
-          console.log('[Quiz WS] state received:', 'resultsRevealed:', data.resultsRevealed, 'correctOptionIndex:', data.correctOptionIndex, 'status:', data.status)
-          // WebSocket mesajında resultsRevealed undefined gelirse mevcut değeri koru
-          if (this.activeSession && data.resultsRevealed === undefined && this.activeSession.resultsRevealed === true
-              && data.currentQuestionIndex === this.activeSession.currentQuestionIndex) {
-            data.resultsRevealed = this.activeSession.resultsRevealed
-            data.correctOptionIndex = this.activeSession.correctOptionIndex
+          // Aynı takımda paralel yarışmalar olabilir: liste her zaman güncellenir,
+          // ekran ise yalnızca içinde bulunduğum oturumu takip eder.
+          this.mergeActiveSession(data)
+          if (this.currentSession?.id !== data.id) return
+
+          // Lobi kapatıldıysa ekranı boşalt. Kapatan kişiye kendi ekranı zaten
+          // bilgi verdi — ikinci bir toast göstermeyelim.
+          if (data.status === 'CANCELLED') {
+            if (data.hostEmail !== (localStorage.getItem('user') || '')) {
+              createToast('Moderatör lobiyi kapattı', { type: 'info' })
+            }
+            this.leaveSession()
+            return
           }
-          this.activeSession = data
+
+          // Soru değiştiyse önceki sorunun cevap sayacı taşınmasın.
+          if (data.currentQuestionIndex !== this.currentSession.currentQuestionIndex) {
+            this.answeredInfo = null
+          }
+
+          // WebSocket mesajında resultsRevealed undefined gelirse mevcut değeri koru
+          if (data.resultsRevealed === undefined && this.currentSession.resultsRevealed === true
+              && data.currentQuestionIndex === this.currentSession.currentQuestionIndex) {
+            data.resultsRevealed = this.currentSession.resultsRevealed
+            data.correctOptionIndex = this.currentSession.correctOptionIndex
+          }
+          this.currentSession = data
         })
         subscribe(`/topic/quiz/${this.teamId}/answered`, (data) => {
+          // Başka bir oturumun cevap sayacı bu ekrana yazılmasın.
+          if (data.sessionId && data.sessionId !== this.currentSession?.id) return
           this.answeredInfo = data
         })
       })
@@ -494,7 +578,7 @@ export default {
 
   mounted() {
     this.loadTemplates()
-    this.checkActiveSession()
+    this.loadActiveSessions()
     this.checkActiveHangmanSession()
     this.setupWebSocket()
   },

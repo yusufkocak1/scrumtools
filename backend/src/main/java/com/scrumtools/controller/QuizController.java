@@ -31,7 +31,7 @@ import java.util.UUID;
  *
  * Session:
  *   POST   /api/teams/{teamId}/quiz/sessions                   → oturum başlat (moderatorMode)
- *   GET    /api/teams/{teamId}/quiz/sessions/active             → aktif oturum
+ *   GET    /api/teams/{teamId}/quiz/sessions/active             → aktif oturumlar (liste)
  *   GET    /api/teams/{teamId}/quiz/sessions/history            → geçmiş oturumlar
  *   GET    /api/teams/{teamId}/quiz/sessions/{id}               → oturum detayı
  *   POST   /api/teams/{teamId}/quiz/sessions/{id}/join          → oturuma katıl
@@ -40,6 +40,7 @@ import java.util.UUID;
  *   POST   /api/teams/{teamId}/quiz/sessions/{id}/show-result   → soru sonucunu göster
  *   GET    /api/teams/{teamId}/quiz/sessions/{id}/moderator     → moderatör paneli (host'a özel)
  *   POST   /api/teams/{teamId}/quiz/sessions/{id}/finish        → oturumu bitir
+ *   POST   /api/teams/{teamId}/quiz/sessions/{id}/cancel        → başlamamış lobiyi kapat
  *   GET    /api/teams/{teamId}/quiz/sessions/{id}/report        → oturum raporu
  */
 @RestController
@@ -101,13 +102,10 @@ public class QuizController {
         return ResponseEntity.ok(quizService.startSession(teamId, templateId, moderatorMode));
     }
 
+    /** Takımdaki tüm aktif oturumlar — paralel yarışmalar mümkün. */
     @GetMapping("/sessions/active")
-    public ResponseEntity<QuizSessionResponse> getActiveSession(@PathVariable UUID teamId) {
-        QuizSessionResponse session = quizService.getActiveSession(teamId);
-        if (session == null) {
-            return ResponseEntity.noContent().build();
-        }
-        return ResponseEntity.ok(session);
+    public ResponseEntity<List<QuizSessionResponse>> getActiveSessions(@PathVariable UUID teamId) {
+        return ResponseEntity.ok(quizService.getActiveSessions(teamId));
     }
 
     @GetMapping("/sessions/history")
@@ -156,6 +154,12 @@ public class QuizController {
     public ResponseEntity<QuizSessionResponse> finishSession(@PathVariable UUID teamId,
                                                              @PathVariable UUID sessionId) {
         return ResponseEntity.ok(quizService.finishSession(sessionId));
+    }
+
+    @PostMapping("/sessions/{sessionId}/cancel")
+    public ResponseEntity<QuizSessionResponse> cancelSession(@PathVariable UUID teamId,
+                                                             @PathVariable UUID sessionId) {
+        return ResponseEntity.ok(quizService.cancelSession(sessionId));
     }
 
     @GetMapping("/sessions/{sessionId}/report")

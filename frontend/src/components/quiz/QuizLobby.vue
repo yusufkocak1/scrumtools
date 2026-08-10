@@ -56,8 +56,21 @@
 
           <button v-if="isHost" @click="$emit('start')"
                   :disabled="participants.length === 0"
+                  :title="participants.length === 0 ? 'En az bir katılımcı gerekli' : ''"
                   class="px-8 py-3 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 transition-all font-bold text-lg shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 disabled:opacity-50 disabled:cursor-not-allowed">
             ▶ Başlat
+          </button>
+        </div>
+
+        <!-- Host için çıkış yolları: kimse katılmadıysa lobiyi kapatabilmeli -->
+        <div class="mt-6 flex justify-center gap-3">
+          <button v-if="isHost" @click="cancel" :disabled="cancelling"
+                  class="px-4 py-2 bg-red-50 text-red-600 rounded-xl hover:bg-red-100 transition-colors text-sm font-medium disabled:opacity-50">
+            {{ cancelling ? 'Kapatılıyor...' : '✕ Lobiyi Kapat' }}
+          </button>
+          <button @click="$emit('leave')"
+                  class="px-4 py-2 bg-gray-100 text-gray-600 rounded-xl hover:bg-gray-200 transition-colors text-sm font-medium">
+            ← Oyun Listesi
           </button>
         </div>
       </div>
@@ -66,7 +79,7 @@
 </template>
 
 <script>
-import { joinSession } from '../../api/QuizApi.js'
+import { joinSession, cancelSession } from '../../api/QuizApi.js'
 import { createToast } from 'mosha-vue-toastify'
 
 export default {
@@ -76,7 +89,12 @@ export default {
     isHost: Boolean,
     teamId: String
   },
-  emits: ['start', 'joined'],
+  emits: ['start', 'joined', 'leave', 'cancelled'],
+  data() {
+    return {
+      cancelling: false,
+    }
+  },
   computed: {
     participants() {
       return this.session?.participants || []
@@ -105,6 +123,19 @@ export default {
       } catch (e) {
         createToast('Katılım başarısız', { type: 'danger' })
       }
+    },
+
+    async cancel() {
+      if (!confirm('Lobiyi kapatmak istediğinize emin misiniz? Yarışma başlamadan iptal edilir.')) return
+      this.cancelling = true
+      try {
+        await cancelSession(this.teamId, this.session.id)
+        createToast('Lobi kapatıldı', { type: 'success' })
+        this.$emit('cancelled')
+      } catch (e) {
+        // Hata interceptor tarafından otomatik gösterilir
+      }
+      this.cancelling = false
     }
   }
 }

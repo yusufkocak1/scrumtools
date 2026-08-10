@@ -51,6 +51,10 @@ public class QuizService {
     private static final Set<String> ALLOWED_IMAGE_TYPES =
             Set.of("image/png", "image/jpeg", "image/webp", "image/gif");
 
+    /** Katılınabilir/sürmekte olan oturum durumları. */
+    private static final List<QuizSessionStatus> ACTIVE_STATUSES =
+            List.of(QuizSessionStatus.LOBBY, QuizSessionStatus.IN_PROGRESS);
+
     // ─── Soru Görselleri ────────────────────────────────────────────────────────
 
     /**
@@ -217,14 +221,13 @@ public class QuizService {
         QuizTemplate template = templateRepository.findById(templateId)
                 .orElseThrow(() -> new RuntimeException("Template not found"));
 
-        // Aktif oturum varsa hata ver
-        Optional<QuizSession> activeSession = sessionRepository.findByTeamIdAndStatus(teamId, QuizSessionStatus.LOBBY);
-        if (activeSession.isPresent()) {
-            throw new RuntimeException("Bu takımda zaten aktif bir quiz lobby var");
-        }
-        Optional<QuizSession> inProgress = sessionRepository.findByTeamIdAndStatus(teamId, QuizSessionStatus.IN_PROGRESS);
-        if (inProgress.isPresent()) {
-            throw new RuntimeException("Bu takımda zaten devam eden bir quiz var");
+        // Aynı takımda birden fazla yarışma paralel sürebilir; aynı kişinin
+        // yönettiği ikinci bir lobi ise karışıklık yaratır, ona izin verilmez.
+        boolean alreadyHosting = sessionRepository
+                .findByTeamIdAndStatusInOrderByCreatedAtDesc(teamId, ACTIVE_STATUSES)
+                .stream().anyMatch(s -> s.getHostEmail().equals(email));
+        if (alreadyHosting) {
+            throw new RuntimeException("Zaten yönettiğiniz bir quiz var — önce onu bitirin veya kapatın");
         }
 
         String displayName = teamMemberRepository.findByTeamIdAndEmail(teamId, email)
@@ -263,8 +266,8 @@ public class QuizService {
         QuizSession session = sessionRepository.findById(sessionId)
                 .orElseThrow(() -> new RuntimeException("Session not found"));
 
-        if (session.getStatus() == QuizSessionStatus.FINISHED) {
-            throw new RuntimeException("Bu oturum zaten tamamlanmış");
+        if (!ACTIVE_STATUSES.contains(session.getStatus())) {
+            throw new RuntimeException("Bu oturum artık açık değil");
         }
 
         if (session.isModerator(email)) {
@@ -292,15 +295,12 @@ public class QuizService {
     }
 
     /**
-     * Aktif oturumu döndürür.
+     * Takımdaki tüm aktif oturumlar (lobide bekleyen + devam eden).
+     * Birden fazla yarışma aynı anda sürebilir; kullanıcı listeden seçip katılır.
      */
-    public QuizSessionResponse getActiveSession(UUID teamId) {
-        // Önce LOBBY, sonra IN_PROGRESS'e bak
-        QuizSession session = sessionRepository.findByTeamIdAndStatus(teamId, QuizSessionStatus.LOBBY)
-                .or(() -> sessionRepository.findByTeamIdAndStatus(teamId, QuizSessionStatus.IN_PROGRESS))
-                .orElse(null);
-        if (session == null) return null;
-        return buildSessionResponse(session);
+    public List<QuizSessionResponse> getActiveSessions(UUID teamId) {
+        return sessionRepository.findByTeamIdAndStatusInOrderByCreatedAtDesc(teamId, ACTIVE_STATUSES)
+                .stream().map(this::buildSessionResponse).toList();
     }
 
     /**
@@ -538,6 +538,34 @@ public class QuizService {
         return finishSession(session);
     }
 
+    /**
+     * Lobiyi kapatır — kimse katılmadan vazgeçen host için.
+     *
+     * Bitirmekten (FINISHED) ayrı bir durum: hiç soru sorulmamış bir yarışma
+     * rapor geçmişinde boş bir kayıt olarak görünmemeli.
+     */
+    @Transactional
+    public QuizSessionResponse cancelSession(UUID sessionId) {
+        String email = currentEmail();
+        QuizSession session = sessionRepository.findById(sessionId)
+                .orElseThrow(() -> new RuntimeException("Session not found"));
+
+        if (!session.getHostEmail().equals(email)) {
+            throw new RuntimeException("Bu lobiyi yalnızca başlatan kişi kapatabilir");
+        }
+        if (session.getStatus() != QuizSessionStatus.LOBBY) {
+            throw new RuntimeException("Yalnızca başlamamış bir lobi kapatılabilir");
+        }
+
+        session.setStatus(QuizSessionStatus.CANCELLED);
+        session.setFinishedAt(LocalDateTime.now());
+        sessionRepository.save(session);
+
+        QuizSessionResponse response = buildSessionResponse(session);
+        broadcastState(session.getTeam().getId(), response);
+        return response;
+    }
+
     // ─── Rapor ──────────────────────────────────────────────────────────────────
 
     /**
@@ -618,7 +646,10 @@ public class QuizService {
         long count = answerRepository.findBySessionIdAndQuestionId(sessionId, questionId).size();
         long total = participantRepository.findBySessionIdOrderByTotalScoreDesc(sessionId).size();
         try {
+            // sessionId: aynı takımda paralel yarışmalar olabilir, istemci kendi
+            // oturumuna ait olmayan güncellemeyi ayıklayabilsin.
             messagingTemplate.convertAndSend(topic, Map.of(
+                    "sessionId", sessionId.toString(),
                     "questionId", questionId.toString(),
                     "answeredCount", count,
                     "totalParticipants", total

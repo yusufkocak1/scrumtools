@@ -60,11 +60,10 @@ export const startSession = async (teamId, templateId, moderatorMode = true) => 
     return data
 }
 
-export const getActiveSession = async (teamId) => {
-    const response = await apiClient.get(`${base(teamId)}/sessions/active`)
-    // 204 No Content → aktif oturum yok
-    if (response.status === 204 || !response.data) return null
-    return response.data
+/** Takımdaki tüm aktif oturumlar — aynı anda birden fazla yarışma sürebilir. */
+export const getActiveSessions = async (teamId) => {
+    const { data } = await apiClient.get(`${base(teamId)}/sessions/active`)
+    return Array.isArray(data) ? data : []
 }
 
 export const getSessionHistory = async (teamId) => {
@@ -108,6 +107,12 @@ export const getModeratorView = async (teamId, sessionId) => {
 
 export const finishSession = async (teamId, sessionId) => {
     const { data } = await apiClient.post(`${base(teamId)}/sessions/${sessionId}/finish`)
+    return data
+}
+
+/** Başlamamış lobiyi kapatır (yalnızca başlatan kişi). */
+export const cancelSession = async (teamId, sessionId) => {
+    const { data } = await apiClient.post(`${base(teamId)}/sessions/${sessionId}/cancel`)
     return data
 }
 
