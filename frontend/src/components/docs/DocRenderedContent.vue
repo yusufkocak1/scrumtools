@@ -12,7 +12,7 @@
 </template>
 
 <script setup>
-import { ref, h, render, watch, onBeforeUnmount } from 'vue'
+import { ref, h, render, watch, onMounted, onBeforeUnmount } from 'vue'
 import CollabEmbed from '../collab/CollabEmbed.vue'
 import { wrapTables } from './table/tableView.js'
 
@@ -73,10 +73,21 @@ function hydrate() {
   }
 }
 
-// `flush: 'post'` şart: varsayılan 'pre' ile izleyici DOM güncellenmeden önce
-// koşar ve `v-html`'in yeni çıktısı henüz basılmamış olur — gömme kapları
-// bulunamaz. `nextTick` ile beklemek de işe yarardı ama ilk çalıştırmada
-// (`immediate`) bileşen henüz bağlanmadığı için `root` boş kalırdı.
-watch(() => props.html, hydrate, { immediate: true, flush: 'post' })
+// İlk çalıştırma `onMounted`'a bağlı, izleyiciye değil.
+//
+// <b>Buradaki tuzak:</b> daha önce tek bir `watch(..., { immediate: true,
+// flush: 'post' })` vardı. `immediate` verildiğinde Vue ilk çağrıyı `flush`
+// ayarına bakmadan <i>setup sırasında</i>, yani şablon daha basılmadan yapıyor;
+// `root` o anda `null` olduğu için `hydrate` çıkışa gidiyordu. Sayfa okuma
+// görünümüne geçtiğinde bileşen sıfırdan bağlanıyor ve `html` zaten dolu
+// geliyor — yani izleyici bir daha hiç tetiklenmiyordu. Sonuç: kaydedilen
+// sayfada gömülü tablolar <b>boş bir div</b> olarak kalıyor (ekranda hiç
+// görünmüyor) ve tabloların kaydırma sarmalayıcısı hiç oluşmuyordu.
+//
+// `flush: 'post'` sonraki değişiklikler için hâlâ şart: varsayılan 'pre' ile
+// izleyici DOM güncellenmeden önce koşar ve `v-html`'in yeni çıktısı henüz
+// basılmamış olur — gömme kapları bulunamaz.
+onMounted(hydrate)
+watch(() => props.html, hydrate, { flush: 'post' })
 onBeforeUnmount(unmountAll)
 </script>

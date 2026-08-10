@@ -13,7 +13,7 @@
 </template>
 
 <script setup>
-import { ref, computed, watch } from 'vue'
+import { ref, computed, watch, onMounted } from 'vue'
 import { marked } from 'marked'
 import DOMPurify from 'dompurify'
 import { RICH_CONTENT_SANITIZE_CONFIG } from '../docs/table/tableSchema.js'
@@ -53,9 +53,13 @@ const renderedHtml = computed(() => {
   return DOMPurify.sanitize(html, RICH_CONTENT_SANITIZE_CONFIG)
 })
 
-// `flush: 'post'` şart: varsayılan 'pre' ile izleyici DOM güncellenmeden önce
-// koşar ve `v-html`'in yeni çıktısı henüz basılmamış olur.
-watch(renderedHtml, () => wrapTables(root.value), { immediate: true, flush: 'post' })
+// İlk sarmalama `onMounted` ile: `immediate: true` verilseydi Vue ilk çağrıyı
+// `flush` ayarına bakmadan setup sırasında yapardı ve `root` henüz `null`
+// olduğu için sarmalayıcı hiç oluşmazdı (DocRenderedContent.vue'daki aynı tuzak).
+// Sonraki değişiklikler için `flush: 'post'` şart: varsayılan 'pre' ile izleyici
+// DOM güncellenmeden önce koşar ve `v-html`'in yeni çıktısı henüz basılmamış olur.
+onMounted(() => wrapTables(root.value))
+watch(renderedHtml, () => wrapTables(root.value), { flush: 'post' })
 </script>
 
 <style scoped>
