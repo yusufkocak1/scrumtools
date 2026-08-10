@@ -9,6 +9,7 @@ import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.time.LocalDateTime;
 import java.util.*;
@@ -32,10 +33,76 @@ public class QuizService {
     private final QuizSessionRepository sessionRepository;
     private final QuizParticipantRepository participantRepository;
     private final QuizAnswerRepository answerRepository;
+    private final QuizImageRepository imageRepository;
     private final TeamRepository teamRepository;
     private final TeamMemberRepository teamMemberRepository;
     private final SimpMessagingTemplate messagingTemplate;
     private final EntitlementService entitlementService;
+    private final StorageService storageService;
+    private final MediaLinkService mediaLinkService;
+
+    private static final long MAX_IMAGE_SIZE = 5 * 1024 * 1024; // 5MB
+
+    /**
+     * SVG kasıtlı olarak dışarıda: görseller uygulamayla aynı origin üzerinden
+     * servis edildiğinden, script içeren bir SVG doğrudan açıldığında oturum
+     * verisine erişebilirdi.
+     */
+    private static final Set<String> ALLOWED_IMAGE_TYPES =
+            Set.of("image/png", "image/jpeg", "image/webp", "image/gif");
+
+    // ─── Soru Görselleri ────────────────────────────────────────────────────────
+
+    /**
+     * Soru görseli yükler ve soruya gömülecek kalıcı bağlantıyı döndürür.
+     *
+     * Görsel soru kaydından bağımsızdır: şablon formunda soru henüz kaydedilmeden
+     * yüklenip önizlenebilsin diye.
+     */
+    @Transactional
+    public QuizImageResponse uploadImage(UUID teamId, MultipartFile file) {
+        Team team = teamRepository.findById(teamId)
+                .orElseThrow(() -> new RuntimeException("Team not found"));
+        entitlementService.assertFeature(team.getOrganization(),
+                com.scrumtools.entity.enums.PlanFeature.QUIZ);
+
+        if (file == null || file.isEmpty()) {
+            throw new IllegalArgumentException("Görsel dosyası boş olamaz.");
+        }
+        if (file.getSize() > MAX_IMAGE_SIZE) {
+            throw new IllegalArgumentException("Görsel boyutu 5MB'ı aşamaz.");
+        }
+        String contentType = file.getContentType() == null ? "" : file.getContentType().toLowerCase();
+        if (!ALLOWED_IMAGE_TYPES.contains(contentType)) {
+            throw new IllegalArgumentException("Görsel yalnızca PNG, JPEG, WEBP veya GIF olabilir.");
+        }
+
+        String objectKey = storageService.upload("teams/" + teamId + "/quiz/images", file);
+
+        QuizImage image = imageRepository.save(QuizImage.builder()
+                .team(team)
+                .objectKey(objectKey)
+                .fileName(file.getOriginalFilename())
+                .mimeType(contentType)
+                .fileSize(file.getSize())
+                .uploadedByEmail(currentEmail())
+                .build());
+
+        return new QuizImageResponse(
+                image.getId().toString(),
+                mediaLinkService.urlFor(MediaLinkService.QUIZ_IMAGE, image.getId()),
+                image.getFileName());
+    }
+
+    /**
+     * Yalnızca kendi imzalı medya bağlantılarımız saklanır — dışarıdan gelen
+     * rastgele bir URL soruya gömülüp diğer kullanıcılara servis edilmesin.
+     */
+    private String sanitizeImageUrl(String imageUrl) {
+        if (imageUrl == null || imageUrl.isBlank()) return null;
+        String trimmed = imageUrl.trim();
+        return trimmed.startsWith("/api/media/" + MediaLinkService.QUIZ_IMAGE + "/") ? trimmed : null;
+    }
 
     // ─── Template CRUD ──────────────────────────────────────────────────────────
 
@@ -77,6 +144,7 @@ public class QuizService {
                     .template(template)
                     .questionOrder(i)
                     .questionText(qr.questionText())
+                    .imageUrl(sanitizeImageUrl(qr.imageUrl()))
                     .options(new ArrayList<>(qr.options()))
                     .correctOptionIndex(qr.correctOptionIndex())
                     .timeLimitSeconds(qr.timeLimitSeconds())
@@ -108,6 +176,7 @@ public class QuizService {
                     .template(template)
                     .questionOrder(i)
                     .questionText(qr.questionText())
+                    .imageUrl(sanitizeImageUrl(qr.imageUrl()))
                     .options(new ArrayList<>(qr.options()))
                     .correctOptionIndex(qr.correctOptionIndex())
                     .timeLimitSeconds(qr.timeLimitSeconds())
@@ -134,9 +203,12 @@ public class QuizService {
 
     /**
      * Yeni quiz oturumu başlatır (LOBBY durumunda).
+     *
+     * @param moderatorMode true ise oturumu başlatan kişi moderatördür: yarışmaz,
+     *                      soruyu ve doğru cevabı görür, akışı yönetir.
      */
     @Transactional
-    public QuizSessionResponse startSession(UUID teamId, UUID templateId) {
+    public QuizSessionResponse startSession(UUID teamId, UUID templateId, boolean moderatorMode) {
         String email = currentEmail();
         Team team = teamRepository.findById(teamId)
                 .orElseThrow(() -> new RuntimeException("Team not found"));
@@ -163,16 +235,19 @@ public class QuizService {
                 .template(template)
                 .hostEmail(email)
                 .hostName(displayName)
+                .moderatorMode(moderatorMode)
                 .build();
         sessionRepository.save(session);
 
-        // Host'u otomatik olarak katılımcı olarak ekle
-        QuizParticipant hostParticipant = QuizParticipant.builder()
-                .session(session)
-                .userEmail(email)
-                .displayName(displayName)
-                .build();
-        participantRepository.save(hostParticipant);
+        // Moderatör modunda host yarışmaz — katılımcı olarak eklenmez.
+        if (!moderatorMode) {
+            QuizParticipant hostParticipant = QuizParticipant.builder()
+                    .session(session)
+                    .userEmail(email)
+                    .displayName(displayName)
+                    .build();
+            participantRepository.save(hostParticipant);
+        }
 
         QuizSessionResponse response = buildSessionResponse(session);
         broadcastState(teamId, response);
@@ -190,6 +265,10 @@ public class QuizService {
 
         if (session.getStatus() == QuizSessionStatus.FINISHED) {
             throw new RuntimeException("Bu oturum zaten tamamlanmış");
+        }
+
+        if (session.isModerator(email)) {
+            throw new RuntimeException("Moderatör yarışmaya katılamaz");
         }
 
         if (participantRepository.existsBySessionIdAndUserEmail(sessionId, email)) {
@@ -267,6 +346,9 @@ public class QuizService {
 
         // İlk soru ise oyunu başlat
         if (session.getStatus() == QuizSessionStatus.LOBBY) {
+            if (participantRepository.findBySessionIdOrderByTotalScoreDesc(session.getId()).isEmpty()) {
+                throw new RuntimeException("Yarışmayı başlatmak için en az bir katılımcı gerekli");
+            }
             session.setStatus(QuizSessionStatus.IN_PROGRESS);
             session.setStartedAt(LocalDateTime.now());
         }
@@ -291,6 +373,10 @@ public class QuizService {
 
         if (session.getStatus() != QuizSessionStatus.IN_PROGRESS) {
             throw new RuntimeException("Oturum aktif değil");
+        }
+
+        if (session.isModerator(email)) {
+            throw new RuntimeException("Moderatör cevap veremez");
         }
 
         UUID questionId = UUID.fromString(request.questionId());
@@ -361,6 +447,74 @@ public class QuizService {
         QuizSessionResponse response = buildSessionResponse(session, true);
         broadcastState(session.getTeam().getId(), response);
         return response;
+    }
+
+    // ─── Moderatör Paneli ───────────────────────────────────────────────────────
+
+    /**
+     * Moderatör paneli verisi — doğru cevap ve canlı cevap durumu dahil.
+     * Yalnızca oturumun host'u çağırabilir; ortak WS topic'ine bu bilgi konulamaz.
+     */
+    @Transactional(readOnly = true)
+    public QuizModeratorViewResponse getModeratorView(UUID sessionId) {
+        String email = currentEmail();
+        QuizSession session = sessionRepository.findById(sessionId)
+                .orElseThrow(() -> new RuntimeException("Session not found"));
+
+        if (!session.getHostEmail().equals(email)) {
+            throw new RuntimeException("Bu paneli yalnızca moderatör görebilir");
+        }
+
+        List<QuizQuestion> questions = session.getTemplate().getQuestions();
+        int idx = session.getCurrentQuestionIndex();
+        QuizQuestion current = (idx >= 0 && idx < questions.size()) ? questions.get(idx) : null;
+
+        List<QuizParticipant> participants =
+                participantRepository.findBySessionIdOrderByTotalScoreDesc(sessionId);
+
+        // Aktif sorunun cevapları — kim ne işaretledi, seçenek dağılımı ne?
+        Map<String, QuizAnswer> answersByEmail = new HashMap<>();
+        List<Integer> optionCounts = new ArrayList<>();
+        if (current != null) {
+            for (QuizAnswer a : answerRepository.findBySessionIdAndQuestionId(sessionId, current.getId())) {
+                answersByEmail.put(a.getUserEmail(), a);
+            }
+            for (int i = 0; i < current.getOptions().size(); i++) {
+                final int option = i;
+                optionCounts.add((int) answersByEmail.values().stream()
+                        .filter(a -> option == a.getSelectedOptionIndex())
+                        .count());
+            }
+        }
+
+        List<QuizModeratorViewResponse.ParticipantAnswerStatus> statuses = participants.stream()
+                .map(p -> {
+                    QuizAnswer a = answersByEmail.get(p.getUserEmail());
+                    return new QuizModeratorViewResponse.ParticipantAnswerStatus(
+                            p.getUserEmail(),
+                            p.getDisplayName(),
+                            a != null,
+                            a != null ? a.getSelectedOptionIndex() : -1,
+                            a != null && Boolean.TRUE.equals(a.getCorrect()),
+                            a != null && a.getScore() != null ? a.getScore() : 0,
+                            a != null && a.getAnsweredInMs() != null ? a.getAnsweredInMs() : 0L,
+                            p.getTotalScore()
+                    );
+                }).toList();
+
+        return new QuizModeratorViewResponse(
+                session.getId().toString(),
+                session.getStatus().name(),
+                idx,
+                questions.size(),
+                current != null ? QuizQuestionResponse.from(current) : null,
+                session.getQuestionStartedAtMs(),
+                answersByEmail.size(),
+                participants.size(),
+                optionCounts,
+                statuses,
+                questions.stream().map(QuizQuestionResponse::from).toList()
+        );
     }
 
     /**

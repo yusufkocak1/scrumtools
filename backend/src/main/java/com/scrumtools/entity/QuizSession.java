@@ -40,6 +40,17 @@ public class QuizSession {
     @Column
     private String hostName;
 
+    /**
+     * Moderatör modu: oturumu başlatan kişi yarışmaz, yalnızca sunar ve akışı yönetir.
+     * Kapalıysa host hem oynar hem yönetir (eski davranış).
+     *
+     * Nullable: bu alan eklenmeden önce başlatılmış oturumlarda host oyuncuydu,
+     * null bu yüzden "kapalı" sayılır ({@link #isModeratorMode()}).
+     */
+    @Column
+    @Builder.Default
+    private Boolean moderatorMode = Boolean.TRUE;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     @Builder.Default
@@ -75,5 +86,15 @@ public class QuizSession {
 
     @Column
     private LocalDateTime finishedAt;
+
+    /** Eski kayıtlarda null olabilir — o oturumlarda host oyuncuydu. */
+    public boolean isModeratorMode() {
+        return Boolean.TRUE.equals(moderatorMode);
+    }
+
+    /** Verilen kullanıcı bu oturumun moderatörü mü (yalnızca moderatör modunda anlamlı)? */
+    public boolean isModerator(String email) {
+        return isModeratorMode() && hostEmail.equals(email);
+    }
 }
 

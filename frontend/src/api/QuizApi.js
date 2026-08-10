@@ -38,10 +38,25 @@ export const deleteTemplate = async (teamId, templateId) => {
     await apiClient.delete(`${base(teamId)}/templates/${templateId}`)
 }
 
+// ─── Soru Görselleri ────────────────────────────────────────────────────────
+
+/**
+ * Soru görseli yükler. Dönen `url` doğrudan soruya gömülür — kalıcı, imzalı
+ * bağlantıdır (presigned URL gibi süresi dolmaz).
+ */
+export const uploadQuizImage = async (teamId, file) => {
+    const formData = new FormData()
+    formData.append('file', file)
+    const { data } = await apiClient.post(`${base(teamId)}/images`, formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+    })
+    return data
+}
+
 // ─── Session ────────────────────────────────────────────────────────────────
 
-export const startSession = async (teamId, templateId) => {
-    const { data } = await apiClient.post(`${base(teamId)}/sessions`, { templateId })
+export const startSession = async (teamId, templateId, moderatorMode = true) => {
+    const { data } = await apiClient.post(`${base(teamId)}/sessions`, { templateId, moderatorMode })
     return data
 }
 
@@ -79,6 +94,15 @@ export const submitAnswer = async (teamId, sessionId, payload) => {
 
 export const showQuestionResult = async (teamId, sessionId) => {
     const { data } = await apiClient.post(`${base(teamId)}/sessions/${sessionId}/show-result`)
+    return data
+}
+
+/**
+ * Moderatör paneli verisi — doğru cevap ve kimin ne cevapladığı dahil.
+ * Yalnızca oturumun moderatörü çağırabilir.
+ */
+export const getModeratorView = async (teamId, sessionId) => {
+    const { data } = await apiClient.get(`${base(teamId)}/sessions/${sessionId}/moderator`)
     return data
 }
 

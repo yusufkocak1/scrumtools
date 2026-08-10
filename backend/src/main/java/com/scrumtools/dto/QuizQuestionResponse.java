@@ -8,6 +8,7 @@ public record QuizQuestionResponse(
         String id,
         int questionOrder,
         String questionText,
+        String imageUrl,
         List<String> options,
         int correctOptionIndex,
         int timeLimitSeconds
@@ -17,6 +18,7 @@ public record QuizQuestionResponse(
                 q.getId().toString(),
                 q.getQuestionOrder(),
                 q.getQuestionText(),
+                q.getImageUrl(),
                 q.getOptions(),
                 q.getCorrectOptionIndex(),
                 q.getTimeLimitSeconds()
@@ -31,10 +33,10 @@ public record QuizQuestionResponse(
                 q.getId().toString(),
                 q.getQuestionOrder(),
                 q.getQuestionText(),
+                q.getImageUrl(),
                 q.getOptions(),
                 -1, // doğru cevap gizli
                 q.getTimeLimitSeconds()
         );
     }
 }
-

@@ -15,7 +15,7 @@ Canlı ortam: [scrumtools.kocak.net.tr](https://scrumtools.kocak.net.tr)
 ### Gerçek Zamanlı Takım Araçları (WebSocket/STOMP)
 - **Scrum Poker** — planlama pokeri ile eforlama oturumları
 - **Retro Board** — retrospektif panoları; madde sıralama, oylama ve yorumlar
-- **Quiz** — takım içi bilgi yarışmaları
+- **Quiz** — takım içi bilgi yarışmaları; sorulara görsel eklenebilir, oturumu başlatan kişi moderatör modunda yarışmadan sunar
 - **Ortak Çalışma Alanı (Collab)** — eş zamanlı metin/kod düzenleme (geliştiriliyor; bkz. `COLLAB_WORKSPACE_PLAN.md`). Yerini aldığı Code Share modülü kaldırıldı.
 
 ### Organizasyon ve İşbirliği

@@ -52,6 +52,16 @@ public class MediaController {
         return respond(mediaService.openDocAttachment(attachmentId, signature), download);
     }
 
+    /** GET /api/media/quiz-images/{imageId}?s={imza} */
+    @GetMapping("/quiz-images/{imageId}")
+    public ResponseEntity<InputStreamResource> quizImage(
+            @PathVariable UUID imageId,
+            @RequestParam(name = "s", required = false) String signature,
+            @RequestParam(name = "download", defaultValue = "false") boolean download
+    ) {
+        return respond(mediaService.openQuizImage(imageId, signature), download);
+    }
+
     private ResponseEntity<InputStreamResource> respond(Optional<MediaService.MediaObject> media, boolean download) {
         if (media.isEmpty()) {
             return ResponseEntity.notFound().build();

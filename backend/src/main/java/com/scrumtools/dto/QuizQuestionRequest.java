@@ -11,7 +11,9 @@ public record QuizQuestionRequest(
         @NotBlank String questionText,
         @NotEmpty @Size(min = 2, max = 6) List<@NotBlank String> options,
         @NotNull @Min(0) Integer correctOptionIndex,
-        @NotNull @Min(5) @Max(120) Integer timeLimitSeconds
+        @NotNull @Min(5) @Max(120) Integer timeLimitSeconds,
+        /** Soru görseli — /api/teams/{teamId}/quiz/images yüklemesinden dönen bağlantı. */
+        @Size(max = 1000) String imageUrl
 ) {
 }
 

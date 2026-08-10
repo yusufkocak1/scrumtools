@@ -4,7 +4,9 @@
       <!-- Header -->
       <div class="bg-gradient-to-r from-indigo-600 to-purple-600 p-8 text-center">
         <h1 class="text-3xl font-bold text-white mb-2">🏆 {{ session.templateTitle }}</h1>
-        <p class="text-indigo-200">Host: {{ session.hostName }}</p>
+        <p class="text-indigo-200">
+          {{ session.moderatorMode ? '🎤 Moderatör' : 'Host' }}: {{ session.hostName }}
+        </p>
         <div class="mt-4 inline-flex items-center px-4 py-2 bg-white/20 rounded-full backdrop-blur-sm">
           <span class="text-white font-medium">Lobby — Katılımcılar bekleniyor</span>
         </div>
@@ -40,7 +42,11 @@
 
         <!-- Katıl / Başlat Butonları -->
         <div class="flex justify-center gap-4">
-          <button v-if="!hasJoined" @click="join"
+          <!-- Moderatör yarışmaz — katılım butonu yerine rol bilgisi gösterilir -->
+          <div v-if="isModerator" class="px-6 py-3 bg-amber-100 text-amber-800 rounded-xl font-medium">
+            🎤 Moderatörsünüz — yarışmıyorsunuz
+          </div>
+          <button v-else-if="!hasJoined" @click="join"
                   class="px-8 py-3 bg-green-600 text-white rounded-xl hover:bg-green-700 transition-all font-bold text-lg shadow-lg hover:shadow-xl transform hover:-translate-y-0.5">
             🎯 Katıl
           </button>
@@ -78,6 +84,10 @@ export default {
     hasJoined() {
       const email = localStorage.getItem('user') || ''
       return this.participants.some(p => p.email === email)
+    },
+    isModerator() {
+      const email = localStorage.getItem('user') || ''
+      return this.session?.moderatorMode === true && this.session?.hostEmail === email
     }
   },
   methods: {

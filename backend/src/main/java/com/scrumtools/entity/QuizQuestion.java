@@ -36,6 +36,13 @@ public class QuizQuestion {
     private String questionText;
 
     /**
+     * Soruya eklenen görselin kalıcı medya bağlantısı (opsiyonel).
+     * Yalnızca /api/media/quiz-images/... biçimindeki kendi bağlantılarımız saklanır.
+     */
+    @Column(length = 1000)
+    private String imageUrl;
+
+    /**
      * Seçenekler — sıralı liste, index 0'dan başlar.
      */
     @ElementCollection

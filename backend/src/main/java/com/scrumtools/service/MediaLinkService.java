@@ -32,6 +32,9 @@ public class MediaLinkService {
     /** Doküman sayfası ekleri — /api/media/doc-attachments/{id} */
     public static final String DOC_ATTACHMENT = "doc-attachments";
 
+    /** Quiz sorusu görselleri — /api/media/quiz-images/{id} */
+    public static final String QUIZ_IMAGE = "quiz-images";
+
     private static final String HMAC_ALGORITHM = "HmacSHA256";
 
     /** İmzanın URL'de taşınan uzunluğu — 22 base64 karakteri ≈ 132 bit, tahmin edilemez. */

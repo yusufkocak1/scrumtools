@@ -16,7 +16,8 @@
           <div>
             <h2 class="text-2xl font-bold text-gray-900">{{ selectedReport.session.templateTitle }}</h2>
             <p class="text-gray-500 text-sm mt-1">
-              Host: {{ selectedReport.session.hostName }} •
+              {{ selectedReport.session.moderatorMode ? 'Moderatör' : 'Host' }}:
+              {{ selectedReport.session.hostName }} •
               {{ formatDate(selectedReport.session.finishedAt) }}
             </p>
           </div>
@@ -46,6 +47,8 @@
           <div v-for="q in selectedReport.questions" :key="q.id"
                class="p-4 bg-gray-50 rounded-xl border border-gray-200">
             <p class="font-medium text-gray-800 mb-2">{{ q.questionOrder + 1 }}. {{ q.questionText }}</p>
+            <img v-if="q.imageUrl" :src="q.imageUrl" alt="Soru görseli"
+                 class="max-h-40 w-auto rounded-lg border border-gray-200 bg-white mb-3" />
             <div class="grid grid-cols-2 gap-2 mb-3">
               <div v-for="(opt, oi) in q.options" :key="oi"
                    :class="[

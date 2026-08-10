@@ -6,6 +6,7 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 import java.util.Map;
@@ -25,8 +26,11 @@ import java.util.UUID;
  *   PUT    /api/teams/{teamId}/quiz/templates/{id}      → şablon güncelle
  *   DELETE /api/teams/{teamId}/quiz/templates/{id}      → şablon sil
  *
+ * Görsel:
+ *   POST   /api/teams/{teamId}/quiz/images              → soru görseli yükle
+ *
  * Session:
- *   POST   /api/teams/{teamId}/quiz/sessions                   → oturum başlat
+ *   POST   /api/teams/{teamId}/quiz/sessions                   → oturum başlat (moderatorMode)
  *   GET    /api/teams/{teamId}/quiz/sessions/active             → aktif oturum
  *   GET    /api/teams/{teamId}/quiz/sessions/history            → geçmiş oturumlar
  *   GET    /api/teams/{teamId}/quiz/sessions/{id}               → oturum detayı
@@ -34,6 +38,7 @@ import java.util.UUID;
  *   POST   /api/teams/{teamId}/quiz/sessions/{id}/next          → sonraki soru
  *   POST   /api/teams/{teamId}/quiz/sessions/{id}/answer        → cevap gönder
  *   POST   /api/teams/{teamId}/quiz/sessions/{id}/show-result   → soru sonucunu göster
+ *   GET    /api/teams/{teamId}/quiz/sessions/{id}/moderator     → moderatör paneli (host'a özel)
  *   POST   /api/teams/{teamId}/quiz/sessions/{id}/finish        → oturumu bitir
  *   GET    /api/teams/{teamId}/quiz/sessions/{id}/report        → oturum raporu
  */
@@ -77,13 +82,23 @@ public class QuizController {
         return ResponseEntity.noContent().build();
     }
 
+    // ─── Soru Görselleri ────────────────────────────────────────────────────────
+
+    @PostMapping("/images")
+    public ResponseEntity<QuizImageResponse> uploadImage(@PathVariable UUID teamId,
+                                                         @RequestParam("file") MultipartFile file) {
+        return ResponseEntity.ok(quizService.uploadImage(teamId, file));
+    }
+
     // ─── Session ────────────────────────────────────────────────────────────────
 
     @PostMapping("/sessions")
     public ResponseEntity<QuizSessionResponse> startSession(@PathVariable UUID teamId,
-                                                            @RequestBody Map<String, String> body) {
-        UUID templateId = UUID.fromString(body.get("templateId"));
-        return ResponseEntity.ok(quizService.startSession(teamId, templateId));
+                                                            @RequestBody Map<String, Object> body) {
+        UUID templateId = UUID.fromString(String.valueOf(body.get("templateId")));
+        // Belirtilmezse moderatör modu açık — oturumu başlatan kişi sunar, yarışmaz.
+        boolean moderatorMode = !Boolean.FALSE.equals(body.get("moderatorMode"));
+        return ResponseEntity.ok(quizService.startSession(teamId, templateId, moderatorMode));
     }
 
     @GetMapping("/sessions/active")
@@ -129,6 +144,12 @@ public class QuizController {
     public ResponseEntity<QuizSessionResponse> showQuestionResult(@PathVariable UUID teamId,
                                                                   @PathVariable UUID sessionId) {
         return ResponseEntity.ok(quizService.showQuestionResult(sessionId));
+    }
+
+    @GetMapping("/sessions/{sessionId}/moderator")
+    public ResponseEntity<QuizModeratorViewResponse> getModeratorView(@PathVariable UUID teamId,
+                                                                      @PathVariable UUID sessionId) {
+        return ResponseEntity.ok(quizService.getModeratorView(sessionId));
     }
 
     @PostMapping("/sessions/{sessionId}/finish")

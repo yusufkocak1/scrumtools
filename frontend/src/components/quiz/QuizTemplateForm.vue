@@ -43,6 +43,26 @@
                    class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500" />
           </div>
 
+          <!-- Görsel -->
+          <div class="mb-3">
+            <div v-if="q.imageUrl" class="relative inline-block">
+              <img :src="q.imageUrl" alt="Soru görseli"
+                   class="max-h-40 rounded-lg border border-gray-300 bg-white" />
+              <button @click="q.imageUrl = null"
+                      title="Görseli kaldır"
+                      class="absolute -top-2 -right-2 w-7 h-7 bg-red-500 text-white rounded-full shadow hover:bg-red-600 text-sm">
+                ✕
+              </button>
+            </div>
+            <div v-else class="flex items-center gap-3">
+              <button @click="pickImage(q)" :disabled="uploadingQuestion === q"
+                      class="px-3 py-1.5 bg-white border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-100 transition-colors text-sm font-medium disabled:opacity-50">
+                {{ uploadingQuestion === q ? 'Yükleniyor...' : '🖼 Görsel Ekle' }}
+              </button>
+              <span class="text-xs text-gray-400">PNG, JPEG, WEBP veya GIF — en fazla 5MB</span>
+            </div>
+          </div>
+
           <!-- Süre Ayarı -->
           <div class="mb-3 flex items-center gap-3">
             <label class="text-sm text-gray-600 whitespace-nowrap">⏱ Süre:</label>
@@ -77,6 +97,10 @@
         </div>
       </div>
 
+      <!-- Görsel seçici — pickImage() tetikler -->
+      <input ref="imageInput" type="file" accept="image/png,image/jpeg,image/webp,image/gif"
+             class="hidden" @change="onImageSelected" />
+
       <!-- Butonlar -->
       <div class="flex justify-end gap-3">
         <button @click="$emit('cancel')"
@@ -93,8 +117,10 @@
 </template>
 
 <script>
-import { createTemplate, updateTemplate } from '../../api/QuizApi.js'
+import { createTemplate, updateTemplate, uploadQuizImage } from '../../api/QuizApi.js'
 import { createToast } from 'mosha-vue-toastify'
+
+const MAX_IMAGE_SIZE = 5 * 1024 * 1024
 
 export default {
   name: 'QuizTemplateForm',
@@ -106,6 +132,10 @@ export default {
   data() {
     return {
       saving: false,
+      // Index yerine soru nesnesi tutulur: yükleme sürerken soru silinip
+      // index'ler kaydığında görsel başka soruya yazılmasın.
+      uploadingQuestion: null,
+      uploadTarget: null,
       form: this.initForm()
     }
   },
@@ -122,6 +152,7 @@ export default {
           description: this.template.description || '',
           questions: this.template.questions.map(q => ({
             questionText: q.questionText,
+            imageUrl: q.imageUrl || null,
             options: [...q.options],
             correctOptionIndex: q.correctOptionIndex,
             timeLimitSeconds: q.timeLimitSeconds
@@ -137,10 +168,42 @@ export default {
     newQuestion() {
       return {
         questionText: '',
+        imageUrl: null,
         options: ['', '', '', ''],
         correctOptionIndex: 0,
         timeLimitSeconds: 20
       }
+    },
+
+    /** Tek bir gizli file input tüm sorular için kullanılır — hedef soruyu saklarız. */
+    pickImage(question) {
+      this.uploadTarget = question
+      this.$refs.imageInput.value = ''
+      this.$refs.imageInput.click()
+    },
+
+    async onImageSelected(event) {
+      const file = event.target.files?.[0]
+      const question = this.uploadTarget
+      if (!file || !question) return
+
+      if (file.size > MAX_IMAGE_SIZE) {
+        createToast('Görsel boyutu 5MB\'ı aşamaz', { type: 'warning' })
+        return
+      }
+
+      this.uploadingQuestion = question
+      try {
+        const image = await uploadQuizImage(this.teamId, file)
+        // Yükleme sürerken soru silinmiş olabilir.
+        if (this.form.questions.includes(question)) {
+          question.imageUrl = image.url
+        }
+      } catch (e) {
+        // Hata interceptor tarafından otomatik gösterilir
+      }
+      this.uploadingQuestion = null
+      this.uploadTarget = null
     },
     addQuestion() {
       this.form.questions.push(this.newQuestion())

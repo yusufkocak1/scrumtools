@@ -34,7 +34,7 @@
             <span>{{ formatDate(t.createdAt) }}</span>
           </div>
           <div class="flex gap-2">
-            <button @click="$emit('start', t.id)"
+            <button @click="startTarget = t"
                     class="flex-1 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors text-sm font-medium">
               🚀 Başlat
             </button>
@@ -50,6 +50,40 @@
         </div>
       </div>
     </div>
+
+    <!-- Başlatma Modu Seçimi -->
+    <div v-if="startTarget"
+         class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+         @click.self="startTarget = null">
+      <div class="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6">
+        <h3 class="text-xl font-bold text-gray-900 mb-1">{{ startTarget.title }}</h3>
+        <p class="text-sm text-gray-500 mb-5">Yarışmayı nasıl başlatmak istiyorsunuz?</p>
+
+        <div class="space-y-3">
+          <button @click="start(true)"
+                  class="w-full text-left p-4 rounded-xl border-2 border-indigo-200 hover:border-indigo-500 hover:bg-indigo-50 transition-all">
+            <div class="font-bold text-gray-900 mb-1">🎤 Moderatör olarak</div>
+            <p class="text-sm text-gray-500">
+              Yarışmaya katılmazsınız. Soruyu ve doğru cevabı görür, kimin ne cevapladığını
+              canlı izler, akışı yönetirsiniz.
+            </p>
+          </button>
+
+          <button @click="start(false)"
+                  class="w-full text-left p-4 rounded-xl border-2 border-gray-200 hover:border-green-500 hover:bg-green-50 transition-all">
+            <div class="font-bold text-gray-900 mb-1">🎯 Oyuncu olarak</div>
+            <p class="text-sm text-gray-500">
+              Siz de yarışırsınız; soruları ilerletme yetkisi yine sizde olur.
+            </p>
+          </button>
+        </div>
+
+        <button @click="startTarget = null"
+                class="mt-5 w-full px-4 py-2.5 bg-gray-100 text-gray-700 rounded-xl hover:bg-gray-200 transition-colors font-medium">
+          İptal
+        </button>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -62,7 +96,17 @@ export default {
     loading: { type: Boolean, default: false }
   },
   emits: ['edit', 'delete', 'start', 'refresh'],
+  data() {
+    return {
+      startTarget: null, // başlatma modu sorulan şablon
+    }
+  },
   methods: {
+    start(moderatorMode) {
+      this.$emit('start', { templateId: this.startTarget.id, moderatorMode })
+      this.startTarget = null
+    },
+
     formatDate(dateStr) {
       if (!dateStr) return ''
       return new Date(dateStr).toLocaleDateString('tr-TR', {

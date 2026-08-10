@@ -41,9 +41,15 @@
 
         <!-- Soru -->
         <div class="p-8 pt-6" v-if="currentQuestion">
-          <h2 class="text-xl md:text-2xl font-bold text-gray-900 mb-8 pr-20">
+          <h2 class="text-xl md:text-2xl font-bold text-gray-900 mb-6 pr-20">
             {{ currentQuestion.questionText }}
           </h2>
+
+          <!-- Soru Görseli -->
+          <div v-if="currentQuestion.imageUrl" class="mb-6 flex justify-center">
+            <img :src="currentQuestion.imageUrl" alt="Soru görseli"
+                 class="max-h-64 w-auto rounded-xl border border-gray-200 shadow-sm" />
+          </div>
 
           <!-- Seçenekler -->
           <div class="grid grid-cols-1 md:grid-cols-2 gap-4">

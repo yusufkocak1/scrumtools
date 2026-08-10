@@ -1,6 +1,7 @@
 package com.scrumtools.service;
 
 import com.scrumtools.repository.DocPageAttachmentRepository;
+import com.scrumtools.repository.QuizImageRepository;
 import com.scrumtools.repository.TaskAttachmentRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -21,6 +22,7 @@ public class MediaService {
 
     private final TaskAttachmentRepository taskAttachmentRepository;
     private final DocPageAttachmentRepository docAttachmentRepository;
+    private final QuizImageRepository quizImageRepository;
     private final StorageService storageService;
     private final MediaLinkService mediaLinkService;
 
@@ -50,5 +52,17 @@ public class MediaService {
                         a.getMimeType(),
                         a.getFileSize() != null ? a.getFileSize() : 0L,
                         storageService.download(a.getObjectKey())));
+    }
+
+    public Optional<MediaObject> openQuizImage(UUID imageId, String signature) {
+        if (!mediaLinkService.verify(MediaLinkService.QUIZ_IMAGE, imageId, signature)) {
+            return Optional.empty();
+        }
+        return quizImageRepository.findById(imageId)
+                .map(i -> new MediaObject(
+                        i.getFileName(),
+                        i.getMimeType(),
+                        i.getFileSize() != null ? i.getFileSize() : 0L,
+                        storageService.download(i.getObjectKey())));
     }
 }

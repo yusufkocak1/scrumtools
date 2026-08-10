@@ -112,7 +112,17 @@
             @joined="refreshSession"
         />
 
-        <!-- IN_PROGRESS -->
+        <!-- IN_PROGRESS — moderatör sunar, diğerleri oynar -->
+        <QuizModeratorPanel
+            v-else-if="activeSession.status === 'IN_PROGRESS' && isModerator"
+            :session="activeSession"
+            :teamId="teamId"
+            :answeredInfo="answeredInfo"
+            @next="handleNextQuestion"
+            @show-result="handleShowResult"
+            @finish="handleFinish"
+        />
+
         <QuizPlay
             v-else-if="activeSession.status === 'IN_PROGRESS'"
             :session="activeSession"
@@ -204,6 +214,7 @@ import QuizTemplateList from '../components/quiz/QuizTemplateList.vue'
 import QuizTemplateForm from '../components/quiz/QuizTemplateForm.vue'
 import QuizLobby from '../components/quiz/QuizLobby.vue'
 import QuizPlay from '../components/quiz/QuizPlay.vue'
+import QuizModeratorPanel from '../components/quiz/QuizModeratorPanel.vue'
 import QuizLeaderboard from '../components/quiz/QuizLeaderboard.vue'
 import QuizReport from '../components/quiz/QuizReport.vue'
 import HangmanGame from '../components/gamebox/HangmanGame.vue'
@@ -231,6 +242,7 @@ export default {
     QuizTemplateForm,
     QuizLobby,
     QuizPlay,
+    QuizModeratorPanel,
     QuizLeaderboard,
     QuizReport,
     HangmanGame,
@@ -265,6 +277,10 @@ export default {
       if (!this.activeSession) return false
       const email = localStorage.getItem('user') || ''
       return this.activeSession.hostEmail === email
+    },
+    /** Moderatör modunda oturumu başlatan kişi yarışmaz — oyun ekranı yerine panel görür. */
+    isModerator() {
+      return this.isHost && this.activeSession?.moderatorMode === true
     },
     isHangmanHost() {
       if (!this.hangmanSession) return false
@@ -324,10 +340,12 @@ export default {
       }
     },
 
-    async handleStartSession(templateId) {
+    async handleStartSession({ templateId, moderatorMode }) {
       try {
-        this.activeSession = await startSession(this.teamId, templateId)
-        createToast('Quiz lobby oluşturuldu!', { type: 'success' })
+        this.activeSession = await startSession(this.teamId, templateId, moderatorMode)
+        createToast(moderatorMode
+            ? 'Quiz lobby oluşturuldu — moderatörsünüz'
+            : 'Quiz lobby oluşturuldu!', { type: 'success' })
       } catch (e) {
         // Hata interceptor tarafından otomatik gösterilir
       }
