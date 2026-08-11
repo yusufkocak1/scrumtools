@@ -111,6 +111,26 @@
           <p class="text-xs text-gray-500 mt-2">
             Boşluksuz, 2-30 harf. {{ parsedWords.length }} kelime girildi.
           </p>
+          <!-- Kategori burada havuzu daraltmaz; oyun sırasında açabileceğin bir ipucudur. -->
+          <div class="mt-4">
+            <label class="block text-sm font-semibold text-gray-700 mb-2">
+              Kategori ipucu <span class="font-normal text-gray-500">(opsiyonel)</span>
+            </label>
+            <select
+                v-model="category"
+                class="w-full px-4 py-2.5 border border-gray-300 rounded-xl text-sm bg-white text-gray-800 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none">
+              <option :value="null">İpucu yok</option>
+              <option v-for="opt in categoryOptions" :key="opt.code" :value="opt.code">
+                {{ opt.emoji }} {{ opt.label }}
+              </option>
+            </select>
+            <p class="text-xs text-gray-500 mt-2">
+              Kelimelerin ortak kategorisini seçersen oyun sırasında
+              <strong>“Kategoriyi Göster”</strong> ile oyunculara ipucu verebilirsin.
+              Sen açana kadar kimseye görünmez.
+            </p>
+          </div>
+
           <div class="mt-3 flex items-start gap-2 bg-amber-50 border border-amber-200 rounded-xl p-3">
             <span class="text-lg leading-none">⚠️</span>
             <p class="text-xs text-amber-800">
@@ -129,6 +149,7 @@
           <p>• Kelimeyi bilen, <strong class="text-indigo-600">kalan tüm harfleri</strong> bilmiş sayılır
             ve hepsinin puanını alır.</p>
           <p>• Kelime tahmini yanlışsa adam <strong>asılmaz</strong>, sadece sıranı kaybedersin.</p>
+          <p>• Moderatör oyun sırasında kelimenin <strong>kategorisini</strong> ipucu olarak açabilir.</p>
           <p class="pt-1 text-xs text-gray-500">
             Harfleri tek tek toplayıp en sonda tahmin etmek ekstra puan kazandırmaz —
             kelime her hâlükârda aynı toplamı eder.
@@ -160,7 +181,7 @@ export default {
     language: 'tr',
     wordSource: 'RANDOM',
     roundCount: 5,
-    /** null = tüm kategorilerden karışık */
+    /** Rastgelede kelime havuzunu daraltır (null = karışık); özel kelimelerde ipucu kategorisidir. */
     category: null,
     /** Sunucudan gelen kelime sayıları: { [code]: wordCount } */
     categoryCounts: {},
@@ -225,8 +246,9 @@ export default {
         const session = await startHangmanSession(this.teamId, {
           language: this.language,
           roundCount: custom ? null : this.roundCount,
-          // Kategori sadece rastgele kelimelerde anlamlı; null = karışık.
-          category: custom ? null : this.category,
+          // Rastgelede havuzu daraltır (null = karışık); özel kelimelerde ise sunucu bunu
+          // oturuma değil turlara yazar — moderatörün oyun içinde açacağı ipucudur.
+          category: this.category,
           customWords: custom ? this.parsedWords : [],
           // Kelimeleri moderatör girdiyse sunucu zaten oynamasına izin vermez.
           moderatorPlays: custom ? false : this.moderatorPlays

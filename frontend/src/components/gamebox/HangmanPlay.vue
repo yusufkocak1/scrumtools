@@ -37,6 +37,11 @@
           <p class="text-white/80 text-xs mt-1">
             Kelime {{ session.currentRoundIndex + 1 }} / {{ session.totalRounds }}
           </p>
+          <!-- Kategori ipucu — moderatör açtıysa (sabit kategorili oyunda baştan açık). -->
+          <p v-if="categoryText"
+             class="mt-2 inline-flex items-center gap-1.5 px-3 py-1 bg-white/20 rounded-full backdrop-blur-sm text-white text-xs font-medium">
+            🏷️ Kategori: {{ categoryText }}
+          </p>
         </div>
 
         <div class="p-6 sm:p-8">
@@ -118,6 +123,11 @@
         <div v-if="isHost" class="border-t border-gray-200 bg-gray-50 px-6 py-4 flex flex-wrap gap-3 justify-between items-center">
           <p class="text-xs text-gray-500">Moderatör kontrolleri</p>
           <div class="flex gap-2">
+            <button v-if="canRevealCategory" @click="$emit('reveal-category')"
+                    title="Kelimenin kategorisini tüm oyunculara gösterir — geri alınamaz"
+                    class="px-4 py-2 bg-white border border-indigo-300 text-indigo-700 rounded-lg hover:bg-indigo-50 transition-colors text-sm font-medium">
+              🏷️ Kategoriyi Göster
+            </button>
             <button @click="$emit('skip')"
                     class="px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-100 transition-colors text-sm font-medium">
               ⏭️ Sırayı Devret
@@ -189,6 +199,7 @@
 
 <script>
 import { guessHangmanLetter, guessHangmanWord } from '../../api/HangmanApi.js'
+import { hangmanCategoryLabel } from '../../data/hangmanWords.js'
 
 const TR_ALPHABET = ['A', 'B', 'C', 'Ç', 'D', 'E', 'F', 'G', 'Ğ', 'H', 'I', 'İ', 'J', 'K', 'L', 'M',
   'N', 'O', 'Ö', 'P', 'R', 'S', 'Ş', 'T', 'U', 'Ü', 'V', 'Y', 'Z']
@@ -201,7 +212,7 @@ export default {
     isHost: Boolean,
     teamId: String
   },
-  emits: ['updated', 'skip', 'finish'],
+  emits: ['updated', 'skip', 'finish', 'reveal-category'],
   data: () => ({
     wordGuess: '',
     busy: false,
@@ -230,6 +241,19 @@ export default {
     },
     canGuess() {
       return this.isMyTurn && !this.isSpectator
+    },
+    /**
+     * Kategori sunucudan yalnızca açıldığında gelir; emoji'li etiketi yerelden alırız,
+     * bilinmeyen kod olursa sunucunun etiketine düşeriz.
+     */
+    categoryText() {
+      if (!this.round?.categoryRevealed) return null
+      return hangmanCategoryLabel(this.round.category, this.session?.language)
+          || this.round.categoryLabel
+    },
+    /** Moderatör için: açılabilecek bir kategori var ve henüz açılmadı. */
+    canRevealCategory() {
+      return !!this.round?.categoryAvailable && !this.round?.categoryRevealed
     },
     wrongCount() {
       return this.round?.wrongCount || 0

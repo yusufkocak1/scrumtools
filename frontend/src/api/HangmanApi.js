@@ -9,7 +9,8 @@
  *
  * NOT: Takım oyununda kelime sunucuda tutulur; istemciye sadece maskelenmiş
  * hali (round.maskedWord) gelir. Cevap yalnızca tur bitince round.revealedWord
- * alanında döner.
+ * alanında döner. Kategori ipucu da aynı mantıkla sunucuda tutulur: moderatör
+ * açmadan (reveal-category) round.category boş gelir.
  */
 
 import apiClient from './axios.js'
@@ -80,6 +81,15 @@ export const guessHangmanWord = async (teamId, sessionId, word) => {
 
 export const skipHangmanTurn = async (teamId, sessionId) => {
     const { data } = await apiClient.post(`${base(teamId)}/sessions/${sessionId}/skip-turn`)
+    return data
+}
+
+/**
+ * Oynanan kelimenin kategorisini herkese açar (moderatör ipucu). Geri alınamaz.
+ * Kategori tur yanıtında round.category / round.categoryLabel olarak döner.
+ */
+export const revealHangmanCategory = async (teamId, sessionId) => {
+    const { data } = await apiClient.post(`${base(teamId)}/sessions/${sessionId}/reveal-category`)
     return data
 }
 

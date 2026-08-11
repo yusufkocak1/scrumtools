@@ -90,16 +90,20 @@ public class HangmanSessionService {
         List<String> customWords = normalizeCustomWords(request.customWords(), language);
         boolean custom = !customWords.isEmpty();
 
-        // Kategori yalnızca rastgele kelimelerde anlamlı; null = tüm kategoriler karışık.
-        HangmanCategory category = custom ? null : HangmanCategory.parse(request.category()).orElse(null);
+        HangmanCategory requestedCategory = HangmanCategory.parse(request.category()).orElse(null);
+
+        // Rastgele oyunda kategori havuzu daraltır ve lobide herkese görünür; null = karışık.
+        // Moderatörün kendi kelimelerinde ise kategori yalnızca bir ipucudur: oturuma değil
+        // turlara yazılır ve oyun sırasında moderatör açana kadar kimseye gösterilmez.
+        HangmanCategory sessionCategory = custom ? null : requestedCategory;
 
         // Kelimeleri moderatör belirlediyse cevapları bildiği için oynayamaz.
         boolean moderatorPlays = !custom && !Boolean.FALSE.equals(request.moderatorPlays());
 
-        List<String> words = custom
-                ? customWords
+        List<DrawnWord> words = custom
+                ? customWords.stream().map(w -> new DrawnWord(w, requestedCategory)).toList()
                 : drawRandomWords(language, request.roundCount() == null ? DEFAULT_ROUND_COUNT : request.roundCount(),
-                        category);
+                        sessionCategory);
 
         if (words.isEmpty()) {
             throw new RuntimeException("Oyun için kelime bulunamadı");
@@ -113,16 +117,22 @@ public class HangmanSessionService {
                 .hostName(displayName)
                 .language(language)
                 .wordSource(custom ? HangmanWordSource.CUSTOM : HangmanWordSource.RANDOM)
-                .category(category)
+                .category(sessionCategory)
                 .moderatorPlays(moderatorPlays)
                 .build();
         sessionRepository.save(session);
 
+        // Sabit kategorili oyunda kategori zaten lobide yazıyor; ipucu olarak saklamanın anlamı yok.
+        boolean categoryAlreadyPublic = sessionCategory != null;
+
         for (int i = 0; i < words.size(); i++) {
+            DrawnWord drawn = words.get(i);
             roundRepository.save(HangmanRound.builder()
                     .session(session)
                     .roundOrder(i)
-                    .word(words.get(i))
+                    .word(drawn.word())
+                    .category(drawn.category())
+                    .categoryRevealed(categoryAlreadyPublic && drawn.category() != null)
                     .build());
         }
 
@@ -338,6 +348,32 @@ public class HangmanSessionService {
     }
 
     /**
+     * Oynanan kelimenin kategorisini herkese açar (ipucu). Sadece moderatör.
+     *
+     * Kategori aynı anda TÜM oyunculara görünür olduğu için moderatör oyuncuysa da
+     * (rastgele kelimelerde oynayabilir) kimseye avantaj sağlamaz. Geri alınamaz:
+     * açılan kategori turun sonuna kadar açık kalır.
+     */
+    @Transactional
+    public HangmanSessionResponse revealCategory(UUID sessionId) {
+        String email = currentEmail();
+        HangmanSession session = findSession(sessionId);
+        assertHost(session, email);
+
+        HangmanRound round = activeRound(session);
+        if (round.getCategory() == null) {
+            throw new RuntimeException("Bu kelimenin kategorisi bilinmiyor");
+        }
+
+        round.setCategoryRevealed(true);
+        roundRepository.save(round);
+
+        HangmanSessionResponse response = buildResponse(reload(sessionId));
+        broadcast(session.getTeam().getId(), response);
+        return response;
+    }
+
+    /**
      * Oyunu erken bitirir. Sadece moderatör.
      */
     @Transactional
@@ -535,20 +571,38 @@ public class HangmanSessionService {
 
     // ─── Kelime seçimi ──────────────────────────────────────────────────────────
 
+    /** Bir tura yazılacak kelime ve geldiği kategori (kategori bilinmiyorsa null). */
+    private record DrawnWord(String word, HangmanCategory category) {
+    }
+
     /**
      * DB havuzu + dahili havuzdan tekrarsız rastgele kelime çeker.
+     *
+     * Kelimenin geldiği kategori de taşınır — moderatör oyun sırasında ipucu olarak
+     * açabilsin diye tura yazılır (karışık oyunda her turun kategorisi farklı olabilir).
      *
      * @param category null ise tüm kategoriler karışık; doluysa sadece o kategori.
      *                 Kategori seçilmediğinde DB'deki kategorisiz (eski) kelimeler de havuza girer.
      */
-    private List<String> drawRandomWords(String language, int count, HangmanCategory category) {
-        Set<String> pool = new LinkedHashSet<>(HangmanWordPool.resolve(language, category));
+    private List<DrawnWord> drawRandomWords(String language, int count, HangmanCategory category) {
+        // Aynı kelime iki kategoride geçiyorsa ilk görülen kategori kalır (putIfAbsent).
+        Map<String, HangmanCategory> pool = new LinkedHashMap<>();
+        if (category == null) {
+            for (HangmanCategory c : HangmanCategory.values()) {
+                HangmanWordPool.forCategory(language, c).forEach(w -> pool.putIfAbsent(w, c));
+            }
+        } else {
+            HangmanWordPool.forCategory(language, category).forEach(w -> pool.putIfAbsent(w, category));
+        }
+
         List<HangmanWord> dbWords = category == null
                 ? wordRepository.findByLanguageOrderByCreatedAtDesc(language)
                 : wordRepository.findByLanguageAndCategoryOrderByCreatedAtDesc(language, category);
-        dbWords.forEach(w -> pool.add(w.getWord()));
+        dbWords.forEach(w -> pool.putIfAbsent(w.getWord(), w.getCategory()));
 
-        List<String> shuffled = new ArrayList<>(pool);
+        List<DrawnWord> shuffled = new ArrayList<>(pool.entrySet().stream()
+                .map(e -> new DrawnWord(e.getKey(), e.getValue()))
+                .toList());
         Collections.shuffle(shuffled);
         return shuffled.stream().limit(Math.max(1, count)).toList();
     }
@@ -635,7 +689,7 @@ public class HangmanSessionService {
         HangmanRoundResponse round = rounds.stream()
                 .filter(r -> r.getRoundOrder() == idx)
                 .findFirst()
-                .map(r -> HangmanRoundResponse.from(r, MAX_WRONG))
+                .map(r -> HangmanRoundResponse.from(r, MAX_WRONG, session.getLanguage()))
                 .orElse(null);
 
         // Biten son tur — istemci "kelime neydi" bilgisini bundan gösterir.
@@ -643,7 +697,7 @@ public class HangmanSessionService {
                 .filter(r -> r.getStatus() == HangmanRoundStatus.SOLVED
                         || r.getStatus() == HangmanRoundStatus.FAILED)
                 .reduce((a, b) -> b)
-                .map(r -> HangmanRoundResponse.from(r, MAX_WRONG))
+                .map(r -> HangmanRoundResponse.from(r, MAX_WRONG, session.getLanguage()))
                 .orElse(null);
 
         String currentTurnName = all.stream()

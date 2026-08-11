@@ -64,6 +64,7 @@
               :teamId="teamId"
               @updated="hangmanSession = $event"
               @skip="handleHangmanSkip"
+              @reveal-category="handleHangmanRevealCategory"
               @finish="handleHangmanFinish"
           />
 
@@ -255,7 +256,7 @@ import {
 } from '../api/QuizApi.js'
 import {
   getActiveHangmanSession, getHangmanSession, beginHangmanGame,
-  skipHangmanTurn, finishHangmanSession
+  skipHangmanTurn, revealHangmanCategory, finishHangmanSession
 } from '../api/HangmanApi.js'
 import { connect, subscribe, unsubscribe } from '../api/websocket.js'
 import { createToast } from 'mosha-vue-toastify'
@@ -496,6 +497,14 @@ export default {
     async handleHangmanSkip() {
       try {
         this.hangmanSession = await skipHangmanTurn(this.teamId, this.hangmanSession.id)
+      } catch (e) {
+        // Hata interceptor tarafından otomatik gösterilir
+      }
+    },
+
+    async handleHangmanRevealCategory() {
+      try {
+        this.hangmanSession = await revealHangmanCategory(this.teamId, this.hangmanSession.id)
       } catch (e) {
         // Hata interceptor tarafından otomatik gösterilir
       }

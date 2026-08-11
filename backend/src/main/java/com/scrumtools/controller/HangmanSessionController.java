@@ -27,6 +27,7 @@ import java.util.UUID;
  *   POST   /api/teams/{teamId}/hangman/sessions/{id}/guess-letter→ harf tahmini
  *   POST   /api/teams/{teamId}/hangman/sessions/{id}/guess-word  → kelime tahmini
  *   POST   /api/teams/{teamId}/hangman/sessions/{id}/skip-turn   → sırayı devret (moderatör)
+ *   POST   /api/teams/{teamId}/hangman/sessions/{id}/reveal-category → kategoriyi göster (moderatör)
  *   POST   /api/teams/{teamId}/hangman/sessions/{id}/finish      → oyunu bitir (moderatör)
  */
 @RestController
@@ -89,6 +90,12 @@ public class HangmanSessionController {
     public ResponseEntity<HangmanSessionResponse> skipTurn(@PathVariable UUID teamId,
                                                            @PathVariable UUID sessionId) {
         return ResponseEntity.ok(hangmanSessionService.skipTurn(sessionId));
+    }
+
+    @PostMapping("/sessions/{sessionId}/reveal-category")
+    public ResponseEntity<HangmanSessionResponse> revealCategory(@PathVariable UUID teamId,
+                                                                 @PathVariable UUID sessionId) {
+        return ResponseEntity.ok(hangmanSessionService.revealCategory(sessionId));
     }
 
     @PostMapping("/sessions/{sessionId}/finish")

@@ -38,6 +38,26 @@ public class HangmanRound {
     @Column(nullable = false)
     private String word;
 
+    /**
+     * Bu turdaki kelimenin kategorisi — moderatörün ipucu olarak açabileceği bilgi.
+     * Rastgele kelimede kelimenin geldiği kategori, moderatörün kendi kelimelerinde
+     * kurulumda seçtiği ipucu kategorisidir. Bilinmiyorsa null (ipucu verilemez).
+     */
+    @Enumerated(EnumType.STRING)
+    @Column(length = 32)
+    private HangmanCategory category;
+
+    /**
+     * Kategori oyunculara gösterildi mi? Oturum sabit bir kategoriyle açıldıysa kategori
+     * zaten lobide herkese yazdığı için baştan true'dur; aksi hâlde moderatör açana kadar false.
+     *
+     * Bilinçli olarak nullable: ddl-auto:update mevcut satırlara NOT NULL kolon ekleyemez,
+     * bu yüzden okurken her zaman Boolean.TRUE.equals(...) ile değerlendirin.
+     */
+    @Column
+    @Builder.Default
+    private Boolean categoryRevealed = false;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     @Builder.Default
