@@ -172,7 +172,8 @@ public class DocController {
             @PathVariable UUID projectId,
             @RequestParam(required = false) UUID spaceId,
             @RequestParam(required = false) UUID pageId) {
-        return ResponseEntity.ok(permissionService.getPermissions(spaceId, pageId));
+        User user = getCurrentUser();
+        return ResponseEntity.ok(permissionService.getPermissions(projectId, spaceId, pageId, user));
     }
 
     @GetMapping("/permissions/targets")

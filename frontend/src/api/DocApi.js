@@ -58,8 +58,10 @@ export default {
     grantPermission(projectId, data) {
         return axios.post(`${BASE(projectId)}/permissions`, data)
     },
-    delegatePermission(projectId, data) {
-        return axios.post(`${BASE(projectId)}/permissions/delegate`, data)
+    // `config` ile çağıran taraf `_skipErrorToast` geçebiliyor: paylaşım
+    // iletişim kutusu hatayı kendi içinde, ilgili alanın altında gösteriyor.
+    delegatePermission(projectId, data, config = {}) {
+        return axios.post(`${BASE(projectId)}/permissions/delegate`, data, config)
     },
     revokePermission(projectId, permissionId) {
         return axios.delete(`${BASE(projectId)}/permissions/${permissionId}`)

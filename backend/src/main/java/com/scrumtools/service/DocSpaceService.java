@@ -63,7 +63,9 @@ public class DocSpaceService {
         List<DocSpace> spaces = spaceRepository.findByProjectIdOrderByCreatedAtDesc(projectId);
 
         return spaces.stream()
-                .filter(space -> permissionService.hasSpaceAccess(space, user))
+                // Sadece bir sayfası paylaşılmış kullanıcı da alanı listede görmeli;
+                // aksi hâlde paylaşılan sayfaya yalnızca doğrudan linkle ulaşılır.
+                .filter(space -> permissionService.hasAnyAccessInSpace(space, user))
                 .map(space -> {
                     int pageCount = pageRepository.countBySpaceId(space.getId());
                     return DocSpaceResponse.from(space, pageCount);
@@ -76,7 +78,12 @@ public class DocSpaceService {
                 .orElseThrow(() -> new RuntimeException("Space bulunamadı"));
 
         User user = getCurrentUser();
-        permissionService.checkReadAccess(space, null, user);
+        // Space seviyesinde yetkisi olmayan ama içindeki bir sayfaya çağrılmış
+        // kullanıcı da space başlığını görebilmeli — aksi hâlde paylaşılan sayfa
+        // linki açılırken bu çağrı 403 dönüyor.
+        if (!permissionService.hasAnyAccessInSpace(space, user)) {
+            throw new SecurityException("Bu içeriği görüntüleme yetkiniz yok");
+        }
 
         int pageCount = pageRepository.countBySpaceId(spaceId);
         return DocSpaceResponse.from(space, pageCount);
@@ -106,6 +113,7 @@ public class DocSpaceService {
         User user = getCurrentUser();
         permissionService.checkSpaceManageAccess(space.getProject().getId(), user);
 
+        permissionService.removeAllForSpace(spaceId);
         spaceRepository.delete(space);
         log.info("Doc space silindi: {}", spaceId);
     }

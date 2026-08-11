@@ -38,6 +38,16 @@ public interface DocPermissionRepository extends JpaRepository<DocPermission, UU
     """)
     List<DocPermission> findAllBySpaceForTarget(UUID spaceId, DocTargetType targetType, UUID targetId);
 
+    /**
+     * Bir space içindeki <b>sayfa seviyesindeki</b> tüm yetkiler.
+     *
+     * <p>"Tek sayfayı paylaş" akışı için: space'te hiç yetkisi olmayan ama bir
+     * sayfaya çağrılmış kullanıcının space'i açabilmesi gerekiyor, yoksa sayfa
+     * linki 403 döner.
+     */
+    @Query("SELECT p FROM DocPermission p WHERE p.page.space.id = :spaceId")
+    List<DocPermission> findByPageSpaceId(UUID spaceId);
+
     void deleteBySpaceId(UUID spaceId);
 
     void deleteByPageId(UUID pageId);

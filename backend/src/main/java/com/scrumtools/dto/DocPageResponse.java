@@ -46,5 +46,19 @@ public record DocPageResponse(
     public static DocPageResponse fromFlat(DocPage page, int versionNumber) {
         return from(page, versionNumber, null);
     }
+
+    /**
+     * İçeriği boşaltılmış kopya.
+     *
+     * <p>Sayfa ağacında, kullanıcının okuyamadığı ama altındaki paylaşılmış bir
+     * sayfaya giden yol üzerinde duran düğümler için. Başlık yolu göstermek
+     * zorunlu; gövdeyi de göndermek paylaşılmayan sayfayı sızdırırdı.
+     */
+    public DocPageResponse withoutContent() {
+        return new DocPageResponse(
+                id, spaceId, parentPageId, title, slug, "", sortOrder,
+                createdByEmail, createdByName, updatedByEmail, updatedByName,
+                createdAt, updatedAt, versionNumber, children);
+    }
 }
 

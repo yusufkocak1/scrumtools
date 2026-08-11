@@ -68,12 +68,45 @@ public class DocPageService {
                 .orElseThrow(() -> new RuntimeException("Space bulunamadı"));
 
         User user = getCurrentUser();
-        permissionService.checkReadAccess(space, null, user);
+        if (!permissionService.hasAnyAccessInSpace(space, user)) {
+            throw new SecurityException("Bu içeriği görüntüleme yetkiniz yok");
+        }
+
+        // Space seviyesinde okuma yetkisi varsa ağacın tamamı; yoksa yalnızca
+        // kullanıcıya açıkça paylaşılmış sayfalar (ve onlara giden yol) dönüyor.
+        // Tek sayfa paylaşımının ağaçta görünmesinin başka yolu yok: sayfa
+        // listesi filtrelenmeseydi ya hiç görünmezdi ya da tüm space sızardı.
+        boolean fullAccess = permissionService.hasReadAccess(space, null, user);
 
         List<DocPage> rootPages = pageRepository.findBySpaceIdAndParentPageIsNullOrderBySortOrderAsc(spaceId);
         return rootPages.stream()
-                .map(this::buildPageTree)
+                .map(page -> fullAccess ? buildPageTree(page) : buildVisiblePageTree(page, space, user))
+                .filter(java.util.Objects::nonNull)
                 .collect(Collectors.toList());
+    }
+
+    /**
+     * Yalnızca görülebilen sayfalardan oluşan ağaç.
+     *
+     * <p>Bir düğüm, kullanıcı onu okuyabiliyorsa <b>veya</b> altında okuyabildiği
+     * bir sayfa varsa listede kalır; ikincisi olmadan paylaşılan sayfa ağaçta
+     * ulaşılamaz bir yerde kalırdı. Okunamayan ara düğümler yalnızca yol olarak
+     * duruyor, içerikleri {@code getPage} çağrısında yine reddediliyor.
+     */
+    private DocPageResponse buildVisiblePageTree(DocPage page, DocSpace space, User user) {
+        List<DocPageResponse> children = pageRepository
+                .findByParentPageIdOrderBySortOrderAsc(page.getId())
+                .stream()
+                .map(child -> buildVisiblePageTree(child, space, user))
+                .filter(java.util.Objects::nonNull)
+                .collect(Collectors.toList());
+
+        boolean visible = permissionService.hasReadAccess(space, page, user);
+        if (!visible && children.isEmpty()) return null;
+
+        int version = versionRepository.findMaxVersionNumber(page.getId());
+        DocPageResponse response = DocPageResponse.from(page, version, children);
+        return visible ? response : response.withoutContent();
     }
 
     public DocPageResponse getPage(UUID pageId) {
@@ -135,6 +168,9 @@ public class DocPageService {
         User user = getCurrentUser();
         permissionService.checkWriteAccess(page.getSpace(), page, user);
 
+        // Sayfaya özel yetkiler önce temizlenmeli: yabancı anahtar kısıtı silmeyi
+        // aksi hâlde reddediyor.
+        permissionService.removeAllForPage(pageId);
         pageRepository.delete(page);
         log.info("Doc page silindi: {}", pageId);
     }
@@ -197,8 +233,16 @@ public class DocPageService {
     }
 
     public DocPageVersionResponse getVersion(UUID pageId, int versionNumber) {
+        // Yetki kontrolü burada <b>yoktu</b>: liste ucu ({@code getVersions})
+        // okuma yetkisi ararken, içeriği asıl döndüren bu uç yalnızca "giriş
+        // yapmış olmak" istiyordu. Sayfa kimliğini bilen herhangi bir kullanıcı,
+        // erişemediği bir sayfanın tam metnini sürüm numarasıyla okuyabiliyordu.
+        DocPage page = pageRepository.findById(pageId)
+                .orElseThrow(() -> new IllegalArgumentException("Sayfa bulunamadı"));
+        permissionService.checkReadAccess(page.getSpace(), page, getCurrentUser());
+
         DocPageVersion version = versionRepository.findByPageIdAndVersionNumber(pageId, versionNumber)
-                .orElseThrow(() -> new RuntimeException("Versiyon bulunamadı"));
+                .orElseThrow(() -> new IllegalArgumentException("Versiyon bulunamadı"));
         return DocPageVersionResponse.from(version);
     }
 

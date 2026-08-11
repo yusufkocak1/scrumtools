@@ -124,13 +124,14 @@
                     d="M18.375 12.739l-7.693 7.693a4.5 4.5 0 01-6.364-6.364l10.94-10.94A3 3 0 1119.5 7.372L8.552 18.32m.009-.01l-.01.01m5.699-9.941l-7.81 7.81a1.5 1.5 0 002.112 2.13"/>
             </svg>
           </button>
-          <button @click="showPermissions = !showPermissions"
+          <button @click="showPermissions = true"
                   :class="panelBtnClass(showPermissions)"
-                  title="Yetkiler">
+                  title="Paylaş">
             <svg class="w-[18px] h-[18px]" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round"
-                    d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z"/>
+                    d="M7.217 10.907a2.25 2.25 0 100 2.186m0-2.186c.18.324.283.696.283 1.093s-.103.77-.283 1.093m0-2.186l9.566-5.314m-9.566 7.5l9.566 5.314m0 0a2.25 2.25 0 103.935 2.186 2.25 2.25 0 00-3.935-2.186zm0-12.814a2.25 2.25 0 103.933-2.185 2.25 2.25 0 00-3.933 2.185z"/>
             </svg>
+            <span class="sr-only">Paylaş</span>
           </button>
           <div class="w-px h-6 bg-slate-200 mx-1.5 hidden sm:block"></div>
           <!-- Ortak düzenleme (COLLAB_WORKSPACE_PLAN.md Y1). Klasik "Düzenle" son
@@ -236,12 +237,13 @@
       />
     </aside>
 
-    <!-- Permission Dialog -->
-    <DocPermissionDialog
+    <!-- Paylaşım: bağlantı + kişi/takım daveti -->
+    <DocShareDialog
         v-if="showPermissions"
         :projectId="projectId"
         :spaceId="spaceId"
         :pageId="currentPage?.id"
+        :title="currentPage?.title || space?.name"
         @close="showPermissions = false"
     />
 
@@ -286,7 +288,7 @@ import {DOC_CONTENT_SANITIZE_CONFIG} from '../components/docs/table/tableSchema.
 import DocRenderedContent from '../components/docs/DocRenderedContent.vue'
 import VersionHistory from '../components/docs/VersionHistory.vue'
 import DocAttachments from '../components/docs/DocAttachments.vue'
-import DocPermissionDialog from '../components/docs/DocPermissionDialog.vue'
+import DocShareDialog from '../components/docs/DocShareDialog.vue'
 import InputDialog from '../components/common/InputDialog.vue'
 
 const route = useRoute()
