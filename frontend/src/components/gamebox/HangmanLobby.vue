@@ -96,13 +96,21 @@
         <p v-if="isHost && players.length === 0" class="text-center text-xs text-gray-400 mt-3">
           Başlatmak için en az bir oyuncu katılmalı
         </p>
+
+        <!-- Moderatör için çıkış yolu: kimse katılmadıysa lobiyi kapatabilmeli -->
+        <div v-if="isHost" class="mt-6 flex justify-center">
+          <button @click="cancel" :disabled="cancelling"
+                  class="px-4 py-2 bg-red-50 text-red-600 rounded-xl hover:bg-red-100 transition-colors text-sm font-medium disabled:opacity-50">
+            {{ cancelling ? 'Kapatılıyor...' : '✕ Lobiyi Kapat' }}
+          </button>
+        </div>
       </div>
     </div>
   </div>
 </template>
 
 <script>
-import { joinHangmanSession } from '../../api/HangmanApi.js'
+import { joinHangmanSession, cancelHangmanSession } from '../../api/HangmanApi.js'
 import { hangmanCategoryLabel } from '../../data/hangmanWords.js'
 import { createToast } from 'mosha-vue-toastify'
 
@@ -113,7 +121,10 @@ export default {
     isHost: Boolean,
     teamId: String
   },
-  emits: ['begin', 'joined'],
+  emits: ['begin', 'joined', 'cancelled'],
+  data: () => ({
+    cancelling: false
+  }),
   computed: {
     /** Kategori seçilmediyse (ya da kelimeleri moderatör girdiyse) karışık gösterilir. */
     categoryText() {
@@ -154,6 +165,19 @@ export default {
       } catch (e) {
         // Hata interceptor tarafından otomatik gösterilir
       }
+    },
+
+    async cancel() {
+      if (!confirm('Lobiyi kapatmak istediğinize emin misiniz? Oyun başlamadan iptal edilir.')) return
+      this.cancelling = true
+      try {
+        await cancelHangmanSession(this.teamId, this.session.id)
+        createToast('Lobi kapatıldı', { type: 'success' })
+        this.$emit('cancelled')
+      } catch (e) {
+        // Hata interceptor tarafından otomatik gösterilir
+      }
+      this.cancelling = false
     }
   }
 }

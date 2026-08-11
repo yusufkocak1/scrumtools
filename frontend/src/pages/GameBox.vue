@@ -55,6 +55,7 @@
               :teamId="teamId"
               @begin="handleHangmanBegin"
               @joined="refreshHangmanSession"
+              @cancelled="hangmanSession = null"
           />
 
           <HangmanPlay
@@ -536,6 +537,17 @@ export default {
     setupWebSocket() {
       connect(() => {
         subscribe(`/topic/hangman/${this.teamId}/state`, (data) => {
+          // Lobi kapatıldıysa ekranı boşalt — CANCELLED hiçbir ekranın karşılığı değil,
+          // state'te bırakılırsa kullanıcı boş bir sayfada kilitli kalır. Kapatan
+          // moderatöre kendi ekranı zaten bilgi verdi, ona ikinci toast gösterilmez.
+          if (data.status === 'CANCELLED') {
+            if (this.currentGame === 'hangman' && this.hangmanSession
+                && data.hostEmail !== (localStorage.getItem('user') || '')) {
+              createToast('Moderatör lobiyi kapattı', { type: 'info' })
+            }
+            this.hangmanSession = null
+            return
+          }
           // Oturumu kapatmış bir kullanıcıyı bitmiş oyuna geri sürükleme.
           if (!this.hangmanSession && data.status === 'FINISHED') return
           // Ekran değiştirilmez: kullanıcı oyuna GameBox'tan kendisi girer.

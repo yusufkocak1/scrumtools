@@ -9,5 +9,7 @@ public enum HangmanSessionStatus {
     /** Oyun devam ediyor */
     IN_PROGRESS,
     /** Oyun tamamlandı */
-    FINISHED
+    FINISHED,
+    /** Lobi hiç başlamadan moderatör tarafından kapatıldı — geçmişte görünmez */
+    CANCELLED
 }

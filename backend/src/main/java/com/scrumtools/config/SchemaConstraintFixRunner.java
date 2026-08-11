@@ -45,6 +45,9 @@ public class SchemaConstraintFixRunner implements ApplicationRunner {
         // eski kısıt bu değeri tanımadığı için lobi kapatma UPDATE'i patlıyordu.
         dropConstraint("quiz_sessions", "quiz_sessions_status_check");
 
+        // Aynı gerekçeyle HangmanSessionStatus'a da CANCELLED eklendi.
+        dropConstraint("hangman_sessions", "hangman_sessions_status_check");
+
         // Adam Asmaca kelimeleri takım bazlıyken global'e çevrildi; entity'de team_id
         // kalmadı ama ddl-auto:update kolonu düşürmediği için NOT NULL kısıtı insert'leri
         // patlatıyordu. Kolon artık ölü — verisi korunsun diye sadece NOT NULL kaldırılıyor.

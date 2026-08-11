@@ -161,6 +161,9 @@ public class HangmanSessionService {
         if (session.getStatus() == HangmanSessionStatus.FINISHED) {
             throw new RuntimeException("Bu oyun zaten tamamlanmış");
         }
+        if (session.getStatus() == HangmanSessionStatus.CANCELLED) {
+            throw new RuntimeException("Bu lobi kapatıldı");
+        }
 
         if (!participantRepository.existsBySessionIdAndUserEmail(sessionId, email)) {
             List<HangmanParticipant> existing = participantRepository.findBySessionIdOrderByTurnOrderAsc(sessionId);
@@ -367,6 +370,33 @@ public class HangmanSessionService {
 
         round.setCategoryRevealed(true);
         roundRepository.save(round);
+
+        HangmanSessionResponse response = buildResponse(reload(sessionId));
+        broadcast(session.getTeam().getId(), response);
+        return response;
+    }
+
+    /**
+     * Başlamamış lobiyi kapatır — kimse katılmadığı için vazgeçen moderatör içindir.
+     *
+     * Bitirmekten (FINISHED) ayrı bir durum: hiç oynanmamış oyun geçmişte boş bir kayıt
+     * olarak görünmemeli. Kapatılan oturum "aktif oturum" sorgusuna da düşmediği için
+     * moderatör hemen yeni bir oyun açabilir.
+     */
+    @Transactional
+    public HangmanSessionResponse cancelSession(UUID sessionId) {
+        String email = currentEmail();
+        HangmanSession session = findSession(sessionId);
+        assertHost(session, email);
+
+        if (session.getStatus() != HangmanSessionStatus.LOBBY) {
+            throw new RuntimeException("Yalnızca başlamamış bir lobi kapatılabilir");
+        }
+
+        session.setStatus(HangmanSessionStatus.CANCELLED);
+        session.setFinishedAt(LocalDateTime.now());
+        session.setCurrentTurnEmail(null);
+        sessionRepository.save(session);
 
         HangmanSessionResponse response = buildResponse(reload(sessionId));
         broadcast(session.getTeam().getId(), response);

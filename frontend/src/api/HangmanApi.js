@@ -93,6 +93,12 @@ export const revealHangmanCategory = async (teamId, sessionId) => {
     return data
 }
 
+/** Başlamamış lobiyi kapatır (moderatör). Oturum CANCELLED olur, geçmişe yazılmaz. */
+export const cancelHangmanSession = async (teamId, sessionId) => {
+    const { data } = await apiClient.post(`${base(teamId)}/sessions/${sessionId}/cancel`)
+    return data
+}
+
 export const finishHangmanSession = async (teamId, sessionId) => {
     const { data } = await apiClient.post(`${base(teamId)}/sessions/${sessionId}/finish`)
     return data
