@@ -438,7 +438,15 @@ export default {
       applying.value = true
       try {
         const task = await ScrumPokerApi.applyScore(props.teamId, chosenPoints.value)
-        router.push({ name: 'TaskDetail', params: { taskId: task.customId } })
+        const target = router.resolve({ name: 'TaskDetail', params: { taskId: task.customId } })
+        // Masaya bu görevin sayfasından gelindiyse yeni kayıt eklemek yerine geçmişte
+        // geri dönüyoruz: aksi halde poker kaydı yığında kalıp görevdeki "Geri"
+        // tuşunu puanlaması bitmiş masaya çeviriyor.
+        if (router.options.history.state.back === target.fullPath) {
+          router.go(-1)
+        } else {
+          router.push(target)
+        }
       } catch (error) {
         console.error("Puan göreve işlenemedi:", error)
         createToast("Puan göreve işlenemedi. Lütfen tekrar deneyin.", { type: "error", position: "top-center" })
