@@ -52,6 +52,33 @@
           </div>
         </div>
 
+        <!-- Sıra adaleti: oyuncu sayısı tur sayısını belirler -->
+        <div class="bg-indigo-50/60 border border-indigo-100 rounded-xl p-4">
+          <label class="block text-sm font-semibold text-gray-700 mb-2">Kaç kişi oynayacak?</label>
+          <div class="flex flex-wrap items-center gap-3">
+            <input v-model.number="expectedPlayers" type="number" min="1" max="200" placeholder="—"
+                   class="w-24 px-3 py-2 border border-gray-300 rounded-lg text-sm text-center font-semibold text-gray-800 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none" />
+            <p class="text-xs text-gray-500 flex-1 min-w-[180px]">
+              <template v-if="teamMemberCount">
+                Takımda {{ teamMemberCount }} kişi var — sayıyı buna göre doldurduk, değiştirebilirsin.
+              </template>
+              <template v-else>
+                Lobiye kaç kişi katılmasını bekliyorsan onu yaz.
+              </template>
+            </p>
+          </div>
+
+          <p v-if="recommendedRounds" class="text-xs text-gray-600 mt-3 leading-relaxed">
+            Sıra yalnızca <strong>yanlış harfte, yanlış kelime tahmininde ve tur sonunda</strong> devreder;
+            doğru harfte oyuncuda kalır. {{ expectedPlayersSafe }} kişide herkesin sırasının en az iki kez
+            gelmesi için <strong>≈{{ recommendedRounds }} kelime</strong> gerekiyor.
+          </p>
+          <p v-if="recommendationCapped" class="text-xs text-amber-600 mt-2">
+            ⚠️ Öneri {{ recommendationCapReason }} yüzünden {{ recommendedRounds }}'e sınırlandı;
+            bu kalabalıkta listenin sonundakilere yine de az sıra gelebilir.
+          </p>
+        </div>
+
         <!-- Rastgele ayarları -->
         <div v-if="wordSource === 'RANDOM'" class="space-y-4">
           <div>
@@ -86,10 +113,21 @@
               <span class="text-indigo-600 font-bold">{{ roundCount }}</span>
             </label>
             <input v-model.number="roundCount" type="range" min="1" max="20"
+                   @input="roundCountTouched = true"
                    class="w-full accent-indigo-600" />
             <div class="flex justify-between text-xs text-gray-400 mt-1">
               <span>1</span><span>20</span>
             </div>
+            <p v-if="roundsBelowRecommended"
+               class="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 mt-2">
+              ⚠️ {{ expectedPlayersSafe }} kişi için <strong>en az {{ recommendedRounds }}</strong> kelime öneriyoruz.
+              {{ roundCount }} kelimede bazı oyuncuların sırası hiç gelmeyebilir.
+              <button type="button" @click="applyRecommendedRounds"
+                      class="underline font-semibold hover:text-amber-900">{{ recommendedRounds }}'e çıkar</button>
+            </p>
+            <p v-else-if="recommendedRounds" class="text-xs text-green-700 mt-2">
+              ✓ {{ expectedPlayersSafe }} kişi için yeterli — herkese sıra gelir.
+            </p>
           </div>
 
           <label class="flex items-center gap-3 cursor-pointer">
@@ -110,6 +148,11 @@
               class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none font-mono text-sm"></textarea>
           <p class="text-xs text-gray-500 mt-2">
             Boşluksuz, 2-30 harf. {{ parsedWords.length }} kelime girildi.
+          </p>
+          <p v-if="customWordsBelowRecommended"
+             class="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 mt-2">
+            ⚠️ {{ expectedPlayersSafe }} kişi için <strong>en az {{ recommendedRounds }}</strong> kelime öneriyoruz;
+            şu an {{ parsedWords.length }} kelime var. Daha azında bazı oyuncuların sırası hiç gelmeyebilir.
           </p>
           <!-- Kategori burada havuzu daraltmaz; oyun sırasında açabileceğin bir ipucudur. -->
           <div class="mt-4">
@@ -169,7 +212,26 @@
 
 <script>
 import { startHangmanSession, getHangmanCategories } from '../../api/HangmanApi.js'
+import { getTeamById } from '../../api/TeamApi.js'
 import { hangmanCategoryOptions } from '../../data/hangmanWords.js'
+
+/**
+ * Bir turda sıra ortalama kaç kez devreder.
+ *
+ * Sıra sadece yanlış harfte, yanlış kelime tahmininde ve tur kapanışında devrediyor
+ * (doğru harfte oyuncuda kalıyor). Tur en fazla MAX_WRONG=6 yanlışta bittiğine göre
+ * üst sınır 7; ortalama tur ~3 yanlışla çözülüyor, +1 de tur kapanışı → 4.
+ */
+const TURNS_PER_ROUND = 4
+
+/** Herkesin sırası oyun boyunca en az kaç kez gelsin. */
+const TARGET_TURNS_PER_PLAYER = 2
+
+/** Kaydırıcının tavanı — sunucu da bundan fazlasını çizmiyor. */
+const MAX_ROUNDS = 20
+
+/** Az kişilik oyunda öneri saçma derecede düşmesin. */
+const MIN_ROUNDS = 3
 
 export default {
   name: 'HangmanSetup',
@@ -181,6 +243,11 @@ export default {
     language: 'tr',
     wordSource: 'RANDOM',
     roundCount: 5,
+    /** Moderatör kaydırıcıya dokunduysa öneri artık otomatik uygulanmaz. */
+    roundCountTouched: false,
+    /** Beklenen oyuncu sayısı — takım mevcudundan doldurulur, elle değiştirilebilir. */
+    expectedPlayers: null,
+    teamMemberCount: 0,
     /** Rastgelede kelime havuzunu daraltır (null = karışık); özel kelimelerde ipucu kategorisidir. */
     category: null,
     /** Sunucudan gelen kelime sayıları: { [code]: wordCount } */
@@ -201,6 +268,46 @@ export default {
     },
     selectedCategory() {
       return this.categoryOptions.find(o => o.code === this.category) || null
+    },
+    /** Geçerli bir tahmin yoksa 0 — öneri kutuları da gizlenir. */
+    expectedPlayersSafe() {
+      const n = this.expectedPlayers
+      return Number.isFinite(n) && n > 0 ? Math.min(Math.floor(n), 200) : 0
+    },
+    /** Sınırlanmamış ham öneri: her oyuncuya iki sıra düşecek kadar tur. */
+    rawRecommendedRounds() {
+      if (!this.expectedPlayersSafe) return 0
+      const needed = Math.ceil((this.expectedPlayersSafe * TARGET_TURNS_PER_PLAYER) / TURNS_PER_ROUND)
+      return Math.max(MIN_ROUNDS, needed)
+    },
+    /** Öneriyi kısan tavan: kaydırıcı sınırı ya da rastgele modda kategori havuzu. */
+    recommendationCap() {
+      const pool = this.wordSource === 'RANDOM' ? (this.selectedCategory?.wordCount || 0) : 0
+      return pool > 0 ? Math.min(MAX_ROUNDS, pool) : MAX_ROUNDS
+    },
+    recommendedRounds() {
+      if (!this.rawRecommendedRounds) return 0
+      return Math.min(this.rawRecommendedRounds, this.recommendationCap)
+    },
+    recommendationCapped() {
+      return !!this.rawRecommendedRounds && this.rawRecommendedRounds > this.recommendationCap
+    },
+    recommendationCapReason() {
+      const pool = this.selectedCategory?.wordCount || 0
+      return this.wordSource === 'RANDOM' && pool > 0 && pool < MAX_ROUNDS
+          ? 'kategoride yeterli kelime olmaması'
+          : 'bir oyunda en fazla ' + MAX_ROUNDS + ' kelime oynanabilmesi'
+    },
+    roundsBelowRecommended() {
+      return this.wordSource === 'RANDOM'
+          && !!this.recommendedRounds
+          && this.roundCount < this.recommendedRounds
+    },
+    customWordsBelowRecommended() {
+      return this.wordSource === 'CUSTOM'
+          && !!this.recommendedRounds
+          && this.parsedWords.length > 0
+          && this.parsedWords.length < this.recommendedRounds
     },
     tooFewWords() {
       return !!this.selectedCategory
@@ -223,12 +330,36 @@ export default {
     }
   },
   watch: {
-    language: 'loadCategories'
+    language: 'loadCategories',
+    /** Moderatör kaydırıcıya dokunmadıysa öneriyi kendiliğinden uygula. */
+    recommendedRounds(value) {
+      if (value && !this.roundCountTouched) this.roundCount = value
+    }
   },
   mounted() {
     this.loadCategories()
+    this.loadTeamSize()
   },
   methods: {
+    /** Beklenen oyuncu sayısına makul bir başlangıç: takım mevcudu. */
+    async loadTeamSize() {
+      try {
+        const team = await getTeamById(this.teamId)
+        this.teamMemberCount = team?.memberEmails?.length || 0
+        if (this.expectedPlayers === null && this.teamMemberCount > 0) {
+          this.expectedPlayers = this.teamMemberCount
+        }
+      } catch (e) {
+        // Mevcut alınamazsa kutu boş kalır; moderatör sayıyı elle girer.
+        this.teamMemberCount = 0
+      }
+    },
+
+    applyRecommendedRounds() {
+      this.roundCount = this.recommendedRounds
+      this.roundCountTouched = true
+    },
+
     async loadCategories() {
       try {
         const categories = await getHangmanCategories(this.language)
