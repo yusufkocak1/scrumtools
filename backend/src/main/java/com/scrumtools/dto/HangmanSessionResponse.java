@@ -35,10 +35,14 @@ public record HangmanSessionResponse(
         /** Aktif tur — lobide ve oyun bitince null olabilir. */
         HangmanRoundResponse round,
         /**
-         * En son biten tur (cevabı açık). Tur bitince sunucu hemen sonrakine geçtiği için
-         * istemci "kelime neydi" bilgisini buradan gösterir.
+         * En son biten tur (cevabı açık) — istemci "kelime neydi" bilgisini buradan gösterir.
          */
         HangmanRoundResponse lastFinishedRound,
+        /**
+         * Tur bitti, moderatörün sonraki kelimeye geçmesi bekleniyor.
+         * true iken hiçbir tahmin kabul edilmez ve süre sayaçları durur.
+         */
+        boolean awaitingNextRound,
         List<HangmanParticipantResponse> participants,
         List<HangmanLeaderboardEntry> leaderboard,
         /** Son tahminler (en yeni önce) — canlı akış için. */
@@ -85,6 +89,7 @@ public record HangmanSessionResponse(
                 wordOpenInSeconds,
                 round,
                 lastFinishedRound,
+                Boolean.TRUE.equals(session.getAwaitingNextRound()),
                 participants,
                 leaderboard,
                 recentGuesses,

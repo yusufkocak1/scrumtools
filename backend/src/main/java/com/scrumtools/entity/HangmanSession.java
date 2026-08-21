@@ -93,6 +93,21 @@ public class HangmanSession {
     @Column
     private LocalDateTime turnStartedAt;
 
+    /**
+     * Tur bitti, sonraki kelimeye geçmek için moderatörün onayı bekleniyor mu?
+     *
+     * Tur kapandığında oyun otomatik olarak sonrakine geçmez: bulunan kelime herkese
+     * ilan edilir ve moderatör "Sonraki Kelime"ye basana kadar oyun bu ara ekranında bekler.
+     * Bu sırada {@code currentRoundIndex} biten turu gösterir (cevabı açık gelsin diye),
+     * {@code currentTurnEmail} ise turu bitiren oyuncuda durur — sonraki tur onun
+     * sonrasındaki oyuncuyla başlasın diye. Süre sayaçları ara boyunca işlemez.
+     *
+     * Eski oturumlarda null olabilir; her zaman {@code Boolean.TRUE.equals(...)} ile okuyun.
+     */
+    @Column
+    @Builder.Default
+    private Boolean awaitingNextRound = false;
+
     // Turlar bilinçli olarak @OneToMany ile bağlanmadı: HangmanRound kayıtları
     // repository üzerinden yazılıyor, bu yüzden buradaki koleksiyon bayat kalırdı.
     // Turlara her zaman HangmanRoundRepository üzerinden erişin.

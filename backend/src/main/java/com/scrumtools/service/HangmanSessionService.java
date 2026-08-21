@@ -28,6 +28,8 @@ import java.util.regex.Pattern;
  *   • Kelime tahmini yanlış → adam ASILMAZ, sadece sıra sonraki oyuncuya geçer.
  *   • Moderatör kelimeleri kendi belirlediyse oynayamaz (izleyici olur).
  *   • Oyun sürerken katılan oyuncu sıranın sonuna eklenir.
+ *   • Tur bitince oyun otomatik ilerlemez: kelime herkese ilan edilir ve moderatör
+ *     "Sonraki Kelime"ye basana kadar ara ekranında beklenir (bkz. awaitingNextRound).
  *
  * Süre kuralları:
  *   • Harf tahmini HER ZAMAN yalnızca sırası gelen oyuncuya aittir.
@@ -381,6 +383,9 @@ public class HangmanSessionService {
         if (session.getStatus() != HangmanSessionStatus.IN_PROGRESS) {
             throw new RuntimeException("Oyun aktif değil");
         }
+        if (Boolean.TRUE.equals(session.getAwaitingNextRound())) {
+            throw new RuntimeException("Tur bitti — önce sonraki kelimeye geçin");
+        }
         advanceTurn(session, session.getCurrentTurnEmail());
 
         HangmanSessionResponse response = buildResponse(reload(sessionId));
@@ -474,8 +479,14 @@ public class HangmanSessionService {
     // ─── Tur / sıra mantığı ─────────────────────────────────────────────────────
 
     /**
-     * Turu kapatır ve sonraki tura geçer; tur kalmadıysa oyunu bitirir.
-     * Sıra, turu bitiren oyuncunun bir sonrasına geçer.
+     * Turu kapatır ve oyunu ara ekranına alır: kelime herkese açılır, sonraki tura
+     * geçmek moderatörün {@link #nextRound(UUID)} çağrısını bekler.
+     *
+     * Otomatik geçilmemesinin sebebi: tur bitince cevabın ekranda birkaç saniye
+     * yanıp sönmesi yerine masadaki herkesin "kelime neymiş" diye görüp konuşabilmesi.
+     * Ara boyunca {@code currentRoundIndex} biten turda kalır (yanıt cevabı açık taşısın),
+     * {@code currentTurnEmail} de turu bitiren oyuncuda durur — sonraki tur onun
+     * sonrasındaki oyuncuyla başlasın diye.
      */
     private void closeRound(HangmanSession session, HangmanRound round,
                             HangmanRoundStatus status, HangmanParticipant solver) {
@@ -487,12 +498,33 @@ public class HangmanSessionService {
         }
         roundRepository.save(round);
 
-        int nextIndex = round.getRoundOrder() + 1;
+        session.setAwaitingNextRound(true);
+        sessionRepository.save(session);
+    }
+
+    /**
+     * Ara ekranından sonraki tura geçer; tur kalmadıysa oyunu bitirir. Sadece moderatör.
+     */
+    @Transactional
+    public HangmanSessionResponse nextRound(UUID sessionId) {
+        String email = currentEmail();
+        HangmanSession session = findSession(sessionId);
+        assertHost(session, email);
+
+        if (session.getStatus() != HangmanSessionStatus.IN_PROGRESS) {
+            throw new RuntimeException("Oyun aktif değil");
+        }
+        if (!Boolean.TRUE.equals(session.getAwaitingNextRound())) {
+            throw new RuntimeException("Oynanan tur henüz bitmedi");
+        }
+
+        int nextIndex = session.getCurrentRoundIndex() + 1;
         Optional<HangmanRound> next = roundRepository.findBySessionIdAndRoundOrder(session.getId(), nextIndex);
 
         if (next.isEmpty()) {
-            doFinish(session);
-            return;
+            // Son kelimeydi: ara ekranındaki buton oyunu bitirir.
+            session.setAwaitingNextRound(false);
+            return doFinish(session);
         }
 
         HangmanRound nextRound = next.get();
@@ -501,10 +533,15 @@ public class HangmanSessionService {
         roundRepository.save(nextRound);
 
         session.setCurrentRoundIndex(nextIndex);
+        session.setAwaitingNextRound(false);
         sessionRepository.save(session);
 
         // Yeni tur, turu bitiren oyuncunun sonrasındaki oyuncuyla başlar.
         advanceTurn(session, session.getCurrentTurnEmail());
+
+        HangmanSessionResponse response = buildResponse(reload(sessionId));
+        broadcast(session.getTeam().getId(), response);
+        return response;
     }
 
     /**
@@ -570,6 +607,7 @@ public class HangmanSessionService {
         session.setFinishedAt(LocalDateTime.now());
         session.setCurrentTurnEmail(null);
         session.setTurnStartedAt(null);
+        session.setAwaitingNextRound(false);
         sessionRepository.save(session);
 
         HangmanSessionResponse response = buildResponse(reload(session.getId()));
@@ -652,6 +690,9 @@ public class HangmanSessionService {
         if (session.getStatus() != HangmanSessionStatus.IN_PROGRESS) {
             throw new RuntimeException("Oyun aktif değil");
         }
+        if (Boolean.TRUE.equals(session.getAwaitingNextRound())) {
+            throw new RuntimeException("Tur bitti — moderatörün sonraki kelimeye geçmesi bekleniyor");
+        }
         return roundRepository.findBySessionIdAndRoundOrder(session.getId(), session.getCurrentRoundIndex())
                 .filter(r -> r.getStatus() == HangmanRoundStatus.ACTIVE)
                 .orElseThrow(() -> new RuntimeException("Aktif tur yok"));
@@ -723,6 +764,7 @@ public class HangmanSessionService {
     /** Aktif bir sıra var ve süresi doldu mu? turnStartedAt boşsa (eski oturum) süre işlemez. */
     private boolean isTurnExpired(HangmanSession session) {
         return session.getStatus() == HangmanSessionStatus.IN_PROGRESS
+                && !Boolean.TRUE.equals(session.getAwaitingNextRound())
                 && session.getCurrentTurnEmail() != null
                 && session.getTurnStartedAt() != null
                 && elapsedTurnSeconds(session) >= TURN_SECONDS;
@@ -735,9 +777,10 @@ public class HangmanSessionService {
         return Math.max(0, Duration.between(start, LocalDateTime.now()).getSeconds());
     }
 
-    /** Sıranın bitmesine kalan saniye; aktif sıra yoksa 0. */
+    /** Sıranın bitmesine kalan saniye; aktif sıra yoksa (ya da tur arasıysa) 0. */
     private int turnSecondsLeft(HangmanSession session) {
-        if (session.getStatus() != HangmanSessionStatus.IN_PROGRESS || session.getCurrentTurnEmail() == null) {
+        if (session.getStatus() != HangmanSessionStatus.IN_PROGRESS || session.getCurrentTurnEmail() == null
+                || Boolean.TRUE.equals(session.getAwaitingNextRound())) {
             return 0;
         }
         return (int) Math.max(0, TURN_SECONDS - elapsedTurnSeconds(session));
@@ -745,7 +788,8 @@ public class HangmanSessionService {
 
     /** Kelime tahmininin herkese açılmasına kalan saniye; 0 = açık. */
     private int wordOpenInSeconds(HangmanSession session) {
-        if (session.getStatus() != HangmanSessionStatus.IN_PROGRESS || session.getCurrentTurnEmail() == null) {
+        if (session.getStatus() != HangmanSessionStatus.IN_PROGRESS || session.getCurrentTurnEmail() == null
+                || Boolean.TRUE.equals(session.getAwaitingNextRound())) {
             return 0;
         }
         return (int) Math.max(0, WORD_GUESS_LOCK_SECONDS - elapsedTurnSeconds(session));

@@ -27,6 +27,7 @@ import java.util.UUID;
  *   POST   /api/teams/{teamId}/hangman/sessions/{id}/guess-letter→ harf tahmini
  *   POST   /api/teams/{teamId}/hangman/sessions/{id}/guess-word  → kelime tahmini
  *   POST   /api/teams/{teamId}/hangman/sessions/{id}/skip-turn   → sırayı devret (moderatör)
+ *   POST   /api/teams/{teamId}/hangman/sessions/{id}/next-round  → sonraki kelimeye geç (moderatör)
  *   POST   /api/teams/{teamId}/hangman/sessions/{id}/reveal-category → kategoriyi göster (moderatör)
  *   POST   /api/teams/{teamId}/hangman/sessions/{id}/cancel       → başlamamış lobiyi kapat (moderatör)
  *   POST   /api/teams/{teamId}/hangman/sessions/{id}/finish      → oyunu bitir (moderatör)
@@ -91,6 +92,16 @@ public class HangmanSessionController {
     public ResponseEntity<HangmanSessionResponse> skipTurn(@PathVariable UUID teamId,
                                                            @PathVariable UUID sessionId) {
         return ResponseEntity.ok(hangmanSessionService.skipTurn(sessionId));
+    }
+
+    /**
+     * Tur bitince beliren ara ekranından sonraki kelimeye geçer.
+     * Oynanacak kelime kalmadıysa oyunu bitirir.
+     */
+    @PostMapping("/sessions/{sessionId}/next-round")
+    public ResponseEntity<HangmanSessionResponse> nextRound(@PathVariable UUID teamId,
+                                                            @PathVariable UUID sessionId) {
+        return ResponseEntity.ok(hangmanSessionService.nextRound(sessionId));
     }
 
     @PostMapping("/sessions/{sessionId}/reveal-category")

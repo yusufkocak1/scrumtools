@@ -85,6 +85,15 @@ export const skipHangmanTurn = async (teamId, sessionId) => {
 }
 
 /**
+ * Tur bitince beliren ara ekranından sonraki kelimeye geçer (moderatör).
+ * Oynanacak kelime kalmadıysa oyunu bitirir ve sonuç ekranı gelir.
+ */
+export const nextHangmanRound = async (teamId, sessionId) => {
+    const { data } = await apiClient.post(`${base(teamId)}/sessions/${sessionId}/next-round`)
+    return data
+}
+
+/**
  * Oynanan kelimenin kategorisini herkese açar (moderatör ipucu). Geri alınamaz.
  * Kategori tur yanıtında round.category / round.categoryLabel olarak döner.
  */

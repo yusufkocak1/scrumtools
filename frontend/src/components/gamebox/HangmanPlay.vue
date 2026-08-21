@@ -1,20 +1,60 @@
 <template>
   <div class="max-w-6xl mx-auto">
-    <!-- Tur bitti bildirimi -->
+    <!-- ─── Tur arası: kelime ilanı ───
+         Tur bittiğinde oyun burada durur — kelime büyük harflerle ilan edilir ve
+         sonraki kelimeye ancak moderatör geçirir. Sunucu da bu sürede tahmin kabul etmez. -->
     <transition name="fade">
-      <div v-if="roundBanner"
-           :class="['mb-4 rounded-2xl p-4 flex items-center gap-3 border',
-                    roundBanner.solved
-                      ? 'bg-green-50 border-green-200'
-                      : 'bg-red-50 border-red-200']">
-        <span class="text-3xl">{{ roundBanner.solved ? '🎉' : '💀' }}</span>
-        <div>
-          <p :class="['font-bold', roundBanner.solved ? 'text-green-700' : 'text-red-700']">
-            {{ roundBanner.solved ? `${roundBanner.solvedByName} bildi!` : 'Kimse bilemedi!' }}
-          </p>
-          <p class="text-sm text-gray-600">
-            Kelime: <strong class="font-mono tracking-wider">{{ upper(roundBanner.revealedWord) }}</strong>
-          </p>
+      <div v-if="intermission"
+           class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-gray-900/70 backdrop-blur-sm">
+        <div class="w-full max-w-2xl bg-white rounded-3xl shadow-2xl overflow-hidden max-h-full overflow-y-auto">
+          <div :class="['px-6 py-6 text-center',
+                        intermission.solved
+                          ? 'bg-gradient-to-r from-green-500 to-emerald-600'
+                          : 'bg-gradient-to-r from-rose-500 to-red-600']">
+            <p class="text-5xl mb-2">{{ intermission.solved ? '🎉' : '💀' }}</p>
+            <p class="text-white text-xl sm:text-2xl font-bold">
+              {{ intermission.solved ? `${intermission.solvedByName} bildi!` : 'Kimse bilemedi!' }}
+            </p>
+            <p class="text-white/80 text-xs mt-1">
+              Kelime {{ intermission.roundOrder + 1 }} / {{ session.totalRounds }}
+            </p>
+          </div>
+
+          <div class="p-6 sm:p-8 text-center">
+            <p class="text-xs font-semibold uppercase tracking-widest text-gray-400 mb-3">Kelime</p>
+            <div class="flex flex-wrap justify-center gap-1.5 sm:gap-2">
+              <span v-for="(ch, i) in revealedLetters" :key="i"
+                    class="w-10 h-12 sm:w-12 sm:h-14 flex items-center justify-center rounded-xl
+                           bg-indigo-50 border-2 border-indigo-200 text-indigo-700
+                           font-mono font-bold text-2xl sm:text-3xl">
+                {{ ch }}
+              </span>
+            </div>
+            <p v-if="intermissionCategory" class="mt-4 text-sm text-gray-500">
+              🏷️ {{ intermissionCategory }}
+            </p>
+            <p v-if="intermission.solved && intermission.score > 0" class="mt-3 text-sm text-gray-600">
+              <strong class="text-green-600">+{{ intermission.score }}</strong> puan
+            </p>
+          </div>
+
+          <div class="border-t border-gray-200 bg-gray-50 px-6 py-5 text-center">
+            <button v-if="isHost" @click="$emit('next-round')"
+                    class="w-full sm:w-auto px-8 py-3.5 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700
+                           transition-colors font-semibold text-lg shadow-lg shadow-indigo-600/20">
+              {{ isLastRound ? '🏁 Sonuçları Göster' : '⏭️ Sonraki Kelime' }}
+            </button>
+            <p v-else class="text-sm text-gray-500 flex items-center justify-center gap-2">
+              <span class="w-2 h-2 rounded-full bg-indigo-500 animate-pulse"></span>
+              {{ isLastRound
+                  ? 'Moderatör sonuçları açıyor…'
+                  : 'Moderatörün sonraki kelimeye geçmesi bekleniyor…' }}
+            </p>
+            <button v-if="isHost && !isLastRound" @click="$emit('finish')"
+                    class="mt-3 text-xs text-gray-400 hover:text-red-600 transition-colors">
+              ⏹️ Oyunu burada bitir
+            </button>
+          </div>
         </div>
       </div>
     </transition>
@@ -24,10 +64,13 @@
       <div class="bg-white rounded-2xl shadow-xl border border-gray-200 overflow-hidden">
         <!-- Sıra göstergesi -->
         <div :class="['p-4 sm:p-5 text-center transition-colors',
-                      isMyTurn
-                        ? 'bg-gradient-to-r from-green-500 to-emerald-600'
-                        : 'bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500']">
-          <p v-if="isMyTurn" class="text-white font-bold text-lg">🎯 Sıra sende!</p>
+                      intermission
+                        ? 'bg-gradient-to-r from-slate-600 to-slate-700'
+                        : isMyTurn
+                          ? 'bg-gradient-to-r from-green-500 to-emerald-600'
+                          : 'bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500']">
+          <p v-if="intermission" class="text-white font-bold text-lg">⏸️ Tur bitti</p>
+          <p v-else-if="isMyTurn" class="text-white font-bold text-lg">🎯 Sıra sende!</p>
           <p v-else-if="isSpectator" class="text-white font-medium">
             👁️ İzliyorsun — sıra <strong>{{ session.currentTurnName }}</strong>'de
           </p>
@@ -38,8 +81,9 @@
             Kelime {{ session.currentRoundIndex + 1 }} / {{ session.totalRounds }}
           </p>
 
-          <!-- Sıra sayacı — sunucudan gelen kalan süreyle senkron, arada yerelde işler. -->
-          <div class="mt-3 max-w-sm mx-auto">
+          <!-- Sıra sayacı — sunucudan gelen kalan süreyle senkron, arada yerelde işler.
+               Tur arasında sıra kimsede değildir: sayaç durur ve gizlenir. -->
+          <div v-if="!intermission" class="mt-3 max-w-sm mx-auto">
             <div class="flex items-center justify-between gap-2 text-[11px] text-white/85 mb-1">
               <span class="font-semibold">⏱️ {{ secondsLeft }} sn</span>
               <span v-if="isSpectator"></span>
@@ -148,12 +192,12 @@
         <div v-if="isHost" class="border-t border-gray-200 bg-gray-50 px-6 py-4 flex flex-wrap gap-3 justify-between items-center">
           <p class="text-xs text-gray-500">Moderatör kontrolleri</p>
           <div class="flex gap-2">
-            <button v-if="canRevealCategory" @click="$emit('reveal-category')"
+            <button v-if="canRevealCategory && !intermission" @click="$emit('reveal-category')"
                     title="Kelimenin kategorisini tüm oyunculara gösterir — geri alınamaz"
                     class="px-4 py-2 bg-white border border-indigo-300 text-indigo-700 rounded-lg hover:bg-indigo-50 transition-colors text-sm font-medium">
               🏷️ Kategoriyi Göster
             </button>
-            <button @click="$emit('skip')"
+            <button v-if="!intermission" @click="$emit('skip')"
                     class="px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-100 transition-colors text-sm font-medium">
               ⏭️ Sırayı Devret
             </button>
@@ -237,12 +281,10 @@ export default {
     isHost: Boolean,
     teamId: String
   },
-  emits: ['updated', 'skip', 'finish', 'reveal-category'],
+  emits: ['updated', 'skip', 'finish', 'reveal-category', 'next-round'],
   data: () => ({
     wordGuess: '',
     busy: false,
-    roundBanner: null,
-    bannerTimer: null,
     /**
      * Sıra sayacı. Sunucudan gelen kalan süreyle her durum güncellemesinde senkronlanır,
      * arada yerelde saniye saniye işler — böylece istemci saati kaymış olsa da doğru kalır.
@@ -258,6 +300,37 @@ export default {
   computed: {
     round() {
       return this.session?.round || null
+    },
+    /**
+     * Tur arası — biten turun bilgileri. Sunucu tur bitince oyunu burada durdurur
+     * (awaitingNextRound) ve sonraki kelimeye moderatörün geçmesini bekler.
+     */
+    intermission() {
+      if (!this.session?.awaitingNextRound) return null
+      const r = this.session.lastFinishedRound
+      if (!r) return null
+      return {
+        solved: r.status === 'SOLVED',
+        solvedByName: r.solvedByName,
+        revealedWord: r.revealedWord,
+        roundOrder: r.roundOrder,
+        categoryLabel: r.categoryLabel,
+        category: r.category,
+        score: this.solvedScore(r)
+      }
+    },
+    /** İlan panelindeki harf kutuları. */
+    revealedLetters() {
+      return this.upper(this.intermission?.revealedWord).split('')
+    },
+    intermissionCategory() {
+      const r = this.intermission
+      if (!r?.category && !r?.categoryLabel) return null
+      return hangmanCategoryLabel(r.category, this.session?.language) || r.categoryLabel
+    },
+    /** Ara ekranındaki buton: son kelimeden sonra sıradaki adım sonuç ekranıdır. */
+    isLastRound() {
+      return (this.session?.currentRoundIndex ?? 0) + 1 >= (this.session?.totalRounds ?? 0)
     },
     locale() {
       return this.session?.language === 'tr' ? 'tr-TR' : 'en-US'
@@ -348,20 +421,6 @@ export default {
     }
   },
   watch: {
-    // Tur bittiğinde kelimeyi kısa süre göster — sunucu hemen sonraki tura geçtiği için.
-    'session.lastFinishedRound.id': {
-      handler(id, oldId) {
-        if (!id || id === oldId) return
-        const r = this.session.lastFinishedRound
-        this.roundBanner = {
-          solved: r.status === 'SOLVED',
-          solvedByName: r.solvedByName,
-          revealedWord: r.revealedWord
-        }
-        clearTimeout(this.bannerTimer)
-        this.bannerTimer = setTimeout(() => { this.roundBanner = null }, 6000)
-      }
-    },
     // Sıra bize geçtiğinde eski tahmin metnini temizle.
     'session.currentTurnEmail'() {
       this.wordGuess = ''
@@ -388,6 +447,16 @@ export default {
     },
     upper(v) {
       return (v || '').toLocaleUpperCase(this.locale)
+    },
+    /**
+     * Turu bitiren tahminin kazandırdığı puan — canlı akıştaki kaydından okunur.
+     * Akış son {@code RECENT_GUESS_LIMIT} hamleyle sınırlı olduğu için bulunamazsa 0 döner.
+     */
+    solvedScore(round) {
+      if (round?.status !== 'SOLVED') return 0
+      const winning = (this.session?.recentGuesses || [])
+          .find(g => g.correct && g.userEmail === round.solvedByEmail)
+      return winning?.scoreDelta || 0
     },
     isGuessed(letter) {
       return this.guessedLetters.includes(letter.toLocaleLowerCase(this.locale))
@@ -457,7 +526,6 @@ export default {
   },
   beforeUnmount() {
     window.removeEventListener('keydown', this.handleKeydown)
-    clearTimeout(this.bannerTimer)
     clearInterval(this.tickTimer)
   }
 }
