@@ -1,16 +1,22 @@
-FROM eclipse-temurin:25-jdk AS build
+# Maven'in resmi imajı: Maven kurulu geliyor.
+#
+# <b>Neden değişti:</b> önceden temel imaj `eclipse-temurin:25-jdk` idi ve Maven
+# build sırasında `archive.apache.org`'dan tarball olarak indiriliyordu. O adres
+# arşiv sunucusudur (CDN değil) ve 21 Ağustos 2026'da yanıt vermedi: `curl`
+# zaman aşımı olmadığı için adım ~10 dakika asılı kaldı, sonra
+# "curl: (56) Recv failure" ile pipeline düştü. Yani her deploy, kod ile hiç
+# ilgisi olmayan tek bir dış adresin ayakta olmasına bağlıydı.
+#
+# Resmi imaj bu bağımlılığı da, `apt-get install curl` adımını da ortadan
+# kaldırıyor; Docker Hub zaten çekilmek zorunda olan bir kayıt defteri.
+FROM maven:3.9.16-eclipse-temurin-25 AS build
 WORKDIR /app
-
-# Install Maven
-ARG MAVEN_VERSION=3.9.9
-RUN apt-get update && apt-get install -y curl && \
-    curl -fsSL https://archive.apache.org/dist/maven/maven-3/${MAVEN_VERSION}/binaries/apache-maven-${MAVEN_VERSION}-bin.tar.gz | tar xz -C /opt && \
-    ln -s /opt/apache-maven-${MAVEN_VERSION}/bin/mvn /usr/bin/mvn
 
 COPY pom.xml ./
 COPY src ./src
 
-RUN mvn -DskipTests package
+# -B (batch): Jenkins konsolunda ilerleme çubuğu yerine düz satır üretir.
+RUN mvn -B -DskipTests package
 
 FROM eclipse-temurin:25-jre
 WORKDIR /app
