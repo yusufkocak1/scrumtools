@@ -63,12 +63,19 @@
       <!-- ─── Oyun alanı ─── -->
       <div class="bg-white rounded-2xl shadow-xl border border-gray-200 overflow-hidden">
         <!-- Sıra göstergesi -->
-        <div :class="['p-4 sm:p-5 text-center transition-colors',
+        <div :class="['relative p-4 sm:p-5 text-center transition-colors',
                       intermission
                         ? 'bg-gradient-to-r from-slate-600 to-slate-700'
                         : isMyTurn
                           ? 'bg-gradient-to-r from-green-500 to-emerald-600'
                           : 'bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500']">
+          <!-- Sıra sesi — ofiste oynayan susturabilsin diye, tercih tarayıcıda kalıcı. -->
+          <button v-if="!isSpectator" @click="toggleSound"
+                  :title="soundEnabled ? 'Sıra sesini kapat' : 'Sıra sesini aç'"
+                  class="absolute top-3 right-3 w-8 h-8 rounded-full bg-white/20 hover:bg-white/30 transition-colors text-sm leading-none">
+            {{ soundEnabled ? '🔔' : '🔕' }}
+          </button>
+
           <p v-if="intermission" class="text-white font-bold text-lg">⏸️ Tur bitti</p>
           <p v-else-if="isMyTurn" class="text-white font-bold text-lg">🎯 Sıra sende!</p>
           <p v-else-if="isSpectator" class="text-white font-medium">
@@ -79,6 +86,15 @@
           </p>
           <p class="text-white/80 text-xs mt-1">
             Kelime {{ session.currentRoundIndex + 1 }} / {{ session.totalRounds }}
+          </p>
+
+          <!-- Bekleyen oyuncu ne kadar bekleyeceğini bilsin; belirsizlik sekme değiştirtiyor. -->
+          <p v-if="!intermission && turnsUntilMine === 1"
+             class="mt-2 inline-flex items-center gap-1.5 px-3 py-1 bg-yellow-300 text-yellow-900 rounded-full text-xs font-bold animate-pulse">
+            👉 Sıradaki sensin — hazırlan!
+          </p>
+          <p v-else-if="!intermission && turnsUntilMine > 1" class="mt-2 text-white/75 text-xs">
+            ⏳ {{ turnsUntilMine }} kişi sonra sıra sende
           </p>
 
           <!-- Sıra sayacı — sunucudan gelen kalan süreyle senkron, arada yerelde işler.
@@ -211,6 +227,30 @@
 
       <!-- ─── Yan panel ─── -->
       <div class="space-y-4">
+        <!-- Sıra kuyruğu — puan tablosu skora göre sıralı olduğu için sırayı göstermiyor. -->
+        <div v-if="turnQueue.length > 1" class="bg-white rounded-2xl shadow-lg border border-gray-200 overflow-hidden">
+          <div class="px-5 py-3 border-b border-gray-200 bg-gray-50">
+            <h3 class="font-semibold text-gray-800">🔀 Sıra Kuyruğu</h3>
+          </div>
+          <div class="divide-y divide-gray-100">
+            <div v-for="(p, i) in turnQueue" :key="p.email"
+                 :class="['flex items-center gap-3 px-5 py-2.5',
+                          i === 0 ? 'bg-green-50' : p.email === myEmail ? 'bg-yellow-50' : '']">
+              <span :class="['w-6 h-6 rounded-full flex items-center justify-center text-[11px] font-bold shrink-0',
+                             i === 0 ? 'bg-green-200 text-green-800' : 'bg-gray-100 text-gray-500']">
+                {{ i === 0 ? '▶' : i }}
+              </span>
+              <p class="text-sm text-gray-800 truncate flex-1">
+                {{ p.displayName }}
+                <span v-if="p.email === myEmail" class="text-xs text-indigo-600 font-semibold">(sen)</span>
+              </p>
+              <span v-if="i === 0" class="text-xs font-semibold text-green-700 shrink-0">
+                {{ intermission ? 'sırada' : 'şimdi' }}
+              </span>
+            </div>
+          </div>
+        </div>
+
         <!-- Puan tablosu -->
         <div class="bg-white rounded-2xl shadow-lg border border-gray-200 overflow-hidden">
           <div class="px-5 py-3 border-b border-gray-200 bg-gray-50">
@@ -269,10 +309,17 @@
 <script>
 import { guessHangmanLetter, guessHangmanWord } from '../../api/HangmanApi.js'
 import { hangmanCategoryLabel } from '../../data/hangmanWords.js'
+import { playTurnChime, flashTabTitle } from '../../utils/turnAlert.js'
 
 const TR_ALPHABET = ['A', 'B', 'C', 'Ç', 'D', 'E', 'F', 'G', 'Ğ', 'H', 'I', 'İ', 'J', 'K', 'L', 'M',
   'N', 'O', 'Ö', 'P', 'R', 'S', 'Ş', 'T', 'U', 'Ü', 'V', 'Y', 'Z']
 const EN_ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('')
+
+/** Sıra sesi tercihi tarayıcıda saklanır — her oyunda yeniden kapatmak gerekmesin. */
+const SOUND_PREF_KEY = 'hangman.turnSound'
+
+/** Sıra kuyruğunda gösterilecek oyuncu sayısı — daha uzunu panelde gürültü yapıyor. */
+const QUEUE_PREVIEW = 5
 
 export default {
   name: 'HangmanPlay',
@@ -295,7 +342,11 @@ export default {
     wordOpensIn: 0,
     tickTimer: null,
     /** Sırası olmayan oyuncunun bu sıra penceresindeki tek hakkını kullandı mı? */
-    wordTriedThisTurn: false
+    wordTriedThisTurn: false,
+    /** Sıra sende uyarısının sesi. Tercih localStorage'dan okunur (bkz. created). */
+    soundEnabled: true,
+    /** flashTabTitle'ın döndürdüğü durdurucu; null = başlık flaşı çalışmıyor. */
+    stopTitleFlash: null
   }),
   computed: {
     round() {
@@ -347,6 +398,44 @@ export default {
     isSpectator() {
       return (this.session?.participants || [])
           .some(p => p.email === this.myEmail && p.spectator)
+    },
+    /** Sıraya giren oyuncular, tur sırasına göre (izleyiciler yarışmaz). */
+    playersInTurnOrder() {
+      return (this.session?.participants || [])
+          .filter(p => !p.spectator)
+          .slice()
+          .sort((a, b) => a.turnOrder - b.turnOrder)
+    },
+    /**
+     * Kuyruğun başı: normalde sırası gelen oyuncu.
+     *
+     * Ara ekranında currentTurnEmail turu BİTİREN oyuncuda duruyor (sunucu sonraki turu
+     * onun sonrasındakiyle başlatıyor), o yüzden orada bir kaydırıyoruz.
+     */
+    queueStartIndex() {
+      const players = this.playersInTurnOrder
+      const current = players.findIndex(p => p.email === this.session?.currentTurnEmail)
+      if (current < 0) return 0
+      return this.intermission ? (current + 1) % players.length : current
+    },
+    /** Kuyruğun başından itibaren sıradaki oyuncular. */
+    turnQueue() {
+      const players = this.playersInTurnOrder
+      if (!players.length) return []
+      const start = this.queueStartIndex
+      return Array.from({ length: Math.min(players.length, QUEUE_PREVIEW) },
+          (_, i) => players[(start + i) % players.length])
+    },
+    /**
+     * Sıramın gelmesine kaç oyuncu kaldı? 0 = sıra bende, -1 = hesaplanamıyor
+     * (izleyiciyim ya da oyunda değilim).
+     */
+    turnsUntilMine() {
+      const players = this.playersInTurnOrder
+      if (this.isSpectator || players.length < 2) return -1
+      const mine = players.findIndex(p => p.email === this.myEmail)
+      if (mine < 0 || !this.session?.currentTurnEmail) return -1
+      return (mine - this.queueStartIndex + players.length) % players.length
     },
     turnSeconds() {
       return this.session?.turnSeconds || 30
@@ -430,6 +519,18 @@ export default {
     session: {
       handler() { this.syncTimers() },
       immediate: true
+    },
+    /**
+     * Sıra bana geçtiği AN uyar. immediate yok: bileşen zaten sıram bendeyken açıldığında
+     * (sayfa yenileme) zil çalmasın — kullanıcı ekrana bakıyor demektir.
+     */
+    isMyTurn(mine, wasMine) {
+      if (mine && !wasMine) this.alertMyTurn()
+      else if (!mine) this.endTitleFlash()
+    },
+    // Tur arasına girildiğinde sıra kimsede değil; uyarı takılı kalmasın.
+    intermission(active) {
+      if (active) this.endTitleFlash()
     }
   },
   methods: {
@@ -444,6 +545,38 @@ export default {
     tick() {
       if (this.secondsLeft > 0) this.secondsLeft--
       if (this.wordOpensIn > 0) this.wordOpensIn--
+    },
+    /**
+     * Sıra bana geçti: kısa zil + (sekme arkadaysa) başlık flaşı.
+     *
+     * Başlığı yalnızca sekme gizliyken flaşlatırız — ekrana bakan zaten yeşil başlığı
+     * görüyor, flaş sadece dikkat dağıtır.
+     */
+    alertMyTurn() {
+      if (this.soundEnabled) playTurnChime()
+      if (document.hidden) {
+        this.endTitleFlash()
+        this.stopTitleFlash = flashTabTitle('🎯 SIRA SENDE!')
+      }
+    },
+    endTitleFlash() {
+      if (!this.stopTitleFlash) return
+      this.stopTitleFlash()
+      this.stopTitleFlash = null
+    },
+    /** Sekmeye dönüldüğünde flaşın işi bitmiştir. */
+    handleVisibility() {
+      if (!document.hidden) this.endTitleFlash()
+    },
+    toggleSound() {
+      this.soundEnabled = !this.soundEnabled
+      try {
+        localStorage.setItem(SOUND_PREF_KEY, this.soundEnabled ? '1' : '0')
+      } catch (e) {
+        // Depolama kapalıysa tercih bu oturumluk kalır, sorun değil.
+      }
+      // Açarken bir kez çal: hem örnek olsun hem tarayıcının ses iznini bu tıklamayla al.
+      if (this.soundEnabled) playTurnChime()
     },
     upper(v) {
       return (v || '').toLocaleUpperCase(this.locale)
@@ -519,14 +652,25 @@ export default {
       }
     }
   },
+  created() {
+    try {
+      this.soundEnabled = localStorage.getItem(SOUND_PREF_KEY) !== '0'
+    } catch (e) {
+      // Depolama okunamıyorsa varsayılan (açık) kalır.
+    }
+  },
   mounted() {
     window.addEventListener('keydown', this.handleKeydown)
+    document.addEventListener('visibilitychange', this.handleVisibility)
     this.syncTimers()
     this.tickTimer = setInterval(this.tick, 1000)
   },
   beforeUnmount() {
     window.removeEventListener('keydown', this.handleKeydown)
+    document.removeEventListener('visibilitychange', this.handleVisibility)
     clearInterval(this.tickTimer)
+    // Başlık flaşı sürerken çıkılırsa sekme adı takılı kalırdı.
+    this.endTitleFlash()
   }
 }
 </script>
