@@ -280,6 +280,8 @@
 import NotificationBell from "./NotificationBell.vue";
 import { useAuth } from '../composables/useAuth.js'
 import { useTeamContext } from '../composables/useTeamContext.js'
+import { useOrganizationContext } from '../composables/useOrganizationContext.js'
+import { recallModuleProject } from '../utils/lastModuleProject.js'
 
 export default {
   name: 'Navbar',
@@ -298,7 +300,10 @@ export default {
     // App.vue'da oturum açıkken tetiklenir — navbar ziyaretçide de render
     // edildiği için burada istek atılmaz.
     const { activeTeamId } = useTeamContext()
-    return { auth, activeTeamId }
+    // Docs ve Ortak Çalışma proje kapsamlı; hangi projeye gidileceği aktif
+    // organizasyonun son seçimine göre belirlenir (bkz. lastModuleProject.js).
+    const { activeOrgId } = useOrganizationContext()
+    return { auth, activeTeamId, activeOrgId }
   },
   data() {
     return {
@@ -400,17 +405,20 @@ export default {
     gotoScrumPoker() { this.pushWithTeam('/scrumPoker'); },
     gotoGameBox() { this.pushWithTeam('/quiz'); },
     gotoRetrospective() { this.$router.push('/retrospective'); this.closeAllMenus(); },
+    // Hatırlanan proje aktif organizasyona göre okunur: tek bir anahtar
+    // tutulduğunda, organizasyonunu değiştiren kullanıcı buradan doğrudan
+    // *önceki* organizasyonun projesine düşüyordu.
     gotoDocs() {
       this.closeAllMenus();
-      const lastProjectId = localStorage.getItem('docs_last_project_id');
+      const lastProjectId = recallModuleProject('docs', this.activeOrgId);
       this.$router.push(lastProjectId ? `/projects/${lastProjectId}/docs` : '/docs');
     },
     // Ortak çalışma alanı proje kapsamlıdır (plan D4). Proje hatırlanmıyorsa
     // kullanıcı organizasyon ekranından seçsin — takım seçimiyle eşlenemiyor.
     gotoCollab() {
       this.closeAllMenus();
-      const lastProjectId = localStorage.getItem('collab_last_project_id')
-          || localStorage.getItem('docs_last_project_id');
+      const lastProjectId = recallModuleProject('collab', this.activeOrgId)
+          || recallModuleProject('docs', this.activeOrgId);
       this.$router.push(lastProjectId ? `/projects/${lastProjectId}/collab` : '/organizations');
     },
     gotoTeams() { this.$router.push('/teams'); this.closeAllMenus(); },

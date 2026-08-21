@@ -255,11 +255,19 @@
 import {ref, onMounted, computed, watch, onBeforeUnmount} from 'vue'
 import {useRouter, useRoute} from 'vue-router'
 import DocApi from '../api/DocApi.js'
-import OrganizationApi from '../api/OrganizationApi.js'
 import ProjectApi from '../api/ProjectApi.js'
+import useOrganizationContext from '../composables/useOrganizationContext.js'
+import {resolveProjectOrgId} from '../composables/useOrgScopedProject.js'
+import {rememberModuleProject, recallModuleProject} from '../utils/lastModuleProject.js'
 
 const router = useRouter()
 const route = useRoute()
+
+// Docs organizasyona kapalıdır: proje listesi yalnızca aktif organizasyondan
+// gelir ve organizasyon değişince ekrandaki proje de bırakılır. Önceden liste
+// kullanıcının <b>tüm</b> organizasyonlarının projelerini bir arada gösteriyordu,
+// yani tercih değiştirmek diğer organizasyonun dokümanlarını gizlemiyordu.
+const {organizations, activeOrgId, activeOrg, loadOrganizations, selectOrg} = useOrganizationContext()
 
 // projectId from route params (may be undefined if on /docs)
 const routeProjectId = computed(() => route.params.projectId || null)
@@ -319,33 +327,102 @@ function avatarGradient(name) {
 onMounted(async () => {
   await loadAllProjects()
 
-  // Eğer route'da projectId varsa, selectedProject'ı ayarla
   if (routeProjectId.value) {
-    const found = allProjects.value.find(p => p.id === routeProjectId.value)
-    if (found) {
-      selectedProject.value = found
-    } else {
-      // allProjects'te bulunamadıysa, API'den çek
-      try {
-        const res = await ProjectApi.getById(routeProjectId.value)
-        selectedProject.value = res.data
-      } catch (e) {
-        console.error('Proje bulunamadı:', e)
-      }
-    }
-    localStorage.setItem('docs_last_project_id', routeProjectId.value)
-    await loadSpaces()
-  } else {
-    // route'da projectId yok, localStorage'dan kontrol et
-    const lastId = localStorage.getItem('docs_last_project_id')
-    if (lastId) {
-      const found = allProjects.value.find(p => p.id === lastId)
-      if (found) {
-        selectProject(found)
-        return
-      }
-    }
+    await adoptRouteProject()
+    return
   }
+
+  // Route'da proje yok: bu organizasyonda en son açılan projeye dönülür.
+  // Hatıra organizasyon başına tutuluyor (bkz. utils/lastModuleProject.js).
+  const lastId = recallModuleProject('docs', activeOrgId.value)
+  const found = lastId ? allProjects.value.find(p => p.id === lastId) : null
+  if (found) selectProject(found)
+})
+
+/**
+ * URL'deki proje aktif organizasyonun değilse ne olacağı.
+ *
+ * Paylaşılan bir Docs bağlantısı pekâlâ başka bir organizasyonun projesine
+ * işaret edebilir. Kullanıcı o organizasyonun da üyesiyse bağlantıyı kırmak
+ * yerine aktif organizasyon oraya taşınır — izleyici listeyi ve seçimi tazeler,
+ * böylece ekranın tamamı tek bir organizasyonu gösterir. Üye değilse (ya da
+ * proje yoksa) proje seçme ekranına düşülür.
+ */
+async function adoptRouteProject() {
+  const found = allProjects.value.find(p => p.id === routeProjectId.value)
+  if (found) {
+    selectedProject.value = found
+    rememberModuleProject('docs', activeOrgId.value, found.id)
+    await loadSpaces()
+    return
+  }
+
+  try {
+    const projectOrgId = await resolveProjectOrgId(routeProjectId.value)
+    if (projectOrgId && organizations.value.some(o => o.id === projectOrgId)) {
+      selectOrg(projectOrgId)
+      return
+    }
+    if (projectOrgId) {
+      // Üyesi olmadığımız bir organizasyonun projesi — burada gösterilmez.
+      selectedProject.value = null
+      spaces.value = []
+      router.replace({name: 'DocsHome'})
+      return
+    }
+  } catch (e) {
+    // Proje üstverisi proje üyeliği ister; yalnızca bir space'i paylaşılmış
+    // kullanıcı üye olmayabilir. Organizasyon bilinemiyorsa sayfa olduğu gibi
+    // bırakılıyor, erişimi backend space bazında denetler.
+    console.warn('Projenin organizasyonu çözümlenemedi:', e)
+  }
+
+  await loadSpaces()
+}
+
+/**
+ * Organizasyon değişince Docs bütünüyle yeni organizasyona geçer: proje listesi
+ * yenilenir, açık proje diğer organizasyonunsa seçim bırakılıp proje seçme
+ * ekranına dönülür.
+ */
+watch(activeOrgId, async (orgId, previous) => {
+  if (!orgId || orgId === previous) return
+  await loadAllProjects()
+
+  // Proje seçme ekranındaysak yeni organizasyonun son projesine geçilir.
+  if (!routeProjectId.value) {
+    selectedProject.value = null
+    spaces.value = []
+    const lastId = recallModuleProject('docs', orgId)
+    const remembered = lastId ? allProjects.value.find(p => p.id === lastId) : null
+    if (remembered) selectProject(remembered)
+    return
+  }
+
+  const found = allProjects.value.find(p => p.id === routeProjectId.value)
+  if (found) {
+    selectedProject.value = found
+    rememberModuleProject('docs', orgId, found.id)
+    await loadSpaces()
+    return
+  }
+
+  // Listede yok: proje üyesi olmayan ama bir space'i paylaşılmış kullanıcı
+  // listeye hiç düşmez — onu da atmamak için organizasyon doğrudan sorulur.
+  // Bilinemiyorsa sayfa olduğu gibi bırakılır, erişimi backend denetler.
+  let projectOrgId = null
+  try {
+    projectOrgId = await resolveProjectOrgId(routeProjectId.value)
+  } catch { /* proje üstverisi okunamadı */ }
+
+  selectedProject.value = null
+  if (!projectOrgId || projectOrgId === orgId) {
+    await loadSpaces()
+    return
+  }
+
+  spaces.value = []
+  router.replace({name: 'DocsHome'})
 })
 
 // Close dropdown on outside click
@@ -362,8 +439,14 @@ onBeforeUnmount(() => document.removeEventListener('click', onClickOutside))
 watch(routeProjectId, async (newId, oldId) => {
   if (!newId || newId === oldId) return
   const found = allProjects.value.find(p => p.id === newId)
-  if (found) selectedProject.value = found
-  localStorage.setItem('docs_last_project_id', newId)
+  // Aktif organizasyonun projesi değilse doğrudan yüklenmez; bağlantı takibi
+  // ya organizasyonu taşır ya da seçim ekranına düşürür.
+  if (!found) {
+    await adoptRouteProject()
+    return
+  }
+  selectedProject.value = found
+  rememberModuleProject('docs', activeOrgId.value, newId)
   await loadSpaces()
 })
 
@@ -371,13 +454,13 @@ async function loadAllProjects() {
   loadingProjects.value = true
   allProjects.value = []
   try {
-    const orgRes = await OrganizationApi.getMyOrganizations()
-    for (const org of orgRes.data) {
-      const projRes = await ProjectApi.getByOrg(org.id)
-      for (const proj of projRes.data) {
-        allProjects.value.push({...proj, orgName: org.name})
-      }
-    }
+    await loadOrganizations()
+    if (!activeOrgId.value) return
+    const projRes = await ProjectApi.getByOrg(activeOrgId.value)
+    allProjects.value = (projRes.data || []).map(proj => ({
+      ...proj,
+      orgName: activeOrg.value?.name || proj.organizationName
+    }))
   } catch (e) {
     console.error('Projeler yüklenemedi:', e)
   } finally {
@@ -389,7 +472,7 @@ function selectProject(proj) {
   selectedProject.value = proj
   showProjectDropdown.value = false
   projectSearch.value = ''
-  localStorage.setItem('docs_last_project_id', proj.id)
+  rememberModuleProject('docs', activeOrgId.value, proj.id)
   // URL'yi güncelle — spaces, routeProjectId watcher'ı üzerinden yüklenir.
   // Route zaten bu projedeyse (ör. sayfa /docs iken localStorage seçimi) watcher
   // tetiklenmeyeceği için loadSpaces'i doğrudan çağırıyoruz.

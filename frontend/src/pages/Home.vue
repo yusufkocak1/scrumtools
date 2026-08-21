@@ -174,6 +174,8 @@ import AdBanner from '../components/AdBanner.vue'
 import SummaryWidget from '../components/dashboard/SummaryWidget.vue'
 import {getTeamById} from "../api/TeamApi.js";
 import { useTeamContext } from '../composables/useTeamContext.js'
+import { useOrganizationContext } from '../composables/useOrganizationContext.js'
+import { recallModuleProject } from '../utils/lastModuleProject.js'
 
 export default {
   name: "Home",
@@ -185,7 +187,9 @@ export default {
     // Aktif takım merkezi context'ten okunur (Ayarlar > Çalışma Alanı'ndan seçilir)
     const { activeTeamId, loadTeams } = useTeamContext()
     loadTeams()
-    return { activeTeamId }
+    // Docs kısayolu proje kapsamlı; hedef proje aktif organizasyona göre seçilir.
+    const { activeOrgId } = useOrganizationContext()
+    return { activeTeamId, activeOrgId }
   },
   data: () => ({
     teamName:"",
@@ -211,7 +215,8 @@ export default {
       this.$router.push(`/quiz/${this.selectedTeam}`)
     },
     gotoDocs() {
-      const lastProjectId = localStorage.getItem('docs_last_project_id')
+      // Aktif organizasyonun son projesi (bkz. utils/lastModuleProject.js)
+      const lastProjectId = recallModuleProject('docs', this.activeOrgId)
       if (lastProjectId) {
         this.$router.push(`/projects/${lastProjectId}/docs`)
       } else {

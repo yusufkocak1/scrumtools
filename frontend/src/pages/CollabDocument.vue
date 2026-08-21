@@ -100,6 +100,7 @@
 <script setup>
 import { ref, computed, watch, onMounted, onBeforeUnmount } from 'vue'
 import { useRouter } from 'vue-router'
+import useOrgScopedProject from '../composables/useOrgScopedProject.js'
 import { createToast } from 'mosha-vue-toastify'
 import CollabApi from '../api/CollabApi.js'
 import { useCollabDoc } from '../composables/useCollabDoc.js'
@@ -123,6 +124,13 @@ const props = defineProps({
 })
 
 const router = useRouter()
+
+// Ortak çalışma organizasyona kapalıdır (bkz. useOrgScopedProject): tercih
+// değişince açık doküman bırakılır, paylaşılan bağlantı ise tercihi taşır.
+useOrgScopedProject(() => props.projectId, {
+  onLeave: () => router.push('/organizations')
+})
+
 const loading = ref(true)
 const loadError = ref('')
 // `document` adı bilinçli olarak kullanılmıyor: script setup kapsamında global

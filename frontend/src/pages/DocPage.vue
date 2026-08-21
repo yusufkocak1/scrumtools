@@ -290,6 +290,7 @@ import VersionHistory from '../components/docs/VersionHistory.vue'
 import DocAttachments from '../components/docs/DocAttachments.vue'
 import DocShareDialog from '../components/docs/DocShareDialog.vue'
 import InputDialog from '../components/common/InputDialog.vue'
+import useOrgScopedProject from '../composables/useOrgScopedProject.js'
 
 const route = useRoute()
 const router = useRouter()
@@ -297,6 +298,13 @@ const router = useRouter()
 const projectId = computed(() => route.params.projectId)
 const spaceId = computed(() => route.params.spaceId)
 const selectedPageId = computed(() => route.params.pageId || null)
+
+// Sayfa organizasyona kapalıdır: kullanıcı organizasyon tercihini
+// değiştirdiğinde başka organizasyonun dokümanı ekranda kalmaz; paylaşılan bir
+// bağlantı açıldığında ise tercih o organizasyona taşınır.
+useOrgScopedProject(projectId, {
+  onLeave: () => router.push({name: 'DocsHome'})
+})
 
 const space = ref(null)
 const pageTree = ref([])

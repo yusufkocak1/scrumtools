@@ -141,6 +141,8 @@ import { ref, reactive, onMounted, onBeforeUnmount } from 'vue'
 import { useRouter } from 'vue-router'
 import { createToast } from 'mosha-vue-toastify'
 import CollabApi from '../api/CollabApi.js'
+import useOrgScopedProject, { resolveProjectOrgId } from '../composables/useOrgScopedProject.js'
+import { rememberModuleProject } from '../utils/lastModuleProject.js'
 
 /**
  * Doküman listesi/galerisi — silinen CodeShare.vue'nun yerini alır.
@@ -190,10 +192,20 @@ const form = reactive({ type: 'TEXT', title: '', language: 'javascript' })
 
 let searchTimer = null
 
-onMounted(() => {
+// Ortak çalışma organizasyona kapalıdır: kullanıcı organizasyonunu
+// değiştirdiğinde bu projenin dokümanları ekranda kalmaz.
+useOrgScopedProject(() => props.projectId, {
+  onLeave: () => router.push('/organizations')
+})
+
+onMounted(async () => {
   // Navbar'ın "Ortak Çalışma" girişi proje seçimi taşımıyor; Docs'taki desenin
-  // aynısıyla son kullanılan proje hatırlanıyor.
-  localStorage.setItem('collab_last_project_id', props.projectId)
+  // aynısıyla son kullanılan proje hatırlanıyor — hatıra organizasyon başına
+  // tutuluyor, yoksa organizasyon değiştiren kullanıcı navbar'dan diğer
+  // organizasyonun projesine düşüyordu (bkz. utils/lastModuleProject.js).
+  try {
+    rememberModuleProject('collab', await resolveProjectOrgId(props.projectId), props.projectId)
+  } catch { /* erişim yoksa hatırlanacak bir proje de yok */ }
   load()
 })
 onBeforeUnmount(() => clearTimeout(searchTimer))
