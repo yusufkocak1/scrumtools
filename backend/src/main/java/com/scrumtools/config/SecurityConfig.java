@@ -6,6 +6,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
+import org.springframework.http.HttpMethod;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.AuthenticationProvider;
@@ -74,6 +75,9 @@ public class SecurityConfig {
                         .requestMatchers("/api/webhooks/**").permitAll()
                         // WebSocket endpoint'i
                         .requestMatchers("/ws/**").permitAll()
+                        // Tanıtım sayfasındaki paket kartları: oturumsuz okunur.
+                        // Yalnız aktif + public planlar döner (PlanService.getPublicPlans)
+                        .requestMatchers(HttpMethod.GET, "/api/plans").permitAll()
                         // İçeriğe gömülü medya: <img src> Authorization header taşıyamaz,
                         // yetkilendirme URL'deki HMAC imzasıyla yapılır (MediaLinkService)
                         .requestMatchers("/api/media/**").permitAll()

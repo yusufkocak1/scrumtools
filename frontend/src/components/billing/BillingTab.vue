@@ -144,23 +144,7 @@ import { ref, computed, watch, onMounted, onBeforeUnmount } from 'vue'
 import { createToast } from 'mosha-vue-toastify'
 import BillingApi from '../../api/BillingApi.js'
 import { useEntitlements } from '../../composables/useEntitlements.js'
-
-const FEATURE_LABELS = {
-  SCRUM_POKER: 'Scrum Poker',
-  RETRO: 'Retrospektif',
-  WORK_BOARD: 'İş Panosu',
-  QUIZ: 'GameBox',
-  DOCS: 'Dokümanlar',
-  DASHBOARD_REPORTS: 'Raporlar',
-  ATTACHMENTS: 'Dosya Ekleri',
-  CUSTOM_ROLES: 'Özel Roller',
-  GIT_INTEGRATION: 'Git Entegrasyonu',
-  CI_CD_INTEGRATION: 'CI/CD Entegrasyonu',
-  RICH_FILTERS: 'Zengin Filtreler',
-  COLLAB_WORKSPACE: 'Ortak Çalışma Alanı',
-  COLLAB_SHEET: 'Ortak Hesap Tablosu',
-  COLLAB_MACRO: 'Doküman Makroları',
-}
+import { FEATURE_LABELS } from '../../utils/planFeatures.js'
 
 const props = defineProps({
   org: { type: Object, required: true },

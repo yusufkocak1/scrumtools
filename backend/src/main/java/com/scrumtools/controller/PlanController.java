@@ -12,7 +12,8 @@ import java.util.List;
 
 /**
  * Müşteri arayüzündeki plan kartları için paket listesi.
- * Authenticated tüm kullanıcılar erişebilir; sadece aktif + public planlar döner.
+ * Oturum gerektirmez (SecurityConfig permitAll) — tanıtım sayfası da bu ucu kullanır;
+ * sadece aktif + public planlar döner.
  */
 @RestController
 @RequestMapping("/api/plans")

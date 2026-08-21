@@ -16,7 +16,7 @@
         </a>
 
         <nav class="hidden md:flex items-center gap-6 text-sm font-medium text-gray-600">
-          <a href="#whats-new" class="hover:text-blue-600 transition-colors">Yenilikler</a>
+          <a href="#highlights" class="hover:text-blue-600 transition-colors">Öne Çıkanlar</a>
           <a href="#features" class="hover:text-blue-600 transition-colors">Özellikler</a>
           <a href="#how-it-works" class="hover:text-blue-600 transition-colors">Nasıl Çalışır?</a>
           <a href="#pricing" class="hover:text-blue-600 transition-colors">Paketler</a>
@@ -65,13 +65,15 @@
               Ücretsiz Başla
             </button>
             <a
-                href="#whats-new"
+                href="#features"
                 class="px-8 py-3.5 bg-white hover:bg-gray-50 text-gray-700 font-medium rounded-xl border border-gray-300 shadow-sm transition-all duration-200 text-center">
-              Yenilikleri Gör
+              Özellikleri Gör
             </a>
           </div>
           <p class="text-sm text-gray-500">
-            Kredi kartı gerekmez &middot; 14 gün ücretsiz MAX deneme
+            Kredi kartı gerekmez<template v-if="trialPlan">
+              &middot; {{ trialPlan.trialDays }} gün ücretsiz
+              {{ (trialPlan.name || trialPlan.code).toUpperCase() }} deneme</template>
           </p>
         </div>
 
@@ -154,17 +156,14 @@
       </div>
     </section>
 
-    <!-- ─── Yenilikler ───────────────────────────────────────────────────── -->
-    <section id="whats-new" class="bg-gray-900 text-white">
+    <!-- ─── Öne Çıkanlar ─────────────────────────────────────────────────── -->
+    <section id="highlights" class="bg-gray-900 text-white">
       <div class="max-w-7xl mx-auto px-4 lg:px-6 py-16 lg:py-24">
         <div class="text-center max-w-2xl mx-auto mb-14">
-          <span class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/10 text-blue-200 text-xs font-semibold mb-5">
-            Yeni sürümde
-          </span>
-          <h2 class="text-3xl lg:text-4xl font-bold mb-4">ScrumTools artık çok daha fazlası</h2>
+          <h2 class="text-3xl lg:text-4xl font-bold mb-4">Sıradan bir board'dan çok daha fazlası</h2>
           <p class="text-gray-400 text-lg">
-            Son sürümlerle birlikte eş zamanlı ortak çalışma alanı, akıllı filtreler,
-            Git ile CI/CD entegrasyonu ve güçlü tablolu dokümanlar platforma katıldı.
+            Eş zamanlı ortak çalışma alanı, akıllı filtreler, Git ile CI/CD entegrasyonu ve
+            güçlü bir sorgu dili — ScrumTools'u ayıran dört yetenek.
           </p>
         </div>
 
@@ -206,11 +205,7 @@
 
       <div class="grid sm:grid-cols-2 lg:grid-cols-4 gap-6">
         <div v-for="feature in features" :key="feature.title"
-             class="relative bg-white rounded-2xl border border-gray-200 p-6 shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all duration-200">
-          <span v-if="feature.isNew"
-                class="absolute top-4 right-4 text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 tracking-wide">
-            YENİ
-          </span>
+             class="bg-white rounded-2xl border border-gray-200 p-6 shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all duration-200">
           <div :class="['w-12 h-12 rounded-xl flex items-center justify-center mb-4', feature.bg]">
             <svg :class="['w-6 h-6', feature.color]" fill="currentColor" viewBox="0 0 20 20" v-html="feature.icon"></svg>
           </div>
@@ -257,18 +252,51 @@
         <h2 class="text-3xl lg:text-4xl font-bold mb-4">Her takıma uygun bir paket</h2>
         <p class="text-gray-600 text-lg">
           Ücretsiz başlayın, takımınız büyüdükçe yükseltin.
-          Yeni organizasyonlar 14 gün boyunca MAX paketi ücretsiz dener.
+          <template v-if="trialPlan">
+            Yeni organizasyonlar {{ trialPlan.trialDays }} gün boyunca
+            {{ (trialPlan.name || trialPlan.code).toUpperCase() }} paketi ücretsiz dener.
+          </template>
         </p>
       </div>
 
-      <div class="grid md:grid-cols-3 gap-6 max-w-5xl mx-auto">
-        <div v-for="plan in plans" :key="plan.name"
+      <!-- Paketler API'den gelene kadar iskelet; yanlış fiyat göstermemek için
+           kartlar yüklenmeden basılmaz -->
+      <div v-if="plansLoading" class="grid sm:grid-cols-2 xl:grid-cols-4 gap-6 max-w-7xl mx-auto">
+        <div v-for="n in 4" :key="n"
+             class="rounded-2xl border border-gray-200 bg-white p-8 shadow-sm animate-pulse">
+          <div class="h-5 bg-gray-200 rounded w-1/3 mb-4"></div>
+          <div class="h-3 bg-gray-100 rounded w-4/5 mb-6"></div>
+          <div class="h-8 bg-gray-200 rounded w-2/5 mb-8"></div>
+          <div class="space-y-3 mb-8">
+            <div v-for="i in 4" :key="i" class="h-3 bg-gray-100 rounded"></div>
+          </div>
+          <div class="h-11 bg-gray-200 rounded-xl"></div>
+        </div>
+      </div>
+
+      <!-- Paketler alınamazsa uydurma kart basmak yerine dürüst bir not -->
+      <div v-else-if="!planCards.length"
+           class="max-w-2xl mx-auto text-center bg-gray-50 border border-gray-200 rounded-2xl p-8">
+        <p class="text-gray-600 mb-6">
+          Paket bilgileri şu anda yüklenemedi. Ücretsiz hesabınızı oluşturup organizasyon
+          panelindeki <span class="font-medium">Paketler</span> sekmesinden güncel paketleri
+          görebilirsiniz.
+        </p>
+        <button
+            @click="gotoSignup"
+            class="px-8 py-3 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-xl shadow-md hover:shadow-lg transition-all duration-200">
+          Ücretsiz Başla
+        </button>
+      </div>
+
+      <div v-else :class="planGridClass">
+        <div v-for="plan in planCards" :key="plan.name"
              :class="['rounded-2xl border p-8 flex flex-col transition-all duration-200',
                       plan.highlight
-                        ? 'border-blue-600 bg-blue-600 text-white shadow-xl md:scale-105'
+                        ? 'border-blue-600 bg-blue-600 text-white shadow-xl xl:scale-105'
                         : 'border-gray-200 bg-white shadow-sm hover:shadow-lg']">
           <div class="flex items-center justify-between mb-2">
-            <h3 class="text-xl font-bold">{{ plan.name }}</h3>
+            <h3 class="text-xl font-bold uppercase">{{ plan.name }}</h3>
             <span v-if="plan.badge"
                   :class="['text-[11px] font-semibold px-2.5 py-1 rounded-full',
                            plan.highlight ? 'bg-white text-blue-700' : 'bg-blue-100 text-blue-700']">
@@ -277,12 +305,13 @@
           </div>
           <p :class="['text-sm mb-5', plan.highlight ? 'text-blue-100' : 'text-gray-500']">{{ plan.tagline }}</p>
 
-          <div class="mb-6">
+          <div v-if="plan.price" class="mb-6">
             <div class="flex items-baseline gap-1.5">
               <span class="text-3xl font-bold">{{ plan.price }}</span>
               <span :class="['text-sm', plan.highlight ? 'text-blue-100' : 'text-gray-500']">{{ plan.period }}</span>
             </div>
-            <p :class="['text-xs mt-1', plan.highlight ? 'text-blue-100' : 'text-gray-500']">{{ plan.priceNote }}</p>
+            <p v-if="plan.priceNote"
+               :class="['text-xs mt-1', plan.highlight ? 'text-blue-100' : 'text-gray-500']">{{ plan.priceNote }}</p>
           </div>
 
           <ul class="space-y-3 mb-8 flex-1">
@@ -306,9 +335,9 @@
       </div>
 
       <p class="text-center text-sm text-gray-500 mt-8">
-        Fiyatlar ve limitler güncellenebilir. Güncel fiyatlar, limit detayları ve paket
-        karşılaştırması için giriş yaptıktan sonra organizasyon panelindeki
-        <span class="font-medium">Paketler</span> sekmesine göz atabilirsiniz.
+        Paket ayrıntılarının tamamını ve ödeme seçeneklerini, giriş yaptıktan sonra
+        organizasyon panelindeki <span class="font-medium">Paketler</span> sekmesinde
+        görebilirsiniz.
       </p>
     </section>
 
@@ -341,7 +370,7 @@
           ScrumTools
         </div>
         <div class="flex items-center gap-6 text-sm">
-          <a href="#whats-new" class="hover:text-white transition-colors">Yenilikler</a>
+          <a href="#highlights" class="hover:text-white transition-colors">Öne Çıkanlar</a>
           <a href="#features" class="hover:text-white transition-colors">Özellikler</a>
           <a href="#pricing" class="hover:text-white transition-colors">Paketler</a>
           <router-link to="/blog" class="hover:text-white transition-colors">Blog</router-link>
@@ -357,6 +386,8 @@
 
 <script>
 import { setSeo, resetSeo, SITE_URL, SITE_NAME } from '../utils/seo.js'
+import PublicApi from '../api/PublicApi.js'
+import { FEATURE_ORDER, featureLabel } from '../utils/planFeatures.js'
 
 export default {
   name: 'Landing',
@@ -364,7 +395,7 @@ export default {
     appVersion: __APP_VERSION__,
     // İkonlar: Heroicons (20x20, solid) path'leri — v-html ile basılır (statik içerik)
 
-    // Son sürümlerle gelen, tanıtımda ayrı bir bölümle öne çıkarılan dört modül.
+    // Tanıtımda ayrı bir bölümle öne çıkarılan dört amiral modül.
     // Kaynak planlar: COLLAB_WORKSPACE_PLAN.md, RICH_FILTER_PLAN.md,
     // JENKINS_INTEGRATION_PLAN.md, TASK_QUERY_LANGUAGE.md
     highlights: [
@@ -455,49 +486,42 @@ export default {
       },
       {
         title: 'Zengin Filtreler',
-        isNew: true,
         description: 'Akıllı filtrelerle görevleri renkli kategorilere ayırın; çapraz filtrelemeli, etkileşimli panolar kurun.',
         bg: 'bg-teal-100', color: 'text-teal-600',
         icon: '<path fill-rule="evenodd" d="M3 3a1 1 0 011-1h12a1 1 0 011 1v3a1 1 0 01-.293.707L12 11.414V15a1 1 0 01-.293.707l-2 2A1 1 0 018 17v-5.586L3.293 6.707A1 1 0 013 6V3z" clip-rule="evenodd"/>'
       },
       {
         title: 'STQL Sorgu Dili',
-        isNew: true,
         description: 'JQL\'e yakın söz dizimiyle görevlerinizi sorgulayın, filtrelerinizi kaydedin ve takımınızla paylaşın.',
         bg: 'bg-amber-100', color: 'text-amber-600',
         icon: '<path fill-rule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clip-rule="evenodd"/>'
       },
       {
         title: 'Dokümanlar',
-        isNew: true,
         description: 'Alanlara ayrılmış doküman ağacı, zengin metin editörü, güçlü tablolar, sürüm geçmişi ve paylaşım.',
         bg: 'bg-orange-100', color: 'text-orange-600',
         icon: '<path fill-rule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4zm2 6a1 1 0 011-1h6a1 1 0 110 2H7a1 1 0 01-1-1zm1 3a1 1 0 100 2h6a1 1 0 100-2H7z" clip-rule="evenodd"/>'
       },
       {
         title: 'Ortak Çalışma Alanı',
-        isNew: true,
         description: 'Metin, kod ve hesap tablosu dokümanlarını takımınızla eş zamanlı düzenleyin, imleçleri canlı görün.',
         bg: 'bg-violet-100', color: 'text-violet-600',
         icon: '<path d="M13 6a3 3 0 11-6 0 3 3 0 016 0zM18 8a2 2 0 11-4 0 2 2 0 014 0zM14 15a4 4 0 00-8 0v3h8v-3zM6 8a2 2 0 11-4 0 2 2 0 014 0zM16 18v-3a5.972 5.972 0 00-.75-2.906A3.005 3.005 0 0119 15v3h-3zM4.75 12.094A5.973 5.973 0 004 15v3H1v-3a3 3 0 013.75-2.906z"/>'
       },
       {
         title: 'Hesap Tablosu & Makrolar',
-        isNew: true,
         description: 'Formül motoru, Excel içe/dışa aktarma ve JavaScript makrolarıyla tekrar eden işlerinizi otomatikleştirin.',
         bg: 'bg-lime-100', color: 'text-lime-600',
         icon: '<path fill-rule="evenodd" d="M6 2a2 2 0 00-2 2v12a2 2 0 002 2h8a2 2 0 002-2V4a2 2 0 00-2-2H6zm1 2a1 1 0 000 2h6a1 1 0 100-2H7zm6 7a1 1 0 011 1v3a1 1 0 11-2 0v-3a1 1 0 011-1zm-3 3a1 1 0 100 2h.01a1 1 0 100-2H10zm-4 1a1 1 0 011-1h.01a1 1 0 110 2H7a1 1 0 01-1-1zm1-4a1 1 0 100 2h.01a1 1 0 100-2H7zm2 1a1 1 0 011-1h.01a1 1 0 110 2H10a1 1 0 01-1-1zm4-4a1 1 0 100 2h.01a1 1 0 100-2H13z" clip-rule="evenodd"/>'
       },
       {
         title: 'Git Entegrasyonu',
-        isNew: true,
         description: 'Görev detayından branch açın, pull request oluşturun; commit ve PR hareketlerini task üzerinde izleyin.',
         bg: 'bg-slate-100', color: 'text-slate-600',
         icon: '<path fill-rule="evenodd" d="M12.316 3.051a1 1 0 01.633 1.265l-4 12a1 1 0 11-1.898-.632l4-12a1 1 0 011.265-.633zM5.707 6.293a1 1 0 010 1.414L3.414 10l2.293 2.293a1 1 0 11-1.414 1.414l-3-3a1 1 0 010-1.414l3-3a1 1 0 011.414 0zm8.586 0a1 1 0 011.414 0l3 3a1 1 0 010 1.414l-3 3a1 1 0 11-1.414-1.414L16.586 10l-2.293-2.293a1 1 0 010-1.414z" clip-rule="evenodd"/>'
       },
       {
         title: 'CI/CD Entegrasyonu',
-        isNew: true,
         description: 'Jenkins pipeline\'larını uygulama içinden tetikleyin, build durumunu ve deploy tarihçesini takip edin.',
         bg: 'bg-sky-100', color: 'text-sky-600',
         icon: '<path fill-rule="evenodd" d="M4 2a1 1 0 011 1v2.101a7.002 7.002 0 0111.601 2.566 1 1 0 11-1.885.666A5.002 5.002 0 005.999 7H9a1 1 0 010 2H4a1 1 0 01-1-1V3a1 1 0 011-1zm.008 9.057a1 1 0 011.276.61A5.002 5.002 0 0014.001 13H11a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0v-2.101a7.002 7.002 0 01-11.601-2.566 1 1 0 01.61-1.276z" clip-rule="evenodd"/>'
@@ -536,64 +560,85 @@ export default {
       },
     ],
 
-    // Fiyat ve limitler kurulum varsayılanlarıdır (PlanService.seedDefaultPlans);
-    // superadmin panelinden değiştirilebildiği için altta uyarı notu duruyor.
-    plans: [
-      {
-        name: 'FREE',
-        tagline: 'Scrum\'a yeni başlayan küçük takımlar için.',
-        badge: null,
-        highlight: false,
-        price: '₺0',
-        period: '/ay',
-        priceNote: 'Süresiz ücretsiz, kredi kartı gerekmez',
-        cta: 'Ücretsiz Başla',
-        items: [
-          '5 üye, 1 proje',
-          'İş panosu, sprint ve backlog',
-          'Scrum Poker ve retro panoları',
-          'Ortak çalışma alanı (metin ve kod)',
-        ],
-      },
-      {
-        name: 'PRO',
-        tagline: 'Büyüyen takımlar ve birden çok proje için.',
-        badge: 'Popüler',
-        highlight: false,
-        price: '₺499',
-        period: '/ay',
-        priceNote: 'Yıllık ödemede ₺4.990 (iki ay hediye)',
-        cta: 'PRO ile Başla',
-        items: [
-          '25 üye, 10 proje',
-          'FREE\'deki her şey',
-          'Dokümanlar, raporlar ve dosya ekleri',
-          'Zengin filtreler ve etkileşimli dashboard',
-          'Git ve CI/CD (Jenkins) entegrasyonu',
-          'Hesap tablosu ve doküman makroları',
-          'GameBox: quiz ve adam asmaca',
-        ],
-      },
-      {
-        name: 'MAX',
-        tagline: 'Sınırsız üye ve proje, tüm özellikler.',
-        badge: '14 gün ücretsiz',
-        highlight: true,
-        price: '₺999',
-        period: '/ay',
-        priceNote: 'Yıllık ödemede ₺9.990 (iki ay hediye)',
-        cta: 'MAX\'ı Ücretsiz Dene',
-        items: [
-          'Sınırsız üye ve proje',
-          'PRO\'daki her şey',
-          'Özel roller ve izin matrisi',
-          'Zamanlanmış ve webhook makro tetikleyicileri',
-          'Yeni organizasyonlara 14 gün ücretsiz deneme',
-          'Öncelikli destek',
-        ],
-      },
-    ],
+    // Paketler API'den (/api/plans) gelir; fiyat ve limitler superadmin panelinden
+    // değiştirilebildiği için tanıtım sayfasında sabit yazılmaz.
+    rawPlans: [],
+    plansLoading: true,
+
   }),
+  computed: {
+    /**
+     * API'den gelen paketleri vitrin kartına çevirir.
+     *
+     * Kart sayısı sabit değildir; superadmin panelinden paket eklenip
+     * kaldırılabildiği için yerleşim de kart sayısına göre belirlenir.
+     */
+    planCards() {
+      const sorted = [...this.rawPlans].sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0))
+
+      // Deneme süresi tanımlı ilk paket vitrinde öne çıkar; yoksa en üst paket.
+      let heroIndex = sorted.findIndex(p => (p.trialDays ?? 0) > 0)
+      if (heroIndex < 0) heroIndex = sorted.length - 1
+
+      return sorted.map((plan, i) => {
+        const prev = i > 0 ? sorted[i - 1] : null
+        const name = plan.name || plan.code
+        const monthly = Number(plan.monthlyPriceTry ?? 0)
+        const yearly = Number(plan.yearlyPriceTry ?? 0)
+        const trialDays = plan.trialDays ?? 0
+
+        // Fiyatı sıfır olan paket, varsayılan paketse gerçekten ücretsizdir;
+        // değilse (ör. kurumsal) fiyat pazarlığa bağlıdır.
+        const isFree = monthly === 0 && plan.isDefault
+        let price = this.formatPrice(monthly)
+        let period = '/ay'
+        let priceNote = ''
+        if (isFree) {
+          priceNote = 'Süresiz ücretsiz, kredi kartı gerekmez'
+        } else if (monthly === 0) {
+          price = 'Özel fiyat'
+          period = ''
+          priceNote = 'Ekibinize özel fiyatlandırma'
+        } else if (yearly > 0) {
+          priceNote = `Yıllık ödemede ${this.formatPrice(yearly)}`
+          const freeMonths = Math.round((monthly * 12 - yearly) / monthly)
+          if (freeMonths > 0) priceNote += ` (${freeMonths} ay hediye)`
+        }
+
+        let badge = null
+        if (trialDays > 0) badge = `${trialDays} gün ücretsiz`
+        else if (i === 1) badge = 'Popüler'
+
+        let cta = `${name} ile Başla`
+        if (isFree) cta = 'Ücretsiz Başla'
+        else if (trialDays > 0) cta = 'Ücretsiz Dene'
+
+        return {
+          name,
+          tagline: plan.description || '',
+          badge,
+          highlight: i === heroIndex,
+          price,
+          period,
+          priceNote,
+          cta,
+          items: this.planItems(plan, prev),
+        }
+      })
+    },
+
+    /** Kart sayısı dörde çıkınca üçlü ızgara sıkışıyor; yerleşim ona göre seçilir. */
+    planGridClass() {
+      return this.planCards.length >= 4
+          ? 'grid sm:grid-cols-2 xl:grid-cols-4 gap-6 max-w-7xl mx-auto'
+          : 'grid md:grid-cols-3 gap-6 max-w-5xl mx-auto'
+    },
+
+    /** Hero ve paket başlığındaki deneme cümlesi de paketlerden türetilir. */
+    trialPlan() {
+      return this.rawPlans.find(p => (p.trialDays ?? 0) > 0) || null
+    },
+  },
   methods: {
     gotoLogin() {
       this.$router.push('/login')
@@ -601,6 +646,52 @@ export default {
     gotoSignup() {
       this.$router.push({ path: '/login', query: { mode: 'signup' } })
     },
+
+    formatPrice(value) {
+      return '₺' + Number(value || 0).toLocaleString('tr-TR', { maximumFractionDigits: 0 })
+    },
+
+    /**
+     * Kart maddeleri: önce limitler, sonra bir alt pakete göre *fark*.
+     * Tam özellik listesi yazılsaydı üst paketlerde on dört maddelik bir liste
+     * çıkardı; fark listesi hem kısa hem de yükseltme sebebini gösteriyor.
+     */
+    planItems(plan, prev) {
+      const items = []
+
+      if (plan.maxMembers == null && plan.maxProjects == null) {
+        items.push('Sınırsız üye ve proje')
+      } else {
+        const members = plan.maxMembers == null ? 'Sınırsız üye' : `${plan.maxMembers} üye`
+        const projects = plan.maxProjects == null ? 'sınırsız proje' : `${plan.maxProjects} proje`
+        items.push(`${members}, ${projects}`)
+      }
+
+      if (prev) items.push(`${prev.name || prev.code} paketindeki her şey`)
+
+      const own = plan.features || []
+      const inherited = new Set(prev?.features || [])
+      const added = own.filter(f => !inherited.has(f))
+
+      // Bilinen sıraya göre diz; sözlükte olmayan yeni bir enum değeri de
+      // sessizce düşmesin diye sona ham adıyla eklenir (featureLabel).
+      const ordered = FEATURE_ORDER.filter(f => added.includes(f))
+          .concat(added.filter(f => !FEATURE_ORDER.includes(f)))
+      ordered.forEach(f => items.push(featureLabel(f)))
+
+      return items
+    },
+  },
+  async mounted() {
+    try {
+      const { data } = await PublicApi.getPlans()
+      this.rawPlans = Array.isArray(data) ? data : []
+    } catch (e) {
+      // Sessiz geç: paket bölümü "yüklenemedi" durumuna düşer, sayfa çalışmaya devam eder.
+      this.rawPlans = []
+    } finally {
+      this.plansLoading = false
+    }
   },
   created() {
     setSeo({

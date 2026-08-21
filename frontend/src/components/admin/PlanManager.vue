@@ -115,29 +115,14 @@
 import { ref, onMounted } from 'vue'
 import { createToast } from 'mosha-vue-toastify'
 import AdminBillingApi from '../../api/AdminBillingApi.js'
+import { FEATURE_LABELS } from '../../utils/planFeatures.js'
 
 /**
- * Doğruluk kaynağı backend'deki PlanFeature enum'u; buradaki liste onun Türkçe
- * karşılıklarını taşır. Enum'a yeni bir değer eklendiğinde buraya da eklenmezse
- * o özellik panelde hiç görünmez ve hiçbir pakete verilemez — GIT/CI ve zengin
- * filtreler bu yüzden bir süre görünmedi.
+ * Doğruluk kaynağı backend'deki PlanFeature enum'u; Türkçe karşılıkları
+ * utils/planFeatures.js taşır. Enum'a yeni bir değer eklendiğinde o sözlüğe de
+ * eklenmezse özellik panelde hiç görünmez ve hiçbir pakete verilemez — GIT/CI ve
+ * zengin filtreler bu yüzden bir süre görünmedi.
  */
-const FEATURE_LABELS = {
-  SCRUM_POKER: 'Scrum Poker',
-  RETRO: 'Retrospektif',
-  WORK_BOARD: 'İş Panosu',
-  QUIZ: 'GameBox',
-  DOCS: 'Dokümanlar',
-  DASHBOARD_REPORTS: 'Raporlar',
-  ATTACHMENTS: 'Dosya Ekleri',
-  CUSTOM_ROLES: 'Özel Roller',
-  GIT_INTEGRATION: 'Git Entegrasyonu',
-  CI_CD_INTEGRATION: 'CI/CD Entegrasyonu',
-  RICH_FILTERS: 'Zengin Filtreler',
-  COLLAB_WORKSPACE: 'Ortak Çalışma Alanı',
-  COLLAB_SHEET: 'Ortak Hesap Tablosu',
-  COLLAB_MACRO: 'Doküman Makroları',
-}
 
 const allFeatures = Object.keys(FEATURE_LABELS)
 
