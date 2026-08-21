@@ -5,6 +5,9 @@ import './style.css'
 // yerine buradan alınıyor — @import'un kural dosyasının başında olma zorunluluğu
 // Tailwind direktifleriyle çakışıyor.
 import './assets/doc-table.css'
+// Kod bloğu/tablo başına kopyala düğmesi; içeriğe JS ile eklendiği için
+// bileşenin scoped stilleriyle biçimlendirilemiyor (bkz. contentCopy.js).
+import './assets/doc-copy.css'
 import App from './App.vue'
 import router from "./router.js"
 import 'mosha-vue-toastify/dist/style.css';

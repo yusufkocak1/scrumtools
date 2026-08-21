@@ -1,0 +1,90 @@
+/**
+ * Blok başına "Kopyala" düğmesi (bkz. components/docs/contentCopy.js).
+ *
+ * <b>Neden global bir dosya:</b> düğmeler `v-html` ile basılan içeriğin içine
+ * JS ile ekleniyor; bileşenin `scoped` stilleri sonradan yaratılan düğümlere
+ * `data-v-*` özniteliği koyamadığı için onlara ulaşamaz. doc-table.css ile aynı
+ * gerekçe: kap sınıfı `.doc-content` olan her görünümde aynı görünsün.
+ */
+
+.doc-copy-block {
+  position: relative;
+}
+
+.doc-copy-btn {
+  position: absolute;
+  top: 0.5rem;
+  right: 0.5rem;
+  /* Uzun tablonun yapışkan başlığı z-index: 3 taşıyor (doc-table.css); düğme
+     onun da üstünde kalmalı. */
+  z-index: 4;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.25rem 0.5rem;
+  border: 1px solid rgba(148, 163, 184, 0.45);
+  border-radius: 0.5rem;
+  /* Yarı saydam açık zemin: kod bloğunun koyu arka planında da, tablonun beyaz
+     zemininde de okunur kalıyor. */
+  background: rgba(255, 255, 255, 0.92);
+  color: #475569;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.2;
+  cursor: pointer;
+  transition: opacity 0.15s, color 0.15s, border-color 0.15s, background-color 0.15s;
+  /* İçerik seçildiğinde düğme etiketi kopyalanan metne karışmasın. */
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+.doc-copy-btn__icon svg {
+  width: 13px;
+  height: 13px;
+  display: block;
+}
+
+.doc-copy-btn:hover {
+  color: #4f46e5;
+  border-color: #c7d2fe;
+  background: #ffffff;
+}
+
+.doc-copy-btn[data-state='copied'] {
+  color: #059669;
+  border-color: #a7f3d0;
+  background: #ecfdf5;
+}
+
+.doc-copy-btn[data-state='failed'] {
+  color: #e11d48;
+  border-color: #fecdd3;
+  background: #fff1f2;
+}
+
+/* İşaretçili cihazlarda düğme yalnızca blokla etkileşimde beliriyor: her kod
+   bloğunun köşesinde duran kalıcı bir düğme okuma akışını bozuyor. */
+@media (hover: hover) and (pointer: fine) {
+  .doc-copy-btn {
+    opacity: 0;
+  }
+
+  .doc-copy-block:hover > .doc-copy-btn,
+  .doc-copy-btn:focus-visible {
+    opacity: 1;
+  }
+}
+
+/* Dokunmatikte "hover" yok — düğme hep görünür. Bu özellik zaten mobilde
+   kopyalamanın zorluğu için var, gizlenirse hiç bulunamaz. */
+
+/* Metin ölçülürken/kopyalanırken düğmeler kısa süreliğine ağaçtan çıkarılıyor. */
+.doc-content.doc-copy-hiding .doc-copy-btn {
+  display: none !important;
+}
+
+/* Seçim geri bildirimi: "Tümünü Seç" sonrası vurgunun görünür olması için. */
+.doc-content ::selection {
+  background: #c7d2fe;
+  color: #1e1b4b;
+}
