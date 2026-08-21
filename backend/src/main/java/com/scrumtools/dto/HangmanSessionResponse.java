@@ -24,6 +24,14 @@ public record HangmanSessionResponse(
         int totalRounds,
         String currentTurnEmail,
         String currentTurnName,
+        /** Bir sıranın toplam süresi (sn). Dolduğunda sıra kendiliğinden devreder. */
+        int turnSeconds,
+        /** Sıranın ilk kaç saniyesinde kelime tahmini yalnızca sırası gelene açık. */
+        int wordLockSeconds,
+        /** Sıranın bitmesine kalan saniye — sunucu saatiyle hesaplanır (istemci saat kayması olmasın). */
+        int turnSecondsLeft,
+        /** Kelime tahmininin herkese açılmasına kalan saniye; 0 = herkes tahmin edebilir. */
+        int wordOpenInSeconds,
         /** Aktif tur — lobide ve oyun bitince null olabilir. */
         HangmanRoundResponse round,
         /**
@@ -48,6 +56,10 @@ public record HangmanSessionResponse(
                                               HangmanRoundResponse round,
                                               HangmanRoundResponse lastFinishedRound,
                                               String currentTurnName,
+                                              int turnSeconds,
+                                              int wordLockSeconds,
+                                              int turnSecondsLeft,
+                                              int wordOpenInSeconds,
                                               int totalRounds,
                                               List<HangmanParticipantResponse> participants,
                                               List<HangmanLeaderboardEntry> leaderboard,
@@ -67,6 +79,10 @@ public record HangmanSessionResponse(
                 totalRounds,
                 session.getCurrentTurnEmail(),
                 currentTurnName,
+                turnSeconds,
+                wordLockSeconds,
+                turnSecondsLeft,
+                wordOpenInSeconds,
                 round,
                 lastFinishedRound,
                 participants,

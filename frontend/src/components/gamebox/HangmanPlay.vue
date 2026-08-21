@@ -37,6 +37,27 @@
           <p class="text-white/80 text-xs mt-1">
             Kelime {{ session.currentRoundIndex + 1 }} / {{ session.totalRounds }}
           </p>
+
+          <!-- Sıra sayacı — sunucudan gelen kalan süreyle senkron, arada yerelde işler. -->
+          <div class="mt-3 max-w-sm mx-auto">
+            <div class="flex items-center justify-between gap-2 text-[11px] text-white/85 mb-1">
+              <span class="font-semibold">⏱️ {{ secondsLeft }} sn</span>
+              <span v-if="isSpectator"></span>
+              <span v-else-if="isMyTurn && wordOpensIn > 0">
+                🔒 Kelime tahmini {{ wordOpensIn }} sn daha sadece sende
+              </span>
+              <span v-else-if="isMyTurn">🔓 Kelime tahminine herkes girebilir</span>
+              <span v-else-if="wordOpensIn > 0">
+                🔒 Kelimeyi {{ wordOpensIn }} sn sonra sen de deneyebilirsin
+              </span>
+              <span v-else>🔓 Kelime tahmini açıldı — sen de deneyebilirsin</span>
+            </div>
+            <div class="h-1.5 bg-white/25 rounded-full overflow-hidden">
+              <div :class="['h-full transition-all duration-1000 ease-linear',
+                            secondsLeft <= 5 ? 'bg-red-300' : 'bg-white']"
+                   :style="{ width: turnProgress + '%' }"></div>
+            </div>
+          </div>
           <!-- Kategori ipucu — moderatör açtıysa (sabit kategorili oyunda baştan açık). -->
           <p v-if="categoryText"
              class="mt-2 inline-flex items-center gap-1.5 px-3 py-1 bg-white/20 rounded-full backdrop-blur-sm text-white text-xs font-medium">
@@ -82,7 +103,7 @@
                 <button
                     v-for="letter in alphabet"
                     :key="letter"
-                    :disabled="!canGuess || isGuessed(letter) || busy"
+                    :disabled="!canGuessLetter || isGuessed(letter) || busy"
                     @click="submitLetter(letter)"
                     :class="['w-9 h-9 sm:w-10 sm:h-10 rounded-lg text-sm font-semibold transition-colors border',
                              letterClass(letter)]">
@@ -97,23 +118,27 @@
                 </p>
                 <p class="text-xs text-gray-500 mb-3">
                   Doğru bilirsen <strong class="text-indigo-600">kalan tüm harflerin</strong> puanını
-                  birden alırsın. Yanlış bilirsen adam asılmaz, sadece sıranı kaybedersin.
+                  birden alırsın. Sıranın ilk {{ wordLockSeconds }} saniyesi sırası gelene aittir;
+                  sonrasında herkes birer hak ile yarışa girer.
                 </p>
                 <div class="flex gap-2">
                   <input
                       v-model="wordGuess"
-                      :disabled="!canGuess || busy"
+                      :disabled="!canGuessWord || busy"
                       @keyup.enter="submitWord"
                       type="text"
-                      :placeholder="canGuess ? 'Tüm kelimeyi yaz...' : 'Sıranı bekle'"
+                      :placeholder="wordInputPlaceholder"
                       class="flex-1 px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none disabled:bg-gray-50 disabled:text-gray-400" />
                   <button
                       @click="submitWord"
-                      :disabled="!canGuess || busy || !wordGuess.trim()"
+                      :disabled="!canGuessWord || busy || !wordGuess.trim()"
                       class="px-5 py-2.5 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 transition-colors font-semibold disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap">
                     Tahmin Et
                   </button>
                 </div>
+                <p v-if="!isMyTurn && !isSpectator && canGuessWord" class="mt-2 text-xs text-amber-600">
+                  ⚡ Sıra sende değil — bu sırada <strong>tek</strong> kelime tahmini hakkın var.
+                </p>
               </div>
             </div>
           </div>
@@ -217,7 +242,18 @@ export default {
     wordGuess: '',
     busy: false,
     roundBanner: null,
-    bannerTimer: null
+    bannerTimer: null,
+    /**
+     * Sıra sayacı. Sunucudan gelen kalan süreyle her durum güncellemesinde senkronlanır,
+     * arada yerelde saniye saniye işler — böylece istemci saati kaymış olsa da doğru kalır.
+     * Sürenin dolmasıyla sıranın devri sunucudaki zamanlayıcının işi; burası sadece gösterim
+     * ve erken kilitlemedir.
+     */
+    secondsLeft: 0,
+    wordOpensIn: 0,
+    tickTimer: null,
+    /** Sırası olmayan oyuncunun bu sıra penceresindeki tek hakkını kullandı mı? */
+    wordTriedThisTurn: false
   }),
   computed: {
     round() {
@@ -239,8 +275,34 @@ export default {
       return (this.session?.participants || [])
           .some(p => p.email === this.myEmail && p.spectator)
     },
-    canGuess() {
-      return this.isMyTurn && !this.isSpectator
+    turnSeconds() {
+      return this.session?.turnSeconds || 30
+    },
+    wordLockSeconds() {
+      return this.session?.wordLockSeconds ?? 10
+    },
+    turnProgress() {
+      if (!this.turnSeconds) return 0
+      return Math.max(0, Math.min(100, (this.secondsLeft / this.turnSeconds) * 100))
+    },
+    /** Harf tahmini her zaman yalnızca sırası gelen oyuncunun hakkı. */
+    canGuessLetter() {
+      return this.isMyTurn && !this.isSpectator && this.secondsLeft > 0
+    },
+    /**
+     * Kelime tahmini: sırası gelen her an; diğerleri kilit açıldıktan sonra ve sıra başına bir kez.
+     */
+    canGuessWord() {
+      if (this.isSpectator || this.secondsLeft <= 0) return false
+      if (this.isMyTurn) return true
+      return this.wordOpensIn <= 0 && !this.wordTriedThisTurn
+    },
+    wordInputPlaceholder() {
+      if (this.isSpectator) return 'İzleyicisin'
+      if (this.canGuessWord) return 'Tüm kelimeyi yaz...'
+      if (this.wordTriedThisTurn) return 'Bu sıradaki hakkını kullandın'
+      if (this.wordOpensIn > 0) return `${this.wordOpensIn} sn sonra açılıyor`
+      return 'Sıranı bekle'
     },
     /**
      * Kategori sunucudan yalnızca açıldığında gelir; emoji'li etiketi yerelden alırız,
@@ -303,9 +365,27 @@ export default {
     // Sıra bize geçtiğinde eski tahmin metnini temizle.
     'session.currentTurnEmail'() {
       this.wordGuess = ''
+      this.wordTriedThisTurn = false
+    },
+    // Ebeveyn her WS mesajında yeni bir oturum nesnesi verdiği için bu her güncellemede çalışır.
+    session: {
+      handler() { this.syncTimers() },
+      immediate: true
     }
   },
   methods: {
+    /** Sunucudan gelen kalan süreyi tek doğru kaynak kabul eder. */
+    syncTimers() {
+      this.secondsLeft = this.session?.turnSecondsLeft ?? 0
+      const opensIn = this.session?.wordOpenInSeconds ?? 0
+      // Kilit yeniden kapandıysa yeni bir sıra penceresi başlamıştır → hak tazelenir.
+      if (opensIn > 0) this.wordTriedThisTurn = false
+      this.wordOpensIn = opensIn
+    },
+    tick() {
+      if (this.secondsLeft > 0) this.secondsLeft--
+      if (this.wordOpensIn > 0) this.wordOpensIn--
+    },
     upper(v) {
       return (v || '').toLocaleUpperCase(this.locale)
     },
@@ -314,7 +394,7 @@ export default {
     },
     letterClass(letter) {
       if (!this.isGuessed(letter)) {
-        return this.canGuess
+        return this.canGuessLetter
             ? 'bg-white border-gray-300 text-gray-700 hover:bg-indigo-50 hover:border-indigo-300'
             : 'bg-white border-gray-200 text-gray-300 cursor-not-allowed'
       }
@@ -331,7 +411,7 @@ export default {
       return 'bg-gray-100 text-gray-500'
     },
     async submitLetter(letter) {
-      if (!this.canGuess || this.busy) return
+      if (!this.canGuessLetter || this.busy) return
       this.busy = true
       try {
         const updated = await guessHangmanLetter(this.teamId, this.session.id,
@@ -344,12 +424,15 @@ export default {
     },
     async submitWord() {
       const guess = this.wordGuess.trim()
-      if (!this.canGuess || this.busy || !guess) return
+      if (!this.canGuessWord || this.busy || !guess) return
+      // Sırası olmayanın sıra başına tek hakkı var; sunucu da doğrular, burası sadece UI kilidi.
+      const spendsQuota = !this.isMyTurn
       this.busy = true
       try {
         const updated = await guessHangmanWord(this.teamId, this.session.id,
             guess.toLocaleLowerCase(this.locale))
         this.wordGuess = ''
+        if (spendsQuota) this.wordTriedThisTurn = true
         this.$emit('updated', updated)
       } catch (e) {
         // Hata interceptor tarafından otomatik gösterilir
@@ -357,7 +440,7 @@ export default {
       this.busy = false
     },
     handleKeydown(e) {
-      if (!this.canGuess || this.busy) return
+      if (!this.canGuessLetter || this.busy) return
       // Kelime tahmini alanına yazarken klavye kısayolu devreye girmesin.
       if (e.target && ['INPUT', 'TEXTAREA'].includes(e.target.tagName)) return
       if (e.key.length !== 1) return
@@ -369,10 +452,13 @@ export default {
   },
   mounted() {
     window.addEventListener('keydown', this.handleKeydown)
+    this.syncTimers()
+    this.tickTimer = setInterval(this.tick, 1000)
   },
   beforeUnmount() {
     window.removeEventListener('keydown', this.handleKeydown)
     clearTimeout(this.bannerTimer)
+    clearInterval(this.tickTimer)
   }
 }
 </script>

@@ -13,4 +13,7 @@ public interface HangmanSessionRepository extends JpaRepository<HangmanSession, 
     Optional<HangmanSession> findByTeamIdAndStatus(UUID teamId, HangmanSessionStatus status);
 
     List<HangmanSession> findByTeamIdAndStatusOrderByCreatedAtDesc(UUID teamId, HangmanSessionStatus status);
+
+    /** Süre dolmuş sıraları tarayan zamanlayıcı için — aktif oyunlar. */
+    List<HangmanSession> findByStatus(HangmanSessionStatus status);
 }

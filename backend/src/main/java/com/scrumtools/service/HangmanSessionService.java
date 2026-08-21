@@ -7,10 +7,12 @@ import com.scrumtools.repository.*;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.*;
 import java.util.regex.Pattern;
@@ -26,6 +28,18 @@ import java.util.regex.Pattern;
  *   • Kelime tahmini yanlış → adam ASILMAZ, sadece sıra sonraki oyuncuya geçer.
  *   • Moderatör kelimeleri kendi belirlediyse oynayamaz (izleyici olur).
  *   • Oyun sürerken katılan oyuncu sıranın sonuna eklenir.
+ *
+ * Süre kuralları:
+ *   • Harf tahmini HER ZAMAN yalnızca sırası gelen oyuncuya aittir.
+ *   • Kelime tahmini sıranın ilk {@link #WORD_GUESS_LOCK_SECONDS} saniyesinde yalnızca sırası
+ *     gelene açıktır; sonrasında diğer oyuncular da (izleyiciler hariç) deneyebilir.
+ *   • Bir sıra {@link #TURN_SECONDS} saniye sürer; süre dolduğunda sıra kendiliğinden devreder.
+ *   • Sırası gelen doğru harf bulup sırayı koruduğunda sayaç baştan başlar — dolayısıyla
+ *     seri yapan oyuncuda kelime kilidi de yeniden kapanır (hak ettiği avantaj).
+ *
+ * Kelime tahmini kilidi açıldığında sırası olmayan oyuncu, o sıra penceresinde YALNIZCA BİR
+ * kelime tahmini yapabilir. Bu sınır olmasa yanlış tahminin bedeli olmadığı için (sırası
+ * olmayan oyuncu sırasını kaybetmez) kelimeyi deneme yanılmayla kırmak mümkün olurdu.
  *
  * Puanlama tasarımı — istismara kapalı:
  *   Her kelime sabit bir "puan havuzu" eder: (farklı harf sayısı) × 10. Kelimeyi
@@ -49,6 +63,12 @@ public class HangmanSessionService {
 
     static final int SCORE_CORRECT_LETTER = 10;
     static final int SCORE_WRONG_LETTER = -5;
+
+    /** Bir sıranın süresi. Dolduğunda tahmin gelmemişse sıra sonraki oyuncuya geçer. */
+    public static final int TURN_SECONDS = 30;
+
+    /** Sıranın ilk bu kadar saniyesinde kelime tahmini yalnızca sırası gelene açıktır. */
+    public static final int WORD_GUESS_LOCK_SECONDS = 10;
 
     /** Canlı akışta gösterilecek tahmin sayısı. */
     private static final int RECENT_GUESS_LIMIT = 12;
@@ -182,6 +202,7 @@ public class HangmanSessionService {
             // Oyun tek kişiyle başlamış ve sıra boştaysa yeni gelen oynayabilsin.
             if (session.getStatus() == HangmanSessionStatus.IN_PROGRESS && session.getCurrentTurnEmail() == null) {
                 session.setCurrentTurnEmail(email);
+                session.setTurnStartedAt(LocalDateTime.now());
                 sessionRepository.save(session);
             }
         }
@@ -219,6 +240,7 @@ public class HangmanSessionService {
         session.setStartedAt(LocalDateTime.now());
         session.setCurrentRoundIndex(0);
         session.setCurrentTurnEmail(players.get(0).getUserEmail());
+        session.setTurnStartedAt(LocalDateTime.now());
         sessionRepository.save(session);
 
         HangmanSessionResponse response = buildResponse(reload(sessionId));
@@ -229,13 +251,15 @@ public class HangmanSessionService {
     // ─── Oyun Akışı ─────────────────────────────────────────────────────────────
 
     /**
-     * Harf tahmini. Doğruysa sıra oyuncuda kalır; yanlışsa adam asılır ve sıra devreder.
+     * Harf tahmini — yalnızca sırası gelen oyuncu yapabilir.
+     * Doğruysa sıra oyuncuda kalır (süre baştan başlar); yanlışsa adam asılır ve sıra devreder.
      */
     @Transactional
     public HangmanSessionResponse guessLetter(UUID sessionId, String rawLetter) {
         String email = currentEmail();
         HangmanSession session = findSession(sessionId);
         HangmanRound round = activeRound(session);
+        assertTurnNotExpired(session);
         HangmanParticipant player = assertTurn(session, email);
 
         String letter = normalizeLetter(rawLetter, session.getLanguage());
@@ -275,6 +299,10 @@ public class HangmanSessionService {
         } else if (!hit) {
             // Yanlış harfte sıra devreder; doğru harfte oyuncu devam eder.
             advanceTurn(session, email);
+        } else {
+            // Sıra oyuncuda kaldı: hamle yaptığı için 30 sn'lik süresi baştan başlar.
+            session.setTurnStartedAt(LocalDateTime.now());
+            sessionRepository.save(session);
         }
 
         HangmanSessionResponse response = buildResponse(reload(sessionId));
@@ -283,14 +311,22 @@ public class HangmanSessionService {
     }
 
     /**
-     * Kelimenin tamamını tahmin eder. Yanlışsa adam ASILMAZ, sadece sıra devreder.
+     * Kelimenin tamamını tahmin eder.
+     *
+     * Sıranın ilk {@link #WORD_GUESS_LOCK_SECONDS} saniyesi sırası gelen oyuncuya ayrılmıştır;
+     * o pencere kapandıktan sonra diğer oyuncular da yarışa girer (herkes o sıra penceresinde
+     * bir kez deneyebilir). Yanlış tahminde adam ASILMAZ:
+     *   • sırası gelen tahmin ettiyse sırasını kaybeder,
+     *   • sırası olmayan tahmin ettiyse sıra bozulmaz, sadece o sıradaki hakkı biter.
      */
     @Transactional
     public HangmanSessionResponse guessWord(UUID sessionId, String rawWord) {
         String email = currentEmail();
         HangmanSession session = findSession(sessionId);
         HangmanRound round = activeRound(session);
-        HangmanParticipant player = assertTurn(session, email);
+        assertTurnNotExpired(session);
+        boolean myTurn = email.equals(session.getCurrentTurnEmail());
+        HangmanParticipant player = assertCanGuessWord(session, round, email, myTurn);
 
         String guess = rawWord == null ? "" : rawWord.trim().toLowerCase(localeOf(session.getLanguage()));
         if (guess.isEmpty()) {
@@ -321,10 +357,12 @@ public class HangmanSessionService {
 
         if (correct) {
             closeRound(session, round, HangmanRoundStatus.SOLVED, player);
-        } else {
+        } else if (myTurn) {
             // Ceza yok, adam asılmaz — kaybedilen tek şey sıra.
             advanceTurn(session, email);
         }
+        // Sırası olmayanın yanlış tahmini sırayı bozmaz: sayaç kaldığı yerden işler,
+        // o oyuncunun bu sıra penceresindeki tek hakkı harcanmış olur.
 
         HangmanSessionResponse response = buildResponse(reload(sessionId));
         broadcast(session.getTeam().getId(), response);
@@ -396,6 +434,7 @@ public class HangmanSessionService {
         session.setStatus(HangmanSessionStatus.CANCELLED);
         session.setFinishedAt(LocalDateTime.now());
         session.setCurrentTurnEmail(null);
+        session.setTurnStartedAt(null);
         sessionRepository.save(session);
 
         HangmanSessionResponse response = buildResponse(reload(sessionId));
@@ -475,6 +514,7 @@ public class HangmanSessionService {
         List<HangmanParticipant> players = players(session.getId());
         if (players.isEmpty()) {
             session.setCurrentTurnEmail(null);
+            session.setTurnStartedAt(null);
             sessionRepository.save(session);
             return;
         }
@@ -490,13 +530,46 @@ public class HangmanSessionService {
         // Sıradaki oyuncu; mevcut oyuncu listede yoksa (ayrıldıysa) baştan başla.
         HangmanParticipant next = players.get((currentIdx + 1) % players.size());
         session.setCurrentTurnEmail(next.getUserEmail());
+        // Yeni sıra = yeni süre: 30 sn geri sayım ve 10 sn'lik kelime kilidi baştan başlar.
+        session.setTurnStartedAt(LocalDateTime.now());
         sessionRepository.save(session);
+    }
+
+    /**
+     * Süresi dolan sıraları devreder — kimse tahmin etmediğinde oyunun takılmaması için.
+     *
+     * Devretmenin TEK yeri burasıdır: tahmin uçları süresi dolmuş sırayı yalnızca reddeder,
+     * çünkü oradaki hata işlemi geri alıp devretmeyi de silerdi (bkz. assertTurnNotExpired).
+     * Saniyede bir tarar; aktif adam asmaca oturumu genelde bir elin parmağını geçmez.
+     */
+    @Scheduled(fixedDelay = 1_000, initialDelay = 10_000)
+    @Transactional
+    public void sweepExpiredTurns() {
+        for (HangmanSession session : sessionRepository.findByStatus(HangmanSessionStatus.IN_PROGRESS)) {
+            try {
+                if (session.getCurrentTurnEmail() == null) continue;
+
+                // Sürüm öncesinde başlamış oturumlarda sayaç boştur — şimdiden başlat.
+                if (session.getTurnStartedAt() == null) {
+                    session.setTurnStartedAt(LocalDateTime.now());
+                    sessionRepository.save(session);
+                    continue;
+                }
+                if (!isTurnExpired(session)) continue;
+
+                advanceTurn(session, session.getCurrentTurnEmail());
+                broadcast(session.getTeam().getId(), buildResponse(reload(session.getId())));
+            } catch (Exception e) {
+                log.warn("[Hangman] Süre dolmuş sıra devredilemedi ({}): {}", session.getId(), e.getMessage());
+            }
+        }
     }
 
     private HangmanSessionResponse doFinish(HangmanSession session) {
         session.setStatus(HangmanSessionStatus.FINISHED);
         session.setFinishedAt(LocalDateTime.now());
         session.setCurrentTurnEmail(null);
+        session.setTurnStartedAt(null);
         sessionRepository.save(session);
 
         HangmanSessionResponse response = buildResponse(reload(session.getId()));
@@ -582,6 +655,100 @@ public class HangmanSessionService {
         return roundRepository.findBySessionIdAndRoundOrder(session.getId(), session.getCurrentRoundIndex())
                 .filter(r -> r.getStatus() == HangmanRoundStatus.ACTIVE)
                 .orElseThrow(() -> new RuntimeException("Aktif tur yok"));
+    }
+
+    /**
+     * Süresi dolmuş sırayla oynanmasını engeller.
+     *
+     * Sırayı burada DEVRETMEYİZ: bu metot her zaman hata fırlatan bir yolda çağrılır, hata da
+     * işlemi geri alır — devretme kaydı da geri alınırdı. Devretme tek bir yerde,
+     * {@link #sweepExpiredTurns()} zamanlayıcısında yapılır (saniyede bir tarar).
+     */
+    private void assertTurnNotExpired(HangmanSession session) {
+        if (isTurnExpired(session)) {
+            throw new RuntimeException("Süre doldu — sıra sonraki oyuncuya geçiyor");
+        }
+    }
+
+    /**
+     * Kelime tahmini hakkını doğrular.
+     *
+     * Sırası gelen her an tahmin edebilir. Diğer oyuncular yalnızca sıranın ilk
+     * {@link #WORD_GUESS_LOCK_SECONDS} saniyesi dolduktan sonra ve o sıra penceresinde
+     * bir kez deneyebilir. İzleyiciler (kelimeleri belirleyen moderatör) hiç oynayamaz.
+     */
+    private HangmanParticipant assertCanGuessWord(HangmanSession session, HangmanRound round,
+                                                  String email, boolean myTurn) {
+        HangmanParticipant player = participantRepository
+                .findBySessionIdAndUserEmail(session.getId(), email)
+                .orElseThrow(() -> new RuntimeException("Bu oyuna katılmadınız"));
+
+        if (Boolean.TRUE.equals(player.getSpectator())) {
+            throw new RuntimeException("Kelimeleri siz belirlediğiniz için bu oyunda oynayamazsınız");
+        }
+        if (myTurn) {
+            return player;
+        }
+
+        int wait = wordOpenInSeconds(session);
+        if (wait > 0) {
+            throw new RuntimeException("Kelime tahmini ilk " + WORD_GUESS_LOCK_SECONDS
+                    + " saniye sırası gelen oyuncunun hakkı — " + wait + " sn sonra sen de deneyebilirsin");
+        }
+        assertWordGuessQuotaLeft(session, round, email);
+        return player;
+    }
+
+    /**
+     * Sırası olmayan oyuncuya sıra başına tek kelime hakkı tanır.
+     *
+     * Yanlış tahminin bu oyunculara maliyeti yok (sıralarını kaybetmiyorlar); sınır olmasaydı
+     * kilit açılır açılmaz kelimeyi deneme yanılmayla kırmak mümkün olurdu.
+     */
+    private void assertWordGuessQuotaLeft(HangmanSession session, HangmanRound round, String email) {
+        LocalDateTime turnStart = session.getTurnStartedAt();
+        if (turnStart == null) return;
+
+        boolean alreadyTried = guessRepository.findByRoundIdOrderByCreatedAtAsc(round.getId()).stream()
+                .anyMatch(g -> g.getGuessType() == HangmanGuessType.WORD
+                        && email.equals(g.getUserEmail())
+                        && g.getCreatedAt() != null
+                        && !g.getCreatedAt().isBefore(turnStart));
+
+        if (alreadyTried) {
+            throw new RuntimeException("Bu sırada kelime hakkını kullandın — sıradaki oyuncuyu bekle");
+        }
+    }
+
+    /** Aktif bir sıra var ve süresi doldu mu? turnStartedAt boşsa (eski oturum) süre işlemez. */
+    private boolean isTurnExpired(HangmanSession session) {
+        return session.getStatus() == HangmanSessionStatus.IN_PROGRESS
+                && session.getCurrentTurnEmail() != null
+                && session.getTurnStartedAt() != null
+                && elapsedTurnSeconds(session) >= TURN_SECONDS;
+    }
+
+    /** Mevcut sıranın başlamasından bu yana geçen saniye. */
+    private long elapsedTurnSeconds(HangmanSession session) {
+        LocalDateTime start = session.getTurnStartedAt();
+        if (start == null) return 0;
+        return Math.max(0, Duration.between(start, LocalDateTime.now()).getSeconds());
+    }
+
+    /** Sıranın bitmesine kalan saniye; aktif sıra yoksa 0. */
+    private int turnSecondsLeft(HangmanSession session) {
+        if (session.getStatus() != HangmanSessionStatus.IN_PROGRESS || session.getCurrentTurnEmail() == null) {
+            return 0;
+        }
+        return (int) Math.max(0, TURN_SECONDS - elapsedTurnSeconds(session));
+    }
+
+    /** Kelime tahmininin herkese açılmasına kalan saniye; 0 = açık. */
+    private int wordOpenInSeconds(HangmanSession session) {
+        if (session.getStatus() != HangmanSessionStatus.IN_PROGRESS || session.getCurrentTurnEmail() == null) {
+            return 0;
+        }
+        return (int) Math.max(0, WORD_GUESS_LOCK_SECONDS - elapsedTurnSeconds(session));
     }
 
     /** Sıranın gerçekten bu oyuncuda olduğunu doğrular. */
@@ -740,8 +907,9 @@ public class HangmanSessionService {
                 .stream().limit(RECENT_GUESS_LIMIT)
                 .map(HangmanGuessResponse::from).toList();
 
-        return HangmanSessionResponse.from(session, round, lastFinished, currentTurnName, rounds.size(),
-                participants, leaderboard, recentGuesses);
+        return HangmanSessionResponse.from(session, round, lastFinished, currentTurnName,
+                TURN_SECONDS, WORD_GUESS_LOCK_SECONDS, turnSecondsLeft(session), wordOpenInSeconds(session),
+                rounds.size(), participants, leaderboard, recentGuesses);
     }
 
     private void broadcast(UUID teamId, HangmanSessionResponse state) {

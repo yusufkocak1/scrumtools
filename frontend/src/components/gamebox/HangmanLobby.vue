@@ -42,6 +42,17 @@
           </p>
         </div>
 
+        <!-- Süre kuralları — oyun başlamadan herkes bilsin. -->
+        <div class="bg-indigo-50 border border-indigo-100 rounded-xl p-3 mb-6">
+          <p class="text-xs font-semibold text-indigo-800 mb-1.5">⏱️ Süre kuralları</p>
+          <ul class="text-xs text-indigo-900/80 space-y-1">
+            <li>• Her sıra <strong>{{ turnSeconds }} saniye</strong>; tahmin gelmezse sıra kendiliğinden devreder.</li>
+            <li>• <strong>Harf tahmini</strong> yalnızca sırası gelen oyuncunun hakkıdır.</li>
+            <li>• <strong>Kelime tahmini</strong> ilk {{ wordLockSeconds }} saniye sırası gelene ait;
+              sonrasında diğerleri de birer hakla yarışa girer.</li>
+          </ul>
+        </div>
+
         <!-- Oyuncular -->
         <h3 class="text-lg font-semibold text-gray-800 mb-4">
           Oyuncular ({{ players.length }})
@@ -130,6 +141,12 @@ export default {
     categoryText() {
       if (this.session?.wordSource === 'CUSTOM') return '—'
       return hangmanCategoryLabel(this.session?.category, this.session?.language) || '🎲 Karışık'
+    },
+    turnSeconds() {
+      return this.session?.turnSeconds || 30
+    },
+    wordLockSeconds() {
+      return this.session?.wordLockSeconds ?? 10
     },
     participants() {
       return this.session?.participants || []

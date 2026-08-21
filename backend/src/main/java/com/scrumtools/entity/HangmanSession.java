@@ -80,6 +80,19 @@ public class HangmanSession {
     @Column
     private String currentTurnEmail;
 
+    /**
+     * Mevcut sıranın başladığı an — süre sayacının referansı.
+     *
+     * İki kuralı birden besler:
+     *   • İlk {@code WORD_GUESS_LOCK_SECONDS} saniye kelime tahmini yalnızca sırası gelene açıktır.
+     *   • {@code TURN_SECONDS} sonunda tahmin gelmezse sıra kendiliğinden devreder.
+     *
+     * Sıra devrettiğinde ve sırası gelen oyuncu doğru harf bulup sırayı koruduğunda sıfırlanır.
+     * Oyun başlamadıysa / bittiyse null.
+     */
+    @Column
+    private LocalDateTime turnStartedAt;
+
     // Turlar bilinçli olarak @OneToMany ile bağlanmadı: HangmanRound kayıtları
     // repository üzerinden yazılıyor, bu yüzden buradaki koleksiyon bayat kalırdı.
     // Turlara her zaman HangmanRoundRepository üzerinden erişin.
