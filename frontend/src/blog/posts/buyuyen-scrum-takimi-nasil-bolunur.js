@@ -8,7 +8,7 @@ export default {
     date: '2026-07-17',
     readingMinutes: 9,
     excerpt: 'Büyüyen bir Scrum takımında iletişim maliyeti üye sayısından çok daha hızlı artar. Takımı doğru sınırlardan bölmek, tek backlog disiplinini korumak ve takımlar arası koordinasyonu baştan kurgulamak, ölçeklenmenin üç kritik ayağıdır.',
-    related: ['scrum-nedir', 'sprint-retrospektifi-nedir', 'urun-is-listesi-nasil-organize-edilmeli'],
+    related: ['scrum-nedir', 'daily-scrum-nedir-nasil-yapilir', 'sprint-retrospektifi-nedir', 'urun-is-listesi-nasil-organize-edilmeli'],
     html: `
 <p>Ürün büyür, işe alımlar hızlanır ve bir gün daily scrum'ınızın 25 dakika sürdüğünü, yarısında ekranın karşısında sessizce bekleyen sekiz kişi olduğunu fark edersiniz. <strong>Scrum Kılavuzu (2020), Scrum takımının 10 veya daha az kişiden oluşmasını önerir</strong> ve bunun bir nedeni vardır: Küçük takımlar daha iyi iletişim kurar ve daha üretkendir. Takım bu eşiği belirgin biçimde aştığında soru artık "bölmeli miyiz?" değil, "<em>nasıl</em> bölmeliyiz?" sorusudur.</p>
 

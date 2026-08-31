@@ -8,7 +8,7 @@ export default {
     date: '2026-07-13',
     readingMinutes: 8,
     excerpt: 'Sprint retrospektifi, takımın her sprint sonunda çalışma biçimini gözden geçirip somut iyileştirme adımları belirlediği Scrum etkinliğidir. Doğru yürütüldüğünde takımın en değerli sürekli iyileştirme mekanizmasıdır.',
-    related: ['scrum-nedir', 'scrum-poker-nedir', 'burndown-grafigi-nedir'],
+    related: ['scrum-nedir', 'daily-scrum-nedir-nasil-yapilir', 'scrum-poker-nedir', 'burndown-grafigi-nedir'],
     html: `
 <p><strong>Sprint retrospektifi</strong>, Scrum takımının her sprintin sonunda bir araya gelerek "Nasıl çalıştık ve nasıl daha iyi çalışabiliriz?" sorusunu yanıtladığı resmî Scrum etkinliğidir. Sprint Review ürünü ele alırken, retrospektif <em>süreci ve takımın kendisini</em> ele alır: iletişim, iş birliği, araçlar, teknik pratikler ve Bitti Tanımı (Definition of Done) masaya yatırılır.</p>
 

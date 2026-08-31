@@ -12,6 +12,7 @@ import takimBolunmesi from './posts/buyuyen-scrum-takimi-nasil-bolunur.js'
 import isParcalama from './posts/buyuk-isler-nasil-parcalanir.js'
 import analizGelistirmeTest from './posts/analiz-gelistirme-test-ayni-sprintte-mi.js'
 import kabulVeRelease from './posts/cevik-olmayan-musteri-kabul-testi-release-yonetimi.js'
+import dailyScrum from './posts/daily-scrum-nedir-nasil-yapilir.js'
 
 // Yeniden eskiye sıralı liste
 export const posts = [
@@ -26,6 +27,7 @@ export const posts = [
     isParcalama,
     analizGelistirmeTest,
     kabulVeRelease,
+    dailyScrum,
 ].sort((a, b) => b.date.localeCompare(a.date))
 
 export function getPost(slug) {
