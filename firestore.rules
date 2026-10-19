@@ -16,6 +16,13 @@ service cloud.firestore {
         && userEmail() in get(/databases/$(database)/documents/teams/$(teamId)).data.memberEmails;
     }
 
+    // Site geneli ayarlar (orn. reklam alani: siteConfig/adBanner).
+    // Herkes okuyabilir; yazma sadece Firebase Console uzerinden yapilir.
+    match /siteConfig/{configId} {
+      allow read: if true;
+      allow write: if false;
+    }
+
     match /teams/{teamId} {
       // Takim dokumanini sadece uyeler okuyabilir.
       // (listenTeams/getTeams sorgulari "memberEmails array-contains <email>"
