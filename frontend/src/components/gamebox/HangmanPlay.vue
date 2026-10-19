@@ -39,17 +39,32 @@
           </div>
 
           <div class="border-t border-gray-200 bg-gray-50 px-6 py-5 text-center">
+            <!-- Otomatik geçiş geri sayımı — moderatör dalgınken herkes beklemesin. -->
+            <div v-if="intermissionCounting" class="mb-4">
+              <p class="text-sm text-gray-600 mb-2">
+                {{ isLastRound ? '🏁 Sonuçlar' : '⏭️ Sonraki kelime' }}
+                <strong class="text-indigo-600">{{ intermissionLeft }} sn</strong> sonra
+              </p>
+              <div class="h-1.5 max-w-xs mx-auto bg-gray-200 rounded-full overflow-hidden">
+                <div class="h-full bg-indigo-500 transition-all duration-1000 ease-linear"
+                     :style="{ width: intermissionProgress + '%' }"></div>
+              </div>
+            </div>
             <button v-if="isHost" @click="$emit('next-round')"
                     class="w-full sm:w-auto px-8 py-3.5 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700
                            transition-colors font-semibold text-lg shadow-lg shadow-indigo-600/20">
               {{ isLastRound ? '🏁 Sonuçları Göster' : '⏭️ Sonraki Kelime' }}
             </button>
-            <p v-else class="text-sm text-gray-500 flex items-center justify-center gap-2">
+            <p v-else-if="!intermissionCounting" class="text-sm text-gray-500 flex items-center justify-center gap-2">
               <span class="w-2 h-2 rounded-full bg-indigo-500 animate-pulse"></span>
               {{ isLastRound
                   ? 'Moderatör sonuçları açıyor…'
                   : 'Moderatörün sonraki kelimeye geçmesi bekleniyor…' }}
             </p>
+            <button v-if="isHost && intermissionCounting" @click="$emit('pause-intermission')"
+                    class="block mx-auto mt-3 text-xs text-gray-500 hover:text-indigo-700 transition-colors">
+              ⏸️ Geri sayımı durdur — biraz konuşalım
+            </button>
             <button v-if="isHost && !isLastRound" @click="$emit('finish')"
                     class="mt-3 text-xs text-gray-400 hover:text-red-600 transition-colors">
               ⏹️ Oyunu burada bitir
@@ -118,6 +133,9 @@
                    :style="{ width: turnProgress + '%' }"></div>
             </div>
           </div>
+          <p v-if="isMyTurn && !intermission" class="mt-2 text-white/80 text-[11px]">
+            🔥 Bu sırada en fazla {{ maxStreak }} doğru harf — süre sıfırlanmaz
+          </p>
           <!-- Kategori ipucu — moderatör açtıysa (sabit kategorili oyunda baştan açık). -->
           <p v-if="categoryText"
              class="mt-2 inline-flex items-center gap-1.5 px-3 py-1 bg-white/20 rounded-full backdrop-blur-sm text-white text-xs font-medium">
@@ -159,12 +177,33 @@
                 </p>
               </div>
 
+              <!-- Tahmin oylaması — sırası olmayanın klavyesi tahmin klavyesine döner. -->
+              <div v-if="canPredict"
+                   class="mb-3 px-4 py-2.5 bg-purple-50 border border-purple-200 rounded-xl text-center text-xs text-purple-800">
+                <template v-if="myPrediction">
+                  🔮 Tahminin: <strong class="font-mono text-sm">{{ upper(myPrediction) }}</strong> —
+                  {{ session.currentTurnName }} bunu seçer ve harf kelimede varsa
+                  <strong>+{{ predictionScore }}</strong>. Değiştirmek için başka harfe bas.
+                </template>
+                <template v-else>
+                  🔮 <strong>{{ session.currentTurnName }}</strong> hangi harfi seçecek? Tahmin et —
+                  doğru harfse <strong>+{{ predictionScore }}</strong>.
+                </template>
+                <span v-if="predictionCount" class="block mt-1 text-purple-500">
+                  {{ predictionCount }} kişi tahmin bıraktı
+                </span>
+              </div>
+              <p v-else-if="isMyTurn && predictionCount && !intermission"
+                 class="mb-3 text-center text-xs text-purple-600">
+                🔮 {{ predictionCount }} kişi senin seçeceğin harfi tahmin ediyor…
+              </p>
+
               <div class="flex flex-wrap justify-center gap-1.5 mb-6">
                 <button
                     v-for="letter in alphabet"
                     :key="letter"
-                    :disabled="!canGuessLetter || isGuessed(letter) || busy"
-                    @click="submitLetter(letter)"
+                    :disabled="!(canGuessLetter || canPredict) || isGuessed(letter) || busy"
+                    @click="onLetterClick(letter)"
                     :class="['w-9 h-9 sm:w-10 sm:h-10 rounded-lg text-sm font-semibold transition-colors border',
                              letterClass(letter)]">
                   {{ letter }}
@@ -271,6 +310,7 @@
                 </p>
                 <p class="text-xs text-gray-400">
                   {{ entry.wordsSolved }} kelime · {{ entry.correctLetterCount }}✓ {{ entry.wrongLetterCount }}✗
+                  <span v-if="entry.predictionHits"> · {{ entry.predictionHits }}🔮</span>
                 </p>
               </div>
               <span class="font-bold text-indigo-600 shrink-0">{{ entry.totalScore }}</span>
@@ -288,7 +328,7 @@
           </div>
           <div v-else class="divide-y divide-gray-100 max-h-72 overflow-y-auto">
             <div v-for="(g, i) in recentGuesses" :key="i"
-                 class="px-5 py-2.5 flex items-center gap-2 text-sm">
+                 class="px-5 py-2.5 flex flex-wrap items-center gap-2 text-sm">
               <span class="text-gray-800 font-medium truncate flex-1">{{ g.displayName }}</span>
               <span :class="['px-2 py-0.5 rounded font-mono text-xs font-semibold',
                              g.correct ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-600']">
@@ -298,6 +338,10 @@
                              g.scoreDelta > 0 ? 'text-green-600' : g.scoreDelta < 0 ? 'text-red-500' : 'text-gray-400']">
                 {{ g.scoreDelta > 0 ? '+' : '' }}{{ g.scoreDelta }}
               </span>
+              <p v-if="g.predictionWinners && g.predictionWinners.length"
+                 class="basis-full text-xs text-purple-600">
+                🔮 {{ g.predictionWinners.join(', ') }} bildi · +{{ predictionScore }}
+              </p>
             </div>
           </div>
         </div>
@@ -307,7 +351,7 @@
 </template>
 
 <script>
-import { guessHangmanLetter, guessHangmanWord } from '../../api/HangmanApi.js'
+import { guessHangmanLetter, guessHangmanWord, predictHangmanLetter } from '../../api/HangmanApi.js'
 import { hangmanCategoryLabel } from '../../data/hangmanWords.js'
 import { playTurnChime, flashTabTitle } from '../../utils/turnAlert.js'
 
@@ -317,6 +361,9 @@ const EN_ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('')
 
 /** Sıra sesi tercihi tarayıcıda saklanır — her oyunda yeniden kapatmak gerekmesin. */
 const SOUND_PREF_KEY = 'hangman.turnSound'
+
+/** Sunucudaki HangmanSessionService.INTERMISSION_SECONDS — yalnızca ilerleme çubuğu için. */
+const INTERMISSION_SECONDS = 8
 
 /** Sıra kuyruğunda gösterilecek oyuncu sayısı — daha uzunu panelde gürültü yapıyor. */
 const QUEUE_PREVIEW = 5
@@ -328,7 +375,7 @@ export default {
     isHost: Boolean,
     teamId: String
   },
-  emits: ['updated', 'skip', 'finish', 'reveal-category', 'next-round'],
+  emits: ['updated', 'skip', 'finish', 'reveal-category', 'next-round', 'pause-intermission'],
   data: () => ({
     wordGuess: '',
     busy: false,
@@ -340,6 +387,13 @@ export default {
      */
     secondsLeft: 0,
     wordOpensIn: 0,
+    /** Ara ekranının kendiliğinden kapanmasına kalan saniye; null = geri sayım yok. */
+    intermissionLeft: null,
+    /**
+     * Bu sıradaki gizli tahminim (küçük harf). Sunucu kimin neyi seçtiğini yayınlamadığı
+     * için yerelde tutulur; sırası gelen harf seçince ya da sıra değişince sıfırlanır.
+     */
+    myPrediction: null,
     tickTimer: null,
     /** Sırası olmayan oyuncunun bu sıra penceresindeki tek hakkını kullandı mı? */
     wordTriedThisTurn: false,
@@ -440,6 +494,32 @@ export default {
     turnSeconds() {
       return this.session?.turnSeconds || 30
     },
+    maxStreak() {
+      return this.session?.maxStreak || 3
+    },
+    predictionScore() {
+      return this.session?.predictionScore || 2
+    },
+    predictionCount() {
+      return this.session?.predictionCount || 0
+    },
+    /** Sırası olmayan oyuncu bekleme süresinde sıradaki harfi tahmin edebilir. */
+    canPredict() {
+      return !this.isMyTurn && !this.isSpectator && !this.intermission
+          && this.secondsLeft > 0 && !!this.session?.currentTurnEmail
+          && this.turnsUntilMine !== -1
+    },
+    intermissionCounting() {
+      return !!this.intermission && this.intermissionLeft !== null
+    },
+    intermissionProgress() {
+      return Math.max(0, Math.min(100, ((this.intermissionLeft ?? 0) / INTERMISSION_SECONDS) * 100))
+    },
+    /** Tahmini sıfırlama anahtarı: harf açıldığında, sıra ya da tur değiştiğinde değişir. */
+    predictionWindowKey() {
+      return [this.session?.currentRoundIndex, this.session?.currentTurnEmail,
+        this.guessedLetters.length, !!this.intermission].join('|')
+    },
     wordLockSeconds() {
       return this.session?.wordLockSeconds ?? 10
     },
@@ -510,6 +590,9 @@ export default {
     }
   },
   watch: {
+    predictionWindowKey() {
+      this.myPrediction = null
+    },
     // Sıra bize geçtiğinde eski tahmin metnini temizle.
     'session.currentTurnEmail'() {
       this.wordGuess = ''
@@ -541,10 +624,13 @@ export default {
       // Kilit yeniden kapandıysa yeni bir sıra penceresi başlamıştır → hak tazelenir.
       if (opensIn > 0) this.wordTriedThisTurn = false
       this.wordOpensIn = opensIn
+      this.intermissionLeft = this.session?.intermissionSecondsLeft ?? null
     },
     tick() {
       if (this.secondsLeft > 0) this.secondsLeft--
       if (this.wordOpensIn > 0) this.wordOpensIn--
+      // Sıfırda durur; geçişi sunucu yapar ve yeni durum WS ile gelir.
+      if (this.intermissionLeft > 0) this.intermissionLeft--
     },
     /**
      * Sıra bana geçti: kısa zil + (sekme arkadaysa) başlık flaşı.
@@ -596,6 +682,11 @@ export default {
     },
     letterClass(letter) {
       if (!this.isGuessed(letter)) {
+        if (this.canPredict) {
+          return this.myPrediction === letter.toLocaleLowerCase(this.locale)
+              ? 'bg-purple-600 border-purple-600 text-white shadow'
+              : 'bg-white border-purple-200 text-purple-700 hover:bg-purple-50 hover:border-purple-400'
+        }
         return this.canGuessLetter
             ? 'bg-white border-gray-300 text-gray-700 hover:bg-indigo-50 hover:border-indigo-300'
             : 'bg-white border-gray-200 text-gray-300 cursor-not-allowed'
@@ -611,6 +702,25 @@ export default {
       if (rank === 2) return 'bg-gray-200 text-gray-700'
       if (rank === 3) return 'bg-orange-100 text-orange-700'
       return 'bg-gray-100 text-gray-500'
+    },
+    onLetterClick(letter) {
+      if (this.canGuessLetter) this.submitLetter(letter)
+      else if (this.canPredict) this.submitPrediction(letter)
+    },
+    async submitPrediction(letter) {
+      const lower = letter.toLocaleLowerCase(this.locale)
+      if (!this.canPredict || this.busy || this.myPrediction === lower) return
+      this.busy = true
+      try {
+        const updated = await predictHangmanLetter(this.teamId, this.session.id, lower)
+        this.$emit('updated', updated)
+        // Yanıt durumu güncelleyip sıfırlama anahtarını tetiklemiş olabilir; sonra yaz.
+        await this.$nextTick()
+        this.myPrediction = lower
+      } catch (e) {
+        // Hata interceptor tarafından otomatik gösterilir
+      }
+      this.busy = false
     },
     async submitLetter(letter) {
       if (!this.canGuessLetter || this.busy) return
@@ -642,13 +752,13 @@ export default {
       this.busy = false
     },
     handleKeydown(e) {
-      if (!this.canGuessLetter || this.busy) return
+      if (!(this.canGuessLetter || this.canPredict) || this.busy) return
       // Kelime tahmini alanına yazarken klavye kısayolu devreye girmesin.
       if (e.target && ['INPUT', 'TEXTAREA'].includes(e.target.tagName)) return
       if (e.key.length !== 1) return
       const upper = e.key.toLocaleUpperCase(this.locale)
       if (this.alphabet.includes(upper) && !this.isGuessed(upper)) {
-        this.submitLetter(upper)
+        this.onLetterClick(upper)
       }
     }
   },

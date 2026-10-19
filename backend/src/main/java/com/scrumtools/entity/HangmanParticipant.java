@@ -67,6 +67,14 @@ public class HangmanParticipant {
     @Builder.Default
     private Integer wordsSolved = 0;
 
+    /**
+     * İsabetli tahmin oylaması sayısı — sırası gelenin seçeceği doğru harfi önceden bilmek.
+     * Her isabet totalScore'a ayrıca eklenir. Kolon sonradan eklendi; eski kayıtlarda null.
+     */
+    @Column
+    @Builder.Default
+    private Integer predictionHits = 0;
+
     @CreationTimestamp
     @Column(updatable = false)
     private LocalDateTime joinedAt;

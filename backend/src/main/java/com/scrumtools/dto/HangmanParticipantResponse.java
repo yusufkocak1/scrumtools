@@ -10,7 +10,8 @@ public record HangmanParticipantResponse(
         int totalScore,
         int correctLetterCount,
         int wrongLetterCount,
-        int wordsSolved
+        int wordsSolved,
+        int predictionHits
 ) {
     public static HangmanParticipantResponse from(HangmanParticipant p) {
         return new HangmanParticipantResponse(
@@ -21,7 +22,8 @@ public record HangmanParticipantResponse(
                 p.getTotalScore(),
                 p.getCorrectLetterCount(),
                 p.getWrongLetterCount(),
-                p.getWordsSolved()
+                p.getWordsSolved(),
+                p.getPredictionHits() == null ? 0 : p.getPredictionHits()
         );
     }
 }

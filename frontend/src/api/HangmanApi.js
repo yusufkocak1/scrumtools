@@ -37,7 +37,8 @@ export const getHangmanWords = async (language, category = null) => {
 
 /**
  * Oturum açar ve açan kişiyi moderatör yapar.
- * @param {object} payload { language, roundCount, category, customWords, moderatorPlays }
+ * @param {object} payload { language, roundCount, category, customWords, moderatorPlays, pace, autoAdvance }
+ *   pace: 'FAST' | 'NORMAL' | 'RELAXED' — sıra süresi; autoAdvance: tur arası geri sayımla kapansın mı
  */
 export const startHangmanSession = async (teamId, payload) => {
     const { data } = await apiClient.post(`${base(teamId)}/sessions`, payload)
@@ -79,6 +80,15 @@ export const guessHangmanWord = async (teamId, sessionId, word) => {
     return data
 }
 
+/**
+ * Tahmin oylaması — sırası olmayan oyuncu, sırası gelenin seçeceği harfi gizlice tahmin eder.
+ * Yeniden çağrılırsa tahmin değişir. Yanıtta yalnızca bekleyen tahmin sayısı (predictionCount) döner.
+ */
+export const predictHangmanLetter = async (teamId, sessionId, letter) => {
+    const { data } = await apiClient.post(`${base(teamId)}/sessions/${sessionId}/predict`, { value: letter })
+    return data
+}
+
 export const skipHangmanTurn = async (teamId, sessionId) => {
     const { data } = await apiClient.post(`${base(teamId)}/sessions/${sessionId}/skip-turn`)
     return data
@@ -90,6 +100,12 @@ export const skipHangmanTurn = async (teamId, sessionId) => {
  */
 export const nextHangmanRound = async (teamId, sessionId) => {
     const { data } = await apiClient.post(`${base(teamId)}/sessions/${sessionId}/next-round`)
+    return data
+}
+
+/** Tur arası geri sayımını durdurur (moderatör); sonraki kelimeye elle geçilir. */
+export const pauseHangmanIntermission = async (teamId, sessionId) => {
+    const { data } = await apiClient.post(`${base(teamId)}/sessions/${sessionId}/pause-intermission`)
     return data
 }
 

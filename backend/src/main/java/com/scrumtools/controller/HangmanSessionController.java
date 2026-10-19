@@ -26,8 +26,10 @@ import java.util.UUID;
  *   POST   /api/teams/{teamId}/hangman/sessions/{id}/begin       → oyunu başlat (moderatör)
  *   POST   /api/teams/{teamId}/hangman/sessions/{id}/guess-letter→ harf tahmini
  *   POST   /api/teams/{teamId}/hangman/sessions/{id}/guess-word  → kelime tahmini
+ *   POST   /api/teams/{teamId}/hangman/sessions/{id}/predict     → sıradaki harfi tahmin et (sırası olmayan)
  *   POST   /api/teams/{teamId}/hangman/sessions/{id}/skip-turn   → sırayı devret (moderatör)
  *   POST   /api/teams/{teamId}/hangman/sessions/{id}/next-round  → sonraki kelimeye geç (moderatör)
+ *   POST   /api/teams/{teamId}/hangman/sessions/{id}/pause-intermission → tur arası geri sayımını durdur (moderatör)
  *   POST   /api/teams/{teamId}/hangman/sessions/{id}/reveal-category → kategoriyi göster (moderatör)
  *   POST   /api/teams/{teamId}/hangman/sessions/{id}/cancel       → başlamamış lobiyi kapat (moderatör)
  *   POST   /api/teams/{teamId}/hangman/sessions/{id}/finish      → oyunu bitir (moderatör)
@@ -88,6 +90,17 @@ public class HangmanSessionController {
         return ResponseEntity.ok(hangmanSessionService.guessWord(sessionId, request.value()));
     }
 
+    /**
+     * Tahmin oylaması: sırası olmayan oyuncu, sırası gelenin seçeceği harfi tahmin eder.
+     * Harf kelimede varsa ve sırası gelen onu seçerse küçük bir bonus kazanır.
+     */
+    @PostMapping("/sessions/{sessionId}/predict")
+    public ResponseEntity<HangmanSessionResponse> predict(@PathVariable UUID teamId,
+                                                          @PathVariable UUID sessionId,
+                                                          @Valid @RequestBody HangmanGuessRequest request) {
+        return ResponseEntity.ok(hangmanSessionService.predictLetter(sessionId, request.value()));
+    }
+
     @PostMapping("/sessions/{sessionId}/skip-turn")
     public ResponseEntity<HangmanSessionResponse> skipTurn(@PathVariable UUID teamId,
                                                            @PathVariable UUID sessionId) {
@@ -102,6 +115,13 @@ public class HangmanSessionController {
     public ResponseEntity<HangmanSessionResponse> nextRound(@PathVariable UUID teamId,
                                                             @PathVariable UUID sessionId) {
         return ResponseEntity.ok(hangmanSessionService.nextRound(sessionId));
+    }
+
+    /** Tur arası geri sayımını durdurur; sonraki kelimeye moderatör elle geçer. */
+    @PostMapping("/sessions/{sessionId}/pause-intermission")
+    public ResponseEntity<HangmanSessionResponse> pauseIntermission(@PathVariable UUID teamId,
+                                                                    @PathVariable UUID sessionId) {
+        return ResponseEntity.ok(hangmanSessionService.pauseIntermission(sessionId));
     }
 
     @PostMapping("/sessions/{sessionId}/reveal-category")

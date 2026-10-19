@@ -66,6 +66,7 @@
               @updated="hangmanSession = $event"
               @skip="handleHangmanSkip"
               @next-round="handleHangmanNextRound"
+              @pause-intermission="handleHangmanPauseIntermission"
               @reveal-category="handleHangmanRevealCategory"
               @finish="handleHangmanFinish"
           />
@@ -258,7 +259,7 @@ import {
 } from '../api/QuizApi.js'
 import {
   getActiveHangmanSession, getHangmanSession, beginHangmanGame,
-  skipHangmanTurn, nextHangmanRound, revealHangmanCategory, finishHangmanSession
+  skipHangmanTurn, nextHangmanRound, pauseHangmanIntermission, revealHangmanCategory, finishHangmanSession
 } from '../api/HangmanApi.js'
 import { connect, subscribe, unsubscribe } from '../api/websocket.js'
 import { createToast } from 'mosha-vue-toastify'
@@ -508,6 +509,15 @@ export default {
     async handleHangmanNextRound() {
       try {
         this.hangmanSession = await nextHangmanRound(this.teamId, this.hangmanSession.id)
+      } catch (e) {
+        // Hata interceptor tarafından otomatik gösterilir
+      }
+    },
+
+    /** Tur arası geri sayımını durdurur; sonraki kelimeye moderatör elle geçer. */
+    async handleHangmanPauseIntermission() {
+      try {
+        this.hangmanSession = await pauseHangmanIntermission(this.teamId, this.hangmanSession.id)
       } catch (e) {
         // Hata interceptor tarafından otomatik gösterilir
       }

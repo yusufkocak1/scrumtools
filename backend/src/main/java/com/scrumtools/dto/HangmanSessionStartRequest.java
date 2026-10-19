@@ -28,6 +28,12 @@ public record HangmanSessionStartRequest(
         List<String> customWords,
 
         /** Moderatör de sıraya girsin mi? customWords doluysa yok sayılır (false'a zorlanır). */
-        Boolean moderatorPlays
+        Boolean moderatorPlays,
+
+        /** Oyun temposu: FAST | NORMAL | RELAXED. Boşsa NORMAL. */
+        String pace,
+
+        /** Tur arası ekranı geri sayımla kendiliğinden kapansın mı? Boşsa açık. */
+        Boolean autoAdvance
 ) {
 }
