@@ -1,5 +1,6 @@
 package com.scrumtools.dto;
 
+import com.scrumtools.entity.HangmanPace;
 import com.scrumtools.entity.HangmanSession;
 
 import java.time.LocalDateTime;
@@ -32,6 +33,21 @@ public record HangmanSessionResponse(
         int turnSecondsLeft,
         /** Kelime tahmininin herkese açılmasına kalan saniye; 0 = herkes tahmin edebilir. */
         int wordOpenInSeconds,
+        /** Oyun temposu: FAST | NORMAL | RELAXED. */
+        String pace,
+        /** Sırası gelen tek sırada en fazla kaç doğru harf bulabilir; sonra sıra devreder. */
+        int maxStreak,
+        /** Tur arası geri sayımla kendiliğinden kapanıyor mu (moderatör ayarı). */
+        boolean autoAdvance,
+        /**
+         * Ara ekranının kendiliğinden kapanmasına kalan saniye.
+         * null = geri sayım yok (otomatik geçiş kapalı, tur arasında değil ya da duraklatıldı).
+         */
+        Integer intermissionSecondsLeft,
+        /** Tahmin oylamasında isabet başına verilen puan. */
+        int predictionScore,
+        /** Şu an bekleyen gizli tahmin sayısı — kimin neyi seçtiği yayınlanmaz. */
+        int predictionCount,
         /** Aktif tur — lobide ve oyun bitince null olabilir. */
         HangmanRoundResponse round,
         /**
@@ -64,6 +80,10 @@ public record HangmanSessionResponse(
                                               int wordLockSeconds,
                                               int turnSecondsLeft,
                                               int wordOpenInSeconds,
+                                              int maxStreak,
+                                              Integer intermissionSecondsLeft,
+                                              int predictionScore,
+                                              int predictionCount,
                                               int totalRounds,
                                               List<HangmanParticipantResponse> participants,
                                               List<HangmanLeaderboardEntry> leaderboard,
@@ -87,6 +107,12 @@ public record HangmanSessionResponse(
                 wordLockSeconds,
                 turnSecondsLeft,
                 wordOpenInSeconds,
+                HangmanPace.of(session.getPace()).name(),
+                maxStreak,
+                Boolean.TRUE.equals(session.getAutoAdvance()),
+                intermissionSecondsLeft,
+                predictionScore,
+                predictionCount,
                 round,
                 lastFinishedRound,
                 Boolean.TRUE.equals(session.getAwaitingNextRound()),

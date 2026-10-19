@@ -53,6 +53,13 @@ public class HangmanGuess {
     @Builder.Default
     private Integer scoreDelta = 0;
 
+    /**
+     * Bu harfi önceden doğru tahmin edip bonus alan oyuncuların adları, satır sonuyla ayrılmış.
+     * Kimse bilmediyse null.
+     */
+    @Column(length = 2000)
+    private String predictionWinners;
+
     @CreationTimestamp
     @Column(updatable = false)
     private LocalDateTime createdAt;

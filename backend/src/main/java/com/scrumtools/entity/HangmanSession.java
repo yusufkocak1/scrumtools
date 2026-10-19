@@ -71,6 +71,28 @@ public class HangmanSession {
     @Builder.Default
     private Boolean moderatorPlays = true;
 
+    /**
+     * Oyun temposu — sıra süresini ve kelime kilidini belirler.
+     * Kolon sonradan eklendi; eski oturumlarda null'dır, {@link HangmanPace#of} ile okuyun.
+     */
+    @Enumerated(EnumType.STRING)
+    @Column(length = 16)
+    private HangmanPace pace;
+
+    /**
+     * Tur bitince ara ekranı kısa bir geri sayımdan sonra kendiliğinden kapansın mı?
+     * Eski oturumlarda null'dır ve kapalı sayılır — {@code Boolean.TRUE.equals(...)} ile okuyun.
+     */
+    @Column
+    private Boolean autoAdvance;
+
+    /**
+     * Otomatik geçişte ara ekranının kapanacağı an. Geri sayım işlemiyorsa null:
+     * otomatik geçiş kapalı, tur arasında değil ya da moderatör duraklattı.
+     */
+    @Column
+    private LocalDateTime intermissionEndsAt;
+
     /** Şu an oynanan tur index'i (0-based). -1 = henüz başlamadı. */
     @Column(nullable = false)
     @Builder.Default
@@ -84,10 +106,12 @@ public class HangmanSession {
      * Mevcut sıranın başladığı an — süre sayacının referansı.
      *
      * İki kuralı birden besler:
-     *   • İlk {@code WORD_GUESS_LOCK_SECONDS} saniye kelime tahmini yalnızca sırası gelene açıktır.
-     *   • {@code TURN_SECONDS} sonunda tahmin gelmezse sıra kendiliğinden devreder.
+     *   • Sıranın ilk "kelime kilidi" saniyesinde kelime tahmini yalnızca sırası gelene açıktır.
+     *   • Sıra süresi sonunda tahmin gelmezse sıra kendiliğinden devreder.
+     * (İkisi de {@link HangmanPace}'ten gelir.)
      *
-     * Sıra devrettiğinde ve sırası gelen oyuncu doğru harf bulup sırayı koruduğunda sıfırlanır.
+     * Yalnızca sıra devrettiğinde sıfırlanır — doğru harfle sırayı koruyan oyuncunun süresi
+     * kaldığı yerden işler, böylece seri yapan biri sırayı süresiz elinde tutamaz.
      * Oyun başlamadıysa / bittiyse null.
      */
     @Column
@@ -96,8 +120,9 @@ public class HangmanSession {
     /**
      * Tur bitti, sonraki kelimeye geçmek için moderatörün onayı bekleniyor mu?
      *
-     * Tur kapandığında oyun otomatik olarak sonrakine geçmez: bulunan kelime herkese
-     * ilan edilir ve moderatör "Sonraki Kelime"ye basana kadar oyun bu ara ekranında bekler.
+     * Tur kapandığında bulunan kelime herkese ilan edilir ve oyun bu ara ekranında bekler:
+     * otomatik geçiş açıksa {@code intermissionEndsAt} anına kadar, değilse (ya da moderatör
+     * duraklattıysa) moderatör "Sonraki Kelime"ye basana kadar.
      * Bu sırada {@code currentRoundIndex} biten turu gösterir (cevabı açık gelsin diye),
      * {@code currentTurnEmail} ise turu bitiren oyuncuda durur — sonraki tur onun
      * sonrasındaki oyuncuyla başlasın diye. Süre sayaçları ara boyunca işlemez.

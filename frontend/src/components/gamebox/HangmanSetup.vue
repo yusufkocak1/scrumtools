@@ -183,15 +183,51 @@
           </div>
         </div>
 
+        <!-- Tempo — rastgele ve özel kelimede ortak -->
+        <div>
+          <label class="block text-sm font-semibold text-gray-700 mb-2">Tempo</label>
+          <div class="grid grid-cols-3 gap-2">
+            <button v-for="opt in paceOptions" :key="opt.value" type="button"
+                    @click="pace = opt.value"
+                    :class="['px-3 py-2.5 rounded-xl border text-sm transition-colors text-center',
+                             pace === opt.value
+                               ? 'bg-indigo-600 border-indigo-600 text-white shadow'
+                               : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50']">
+              <span class="block font-semibold">{{ opt.emoji }} {{ opt.label }}</span>
+              <span :class="['block text-xs', pace === opt.value ? 'text-white/80' : 'text-gray-400']">
+                {{ opt.seconds }} sn / sıra
+              </span>
+            </button>
+          </div>
+          <p v-if="suggestFastPace" class="text-xs text-amber-700 mt-2">
+            💡 {{ expectedPlayersSafe }} kişide bekleme uzar —
+            <button type="button" @click="pace = 'FAST'" class="underline font-semibold">Hızlı</button>
+            tempo öneriyoruz.
+          </p>
+        </div>
+
+        <label class="flex items-start gap-3 cursor-pointer">
+          <input v-model="autoAdvance" type="checkbox" class="w-4 h-4 mt-0.5 accent-indigo-600" />
+          <span class="text-sm text-gray-700">
+            Tur bitince sonraki kelimeye otomatik geç
+            <span class="block text-xs text-gray-500">
+              Kelime birkaç saniye ilan edilir, sonra oyun kendiliğinden devam eder. İstersen ara ekranında duraklatabilirsin.
+            </span>
+          </span>
+        </label>
+
         <!-- Kurallar -->
         <div class="bg-gray-50 rounded-xl p-4 text-sm text-gray-600 space-y-1">
           <p class="font-semibold text-gray-800 mb-2">Nasıl oynanır?</p>
           <p>• Ortak kelimeyi herkes görür, sırası gelen oyuncu tahmin eder.</p>
-          <p>• Doğru harf <strong class="text-green-600">+10</strong> — sıra sende kalır, seri yapabilirsin.</p>
+          <p>• Doğru harf <strong class="text-green-600">+10</strong> — sıra sende kalır; bir sırada en fazla
+            <strong>3</strong> harf bulabilirsin, süre sıfırlanmaz.</p>
           <p>• Yanlış harf <strong class="text-red-600">-5</strong> — adam asılır, sıra sonrakine geçer.</p>
           <p>• Kelimeyi bilen, <strong class="text-indigo-600">kalan tüm harfleri</strong> bilmiş sayılır
             ve hepsinin puanını alır.</p>
           <p>• Kelime tahmini yanlışsa adam <strong>asılmaz</strong>, sadece sıranı kaybedersin.</p>
+          <p>• Sıran değilken <strong class="text-purple-600">🔮 tahmin oyla</strong>: sırası gelenin seçeceği
+            harfi bilirsen (ve harf kelimede varsa) <strong class="text-purple-600">+2</strong>.</p>
           <p>• Moderatör oyun sırasında kelimenin <strong>kategorisini</strong> ipucu olarak açabilir.</p>
           <p class="pt-1 text-xs text-gray-500">
             Harfleri tek tek toplayıp en sonda tahmin etmek ekstra puan kazandırmaz —
@@ -253,6 +289,15 @@ export default {
     /** Sunucudan gelen kelime sayıları: { [code]: wordCount } */
     categoryCounts: {},
     moderatorPlays: true,
+    /** Sıra süresi: FAST (15 sn) | NORMAL (30 sn) | RELAXED (45 sn). */
+    pace: 'NORMAL',
+    /** Tur arası ekranı birkaç saniyelik geri sayımla kendiliğinden kapansın mı? */
+    autoAdvance: true,
+    paceOptions: [
+      { value: 'FAST', label: 'Hızlı', emoji: '⚡', seconds: 15 },
+      { value: 'NORMAL', label: 'Normal', emoji: '🙂', seconds: 30 },
+      { value: 'RELAXED', label: 'Rahat', emoji: '🐢', seconds: 45 }
+    ],
     customWordsRaw: '',
     submitting: false,
     languageOptions: [
@@ -270,6 +315,10 @@ export default {
       return this.categoryOptions.find(o => o.code === this.category) || null
     },
     /** Geçerli bir tahmin yoksa 0 — öneri kutuları da gizlenir. */
+    /** 6+ kişide Normal tempoyla sıra beklemesi dakikaları buluyor; Hızlı'yı öner. */
+    suggestFastPace() {
+      return this.expectedPlayersSafe >= 6 && this.pace !== 'FAST'
+    },
     expectedPlayersSafe() {
       const n = this.expectedPlayers
       return Number.isFinite(n) && n > 0 ? Math.min(Math.floor(n), 200) : 0
@@ -382,7 +431,9 @@ export default {
           category: this.category,
           customWords: custom ? this.parsedWords : [],
           // Kelimeleri moderatör girdiyse sunucu zaten oynamasına izin vermez.
-          moderatorPlays: custom ? false : this.moderatorPlays
+          moderatorPlays: custom ? false : this.moderatorPlays,
+          pace: this.pace,
+          autoAdvance: this.autoAdvance
         })
         this.$emit('created', session)
       } catch (e) {
