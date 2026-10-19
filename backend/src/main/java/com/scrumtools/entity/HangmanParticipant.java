@@ -75,6 +75,18 @@ public class HangmanParticipant {
     @Builder.Default
     private Integer predictionHits = 0;
 
+    /**
+     * Sırası değilken yapılan yanlış kelime tahmini sayısı — her biri {@code -10}.
+     * Kolon sonradan eklendi; eski kayıtlarda null.
+     */
+    @Column
+    @Builder.Default
+    private Integer wrongWordCount = 0;
+
+    /** Takım modunda oyuncunun takımı (1 = Mavi, 2 = Kırmızı). Diğer modlarda null. */
+    @Column
+    private Integer teamNo;
+
     @CreationTimestamp
     @Column(updatable = false)
     private LocalDateTime joinedAt;

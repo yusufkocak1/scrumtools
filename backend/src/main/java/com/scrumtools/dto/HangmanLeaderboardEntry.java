@@ -11,6 +11,7 @@ public record HangmanLeaderboardEntry(
         int wordsSolved,
         int correctLetterCount,
         int wrongLetterCount,
-        int predictionHits
+        int predictionHits,
+        Integer teamNo
 ) {
 }

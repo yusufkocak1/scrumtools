@@ -5,7 +5,9 @@
         <p class="text-5xl mb-2">🪢</p>
         <h1 class="text-2xl sm:text-3xl font-bold text-white mb-1">Adam Asmaca — Lobi</h1>
         <p class="text-white/80 text-sm">Moderatör: {{ session.hostName }}</p>
-        <div class="mt-4 inline-flex items-center px-4 py-2 bg-white/20 rounded-full backdrop-blur-sm">
+        <div class="mt-4 inline-flex items-center gap-2 px-4 py-2 bg-white/20 rounded-full backdrop-blur-sm">
+          <span class="text-white font-semibold text-sm">{{ modeLabel }}</span>
+          <span class="text-white/60">·</span>
           <span class="text-white font-medium text-sm">Oyuncular bekleniyor</span>
         </div>
       </div>
@@ -44,12 +46,22 @@
 
         <!-- Süre kuralları — oyun başlamadan herkes bilsin. -->
         <div class="bg-indigo-50 border border-indigo-100 rounded-xl p-3 mb-6">
-          <p class="text-xs font-semibold text-indigo-800 mb-1.5">⏱️ Süre kuralları</p>
-          <ul class="text-xs text-indigo-900/80 space-y-1">
+          <p class="text-xs font-semibold text-indigo-800 mb-1.5">⏱️ Kurallar</p>
+          <ul v-if="mode === 'RACE'" class="text-xs text-indigo-900/80 space-y-1">
+            <li>• Herkes aynı kelimeyi <strong>kendi tahtasında aynı anda</strong> çözer; her kelime için
+              <strong>{{ turnSeconds }} saniye</strong> var.</li>
+            <li>• İlk bitiren en çok puanı alır; yanlış harf ya da yanlış kelime bir can götürür.</li>
+          </ul>
+          <ul v-else-if="mode === 'TEAM'" class="text-xs text-indigo-900/80 space-y-1">
+            <li>• Takımlar oyun başlarken dağıtılır (🔵 Mavi / 🔴 Kırmızı); en az iki oyuncu gerekir.</li>
+            <li>• Her takım sırası <strong>{{ turnSeconds }} saniye</strong>; takım harfe oylamayla karar verir.</li>
+            <li>• Kelimeyi herkes her an deneyebilir; sıra takımında değilken yanlışsa <strong>-10</strong>.</li>
+          </ul>
+          <ul v-else class="text-xs text-indigo-900/80 space-y-1">
             <li>• Her sıra <strong>{{ turnSeconds }} saniye</strong>; tahmin gelmezse sıra kendiliğinden devreder.</li>
-            <li>• <strong>Harf tahmini</strong> yalnızca sırası gelen oyuncunun hakkıdır.</li>
-            <li>• <strong>Kelime tahmini</strong> ilk {{ wordLockSeconds }} saniye sırası gelene ait;
-              sonrasında diğerleri de birer hakla yarışa girer.</li>
+            <li>• <strong>Harf tahmini</strong> yalnızca sırası gelen oyuncunun hakkıdır; diğerleri o sırada
+              🔮 sıradaki harfi tahmin edebilir.</li>
+            <li>• <strong>Kelime tahmini</strong> her an herkese açık; sıran değilken yanlışsa <strong>-10</strong>.</li>
           </ul>
         </div>
 
@@ -98,14 +110,14 @@
           </div>
 
           <button v-if="isHost" @click="$emit('begin')"
-                  :disabled="players.length === 0"
+                  :disabled="players.length < minPlayers"
                   class="px-8 py-3 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 transition-all font-bold shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none">
             ▶ Oyunu Başlat
           </button>
         </div>
 
-        <p v-if="isHost && players.length === 0" class="text-center text-xs text-gray-400 mt-3">
-          Başlatmak için en az bir oyuncu katılmalı
+        <p v-if="isHost && players.length < minPlayers" class="text-center text-xs text-gray-400 mt-3">
+          Başlatmak için en az {{ minPlayers === 1 ? 'bir' : 'iki' }} oyuncu katılmalı
         </p>
 
         <!-- Moderatör için çıkış yolu: kimse katılmadıysa lobiyi kapatabilmeli -->
@@ -145,8 +157,15 @@ export default {
     turnSeconds() {
       return this.session?.turnSeconds || 30
     },
-    wordLockSeconds() {
-      return this.session?.wordLockSeconds ?? 10
+    mode() {
+      return this.session?.mode || 'TURN'
+    },
+    modeLabel() {
+      return { TURN: '🔁 Sıralı', RACE: '🏁 Yarış', TEAM: '⚔️ Takım' }[this.mode] || '🔁 Sıralı'
+    },
+    /** Takım modu iki takım ister. */
+    minPlayers() {
+      return this.mode === 'TEAM' ? 2 : 1
     },
     participants() {
       return this.session?.participants || []

@@ -24,6 +24,26 @@
           </div>
         </div>
 
+        <!-- Oyun modu -->
+        <div>
+          <label class="block text-sm font-semibold text-gray-700 mb-2">Oyun modu</label>
+          <div class="grid sm:grid-cols-3 gap-3">
+            <button v-for="opt in modeOptions" :key="opt.value" type="button"
+                    @click="mode = opt.value"
+                    :class="['text-left p-4 rounded-xl border-2 transition-all',
+                             mode === opt.value ? 'border-indigo-500 bg-indigo-50' : 'border-gray-200 hover:border-gray-300']">
+              <p class="font-semibold text-gray-900 mb-1">{{ opt.emoji }} {{ opt.label }}</p>
+              <p class="text-xs text-gray-600">{{ opt.description }}</p>
+            </button>
+          </div>
+          <p v-if="suggestRaceMode" class="text-xs text-amber-700 mt-2">
+            💡 {{ expectedPlayersSafe }} kişide sıralı oyunda bekleme uzar —
+            <button type="button" @click="mode = 'RACE'" class="underline font-semibold">Yarış</button> ya da
+            <button type="button" @click="mode = 'TEAM'" class="underline font-semibold">Takım</button>
+            modunu deneyin.
+          </p>
+        </div>
+
         <!-- Kelime kaynağı -->
         <div>
           <label class="block text-sm font-semibold text-gray-700 mb-2">Kelimeler</label>
@@ -72,6 +92,10 @@
             Sıra yalnızca <strong>yanlış harfte, yanlış kelime tahmininde ve tur sonunda</strong> devreder;
             doğru harfte oyuncuda kalır. {{ expectedPlayersSafe }} kişide herkesin sırasının en az iki kez
             gelmesi için <strong>≈{{ recommendedRounds }} kelime</strong> gerekiyor.
+          </p>
+          <p v-if="mode !== 'TURN' && expectedPlayersSafe" class="text-xs text-gray-600 mt-3">
+            {{ mode === 'RACE' ? 'Yarışta' : 'Takım modunda' }} herkes her kelimede oyunda —
+            kelime sayısını oyuncu sayısına göre ayarlaman gerekmiyor.
           </p>
           <p v-if="recommendationCapped" class="text-xs text-amber-600 mt-2">
             ⚠️ Öneri {{ recommendationCapReason }} yüzünden {{ recommendedRounds }}'e sınırlandı;
@@ -195,7 +219,7 @@
                                : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50']">
               <span class="block font-semibold">{{ opt.emoji }} {{ opt.label }}</span>
               <span :class="['block text-xs', pace === opt.value ? 'text-white/80' : 'text-gray-400']">
-                {{ opt.seconds }} sn / sıra
+                {{ mode === 'RACE' ? `${opt.raceSeconds} sn / kelime` : `${opt.seconds} sn / sıra` }}
               </span>
             </button>
           </div>
@@ -219,20 +243,41 @@
         <!-- Kurallar -->
         <div class="bg-gray-50 rounded-xl p-4 text-sm text-gray-600 space-y-1">
           <p class="font-semibold text-gray-800 mb-2">Nasıl oynanır?</p>
-          <p>• Ortak kelimeyi herkes görür, sırası gelen oyuncu tahmin eder.</p>
-          <p>• Doğru harf <strong class="text-green-600">+10</strong> — sıra sende kalır; bir sırada en fazla
-            <strong>3</strong> harf bulabilirsin, süre sıfırlanmaz.</p>
-          <p>• Yanlış harf <strong class="text-red-600">-5</strong> — adam asılır, sıra sonrakine geçer.</p>
-          <p>• Kelimeyi bilen, <strong class="text-indigo-600">kalan tüm harfleri</strong> bilmiş sayılır
-            ve hepsinin puanını alır.</p>
-          <p>• Kelime tahmini yanlışsa adam <strong>asılmaz</strong>, sadece sıranı kaybedersin.</p>
-          <p>• Sıran değilken <strong class="text-purple-600">🔮 tahmin oyla</strong>: sırası gelenin seçeceği
-            harfi bilirsen (ve harf kelimede varsa) <strong class="text-purple-600">+2</strong>.</p>
+          <template v-if="mode === 'RACE'">
+            <p>• Herkes <strong>aynı kelimeyi kendi tahtasında aynı anda</strong> çözer — kimse sıra beklemez.</p>
+            <p>• Kimin hangi harfi açtığı görünmez; yalnızca ilerleme çubukları görünür.</p>
+            <p>• İlk bitiren <strong class="text-green-600">50</strong>, ikinci 40, üçüncü 30, sonrakiler 20 puan
+              alır; kalan her can <strong class="text-green-600">+5</strong>.</p>
+            <p>• Yanlış harf ya da yanlış kelime tahmini <strong class="text-red-600">bir can</strong> götürür.</p>
+            <p>• Süre dolunca ya da herkes bitirince kelime ilan edilir.</p>
+          </template>
+          <template v-else-if="mode === 'TEAM'">
+            <p>• Oyuncular oyun başlarken <strong>🔵 Mavi</strong> ve <strong>🔴 Kırmızı</strong> takıma ayrılır.</p>
+            <p>• Sıra takımlar arasında geçer; sırası gelen takımın herkesi harfe <strong>oy verir</strong>.
+              Herkes oy verince ya da süre dolunca en çok oy alan harf oynanır.</p>
+            <p>• Doğru harf <strong class="text-green-600">+10</strong>, yanlış <strong class="text-red-600">-5</strong>
+              — takıma ve o harfe oy verenlere yazılır. Bir sırada en fazla <strong>3</strong> doğru harf.</p>
+            <p>• Kelimeyi herkes her an tahmin edebilir; sıra takımında değilken yanlış tahmin
+              <strong class="text-red-600">-10</strong> (takımından da düşer).</p>
+          </template>
+          <template v-else>
+            <p>• Ortak kelimeyi herkes görür, sırası gelen oyuncu tahmin eder.</p>
+            <p>• Doğru harf <strong class="text-green-600">+10</strong> — sıra sende kalır; bir sırada en fazla
+              <strong>3</strong> harf bulabilirsin, süre sıfırlanmaz.</p>
+            <p>• Yanlış harf <strong class="text-red-600">-5</strong> — adam asılır, sıra sonrakine geçer.</p>
+            <p>• Kelimeyi bilen, <strong class="text-indigo-600">kalan tüm harfleri</strong> bilmiş sayılır
+              ve hepsinin puanını alır.</p>
+            <p>• Kelimeyi herkes her an tahmin edebilir. Sıran değilken yanlış tahmin
+              <strong class="text-red-600">-10</strong>; sıran gelmişken yanlışsa adam asılmaz, sıran geçer.</p>
+            <p>• Sıran değilken <strong class="text-purple-600">🔮 tahmin oyla</strong>: sırası gelenin seçeceği
+              harfi bilirsen (ve harf kelimede varsa) <strong class="text-purple-600">+2</strong>.</p>
+            <p class="pt-1 text-xs text-gray-500">
+              Harfleri tek tek toplayıp en sonda tahmin etmek ekstra puan kazandırmaz —
+              kelime her hâlükârda aynı toplamı eder.
+            </p>
+          </template>
           <p>• Moderatör oyun sırasında kelimenin <strong>kategorisini</strong> ipucu olarak açabilir.</p>
-          <p class="pt-1 text-xs text-gray-500">
-            Harfleri tek tek toplayıp en sonda tahmin etmek ekstra puan kazandırmaz —
-            kelime her hâlükârda aynı toplamı eder.
-          </p>
+          <p>• Oyun sırasında 👏 🔥 😂 gibi <strong>tepkiler</strong> gönderebilirsiniz.</p>
         </div>
 
         <button
@@ -294,9 +339,16 @@ export default {
     /** Tur arası ekranı birkaç saniyelik geri sayımla kendiliğinden kapansın mı? */
     autoAdvance: true,
     paceOptions: [
-      { value: 'FAST', label: 'Hızlı', emoji: '⚡', seconds: 15 },
-      { value: 'NORMAL', label: 'Normal', emoji: '🙂', seconds: 30 },
-      { value: 'RELAXED', label: 'Rahat', emoji: '🐢', seconds: 45 }
+      { value: 'FAST', label: 'Hızlı', emoji: '⚡', seconds: 15, raceSeconds: 60 },
+      { value: 'NORMAL', label: 'Normal', emoji: '🙂', seconds: 30, raceSeconds: 90 },
+      { value: 'RELAXED', label: 'Rahat', emoji: '🐢', seconds: 45, raceSeconds: 120 }
+    ],
+    /** TURN (sıralı) | RACE (herkes aynı anda) | TEAM (iki takım, oylamalı) */
+    mode: 'TURN',
+    modeOptions: [
+      { value: 'TURN', label: 'Sıralı', emoji: '🔁', description: 'Klasik: herkes sırayla harf seçer.' },
+      { value: 'RACE', label: 'Yarış', emoji: '🏁', description: 'Herkes aynı kelimeyi aynı anda çözer, kimse beklemez.' },
+      { value: 'TEAM', label: 'Takım', emoji: '⚔️', description: 'İki takım; sırası gelen takım harfe oylamayla karar verir.' }
     ],
     customWordsRaw: '',
     submitting: false,
@@ -317,7 +369,11 @@ export default {
     /** Geçerli bir tahmin yoksa 0 — öneri kutuları da gizlenir. */
     /** 6+ kişide Normal tempoyla sıra beklemesi dakikaları buluyor; Hızlı'yı öner. */
     suggestFastPace() {
-      return this.expectedPlayersSafe >= 6 && this.pace !== 'FAST'
+      return this.mode !== 'RACE' && this.expectedPlayersSafe >= 6 && this.pace !== 'FAST'
+    },
+    /** Kalabalıkta sıralı modun beklemesi uzun; yarış ve takım herkesi her an oyunda tutar. */
+    suggestRaceMode() {
+      return this.mode === 'TURN' && this.expectedPlayersSafe >= 6
     },
     expectedPlayersSafe() {
       const n = this.expectedPlayers
@@ -325,7 +381,8 @@ export default {
     },
     /** Sınırlanmamış ham öneri: her oyuncuya iki sıra düşecek kadar tur. */
     rawRecommendedRounds() {
-      if (!this.expectedPlayersSafe) return 0
+      // Yarışta ve takımda herkes her kelimede oynar — kelime sayısı oyuncu sayısına bağlı değil.
+      if (this.mode !== 'TURN' || !this.expectedPlayersSafe) return 0
       const needed = Math.ceil((this.expectedPlayersSafe * TARGET_TURNS_PER_PLAYER) / TURNS_PER_ROUND)
       return Math.max(MIN_ROUNDS, needed)
     },
@@ -433,7 +490,8 @@ export default {
           // Kelimeleri moderatör girdiyse sunucu zaten oynamasına izin vermez.
           moderatorPlays: custom ? false : this.moderatorPlays,
           pace: this.pace,
-          autoAdvance: this.autoAdvance
+          autoAdvance: this.autoAdvance,
+          mode: this.mode
         })
         this.$emit('created', session)
       } catch (e) {

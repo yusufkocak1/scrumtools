@@ -11,7 +11,10 @@ public record HangmanParticipantResponse(
         int correctLetterCount,
         int wrongLetterCount,
         int wordsSolved,
-        int predictionHits
+        int predictionHits,
+        int wrongWordCount,
+        /** Takım modunda 1 | 2; diğer modlarda null. */
+        Integer teamNo
 ) {
     public static HangmanParticipantResponse from(HangmanParticipant p) {
         return new HangmanParticipantResponse(
@@ -23,7 +26,9 @@ public record HangmanParticipantResponse(
                 p.getCorrectLetterCount(),
                 p.getWrongLetterCount(),
                 p.getWordsSolved(),
-                p.getPredictionHits() == null ? 0 : p.getPredictionHits()
+                p.getPredictionHits() == null ? 0 : p.getPredictionHits(),
+                p.getWrongWordCount() == null ? 0 : p.getWrongWordCount(),
+                p.getTeamNo()
         );
     }
 }

@@ -1,5 +1,6 @@
 package com.scrumtools.dto;
 
+import com.scrumtools.entity.HangmanMode;
 import com.scrumtools.entity.HangmanPace;
 import com.scrumtools.entity.HangmanSession;
 
@@ -25,14 +26,15 @@ public record HangmanSessionResponse(
         int totalRounds,
         String currentTurnEmail,
         String currentTurnName,
-        /** Bir sıranın toplam süresi (sn). Dolduğunda sıra kendiliğinden devreder. */
+        /**
+         * Bir sıranın toplam süresi (sn). Dolduğunda sıra kendiliğinden devreder.
+         * Yarış modunda bir kelimenin çözülmesi için tanınan süredir.
+         */
         int turnSeconds,
-        /** Sıranın ilk kaç saniyesinde kelime tahmini yalnızca sırası gelene açık. */
-        int wordLockSeconds,
         /** Sıranın bitmesine kalan saniye — sunucu saatiyle hesaplanır (istemci saat kayması olmasın). */
         int turnSecondsLeft,
-        /** Kelime tahmininin herkese açılmasına kalan saniye; 0 = herkes tahmin edebilir. */
-        int wordOpenInSeconds,
+        /** Oyun modu: TURN | RACE | TEAM. */
+        String mode,
         /** Oyun temposu: FAST | NORMAL | RELAXED. */
         String pace,
         /** Sırası gelen tek sırada en fazla kaç doğru harf bulabilir; sonra sıra devreder. */
@@ -48,6 +50,16 @@ public record HangmanSessionResponse(
         int predictionScore,
         /** Şu an bekleyen gizli tahmin sayısı — kimin neyi seçtiği yayınlanmaz. */
         int predictionCount,
+        /** Sırası değilken yanlış kelime tahmininin puan etkisi (negatif). */
+        int wrongWordScore,
+        /** Takım modunda sırası gelen takım (1 | 2); diğer modlarda null. */
+        Integer currentTeam,
+        /** Takım modunda iki takımın özeti; diğer modlarda boş. */
+        List<HangmanTeamResponse> teams,
+        /** Takım modunda sırası gelen takımın harf oyları (en çok oy alan önce); diğer modlarda boş. */
+        List<HangmanTeamVoteTally> teamVotes,
+        /** Yarış modunda oyuncuların ilerlemesi (önce bitirenler); diğer modlarda boş. */
+        List<HangmanRaceProgress> raceProgress,
         /** Aktif tur — lobide ve oyun bitince null olabilir. */
         HangmanRoundResponse round,
         /**
@@ -77,13 +89,15 @@ public record HangmanSessionResponse(
                                               HangmanRoundResponse lastFinishedRound,
                                               String currentTurnName,
                                               int turnSeconds,
-                                              int wordLockSeconds,
                                               int turnSecondsLeft,
-                                              int wordOpenInSeconds,
                                               int maxStreak,
                                               Integer intermissionSecondsLeft,
                                               int predictionScore,
                                               int predictionCount,
+                                              int wrongWordScore,
+                                              List<HangmanTeamResponse> teams,
+                                              List<HangmanTeamVoteTally> teamVotes,
+                                              List<HangmanRaceProgress> raceProgress,
                                               int totalRounds,
                                               List<HangmanParticipantResponse> participants,
                                               List<HangmanLeaderboardEntry> leaderboard,
@@ -104,15 +118,19 @@ public record HangmanSessionResponse(
                 session.getCurrentTurnEmail(),
                 currentTurnName,
                 turnSeconds,
-                wordLockSeconds,
                 turnSecondsLeft,
-                wordOpenInSeconds,
+                HangmanMode.of(session.getMode()).name(),
                 HangmanPace.of(session.getPace()).name(),
                 maxStreak,
                 Boolean.TRUE.equals(session.getAutoAdvance()),
                 intermissionSecondsLeft,
                 predictionScore,
                 predictionCount,
+                wrongWordScore,
+                session.getCurrentTeam(),
+                teams,
+                teamVotes,
+                raceProgress,
                 round,
                 lastFinishedRound,
                 Boolean.TRUE.equals(session.getAwaitingNextRound()),

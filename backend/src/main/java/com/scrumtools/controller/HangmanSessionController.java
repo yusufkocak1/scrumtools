@@ -1,6 +1,7 @@
 package com.scrumtools.controller;
 
 import com.scrumtools.dto.HangmanGuessRequest;
+import com.scrumtools.dto.HangmanRaceBoardResponse;
 import com.scrumtools.dto.HangmanSessionResponse;
 import com.scrumtools.dto.HangmanSessionStartRequest;
 import com.scrumtools.service.HangmanSessionService;
@@ -16,7 +17,8 @@ import java.util.UUID;
  * Adam Asmaca takım oyunu.
  *
  * WebSocket stratejisi: Data-Carrying
- *   /topic/hangman/{teamId}/state → oturumun tam durumu (lobi, aktif tur, sıra, puan tablosu)
+ *   /topic/hangman/{teamId}/state     → oturumun tam durumu (lobi, aktif tur, sıra, puan tablosu)
+ *   /topic/hangman/{teamId}/reactions → anlık emoji tepkileri
  *
  *   POST   /api/teams/{teamId}/hangman/sessions                  → oturum aç (moderatör olursun)
  *   GET    /api/teams/{teamId}/hangman/sessions/active           → aktif oturum
@@ -27,6 +29,11 @@ import java.util.UUID;
  *   POST   /api/teams/{teamId}/hangman/sessions/{id}/guess-letter→ harf tahmini
  *   POST   /api/teams/{teamId}/hangman/sessions/{id}/guess-word  → kelime tahmini
  *   POST   /api/teams/{teamId}/hangman/sessions/{id}/predict     → sıradaki harfi tahmin et (sırası olmayan)
+ *   POST   /api/teams/{teamId}/hangman/sessions/{id}/team-vote   → harfe oy ver (takım modu, sırası gelen takım)
+ *   GET    /api/teams/{teamId}/hangman/sessions/{id}/race/board  → kendi yarış tahtan (yarış modu)
+ *   POST   /api/teams/{teamId}/hangman/sessions/{id}/race/guess-letter → kendi tahtana harf (yarış modu)
+ *   POST   /api/teams/{teamId}/hangman/sessions/{id}/race/guess-word   → kendi tahtana kelime (yarış modu)
+ *   POST   /api/teams/{teamId}/hangman/sessions/{id}/react       → emoji tepkisi (yayınlanır, saklanmaz)
  *   POST   /api/teams/{teamId}/hangman/sessions/{id}/skip-turn   → sırayı devret (moderatör)
  *   POST   /api/teams/{teamId}/hangman/sessions/{id}/next-round  → sonraki kelimeye geç (moderatör)
  *   POST   /api/teams/{teamId}/hangman/sessions/{id}/pause-intermission → tur arası geri sayımını durdur (moderatör)
@@ -99,6 +106,44 @@ public class HangmanSessionController {
                                                           @PathVariable UUID sessionId,
                                                           @Valid @RequestBody HangmanGuessRequest request) {
         return ResponseEntity.ok(hangmanSessionService.predictLetter(sessionId, request.value()));
+    }
+
+    /** Takım modunda harf oyu. Takımın herkesi oy verince ya da süre dolunca harf oynanır. */
+    @PostMapping("/sessions/{sessionId}/team-vote")
+    public ResponseEntity<HangmanSessionResponse> teamVote(@PathVariable UUID teamId,
+                                                           @PathVariable UUID sessionId,
+                                                           @Valid @RequestBody HangmanGuessRequest request) {
+        return ResponseEntity.ok(hangmanSessionService.teamVote(sessionId, request.value()));
+    }
+
+    /** Yarış modunda kendi tahtan — harfleri yalnızca sana döner, yayınlanmaz. */
+    @GetMapping("/sessions/{sessionId}/race/board")
+    public ResponseEntity<HangmanRaceBoardResponse> raceBoard(@PathVariable UUID teamId,
+                                                              @PathVariable UUID sessionId) {
+        return ResponseEntity.ok(hangmanSessionService.getMyRaceBoard(sessionId));
+    }
+
+    @PostMapping("/sessions/{sessionId}/race/guess-letter")
+    public ResponseEntity<HangmanRaceBoardResponse> raceGuessLetter(@PathVariable UUID teamId,
+                                                                    @PathVariable UUID sessionId,
+                                                                    @Valid @RequestBody HangmanGuessRequest request) {
+        return ResponseEntity.ok(hangmanSessionService.raceGuessLetter(sessionId, request.value()));
+    }
+
+    @PostMapping("/sessions/{sessionId}/race/guess-word")
+    public ResponseEntity<HangmanRaceBoardResponse> raceGuessWord(@PathVariable UUID teamId,
+                                                                  @PathVariable UUID sessionId,
+                                                                  @Valid @RequestBody HangmanGuessRequest request) {
+        return ResponseEntity.ok(hangmanSessionService.raceGuessWord(sessionId, request.value()));
+    }
+
+    /** Emoji tepkisi — yalnızca izin verilen emojiler; çok sık gönderilenler yutulur. */
+    @PostMapping("/sessions/{sessionId}/react")
+    public ResponseEntity<Void> react(@PathVariable UUID teamId,
+                                      @PathVariable UUID sessionId,
+                                      @Valid @RequestBody HangmanGuessRequest request) {
+        hangmanSessionService.react(sessionId, request.value());
+        return ResponseEntity.noContent().build();
     }
 
     @PostMapping("/sessions/{sessionId}/skip-turn")

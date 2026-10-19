@@ -5,7 +5,8 @@
  * Kelime ekleme/silme SUPER_ADMIN'e özeldir — bkz. AdminHangmanApi.js.
  *
  * WebSocket stratejisi: Data-Carrying
- *   /topic/hangman/{teamId}/state → oturumun tam durumu
+ *   /topic/hangman/{teamId}/state     → oturumun tam durumu
+ *   /topic/hangman/{teamId}/reactions → anlık emoji tepkileri { sessionId, email, displayName, emoji }
  *
  * NOT: Takım oyununda kelime sunucuda tutulur; istemciye sadece maskelenmiş
  * hali (round.maskedWord) gelir. Cevap yalnızca tur bitince round.revealedWord
@@ -37,8 +38,9 @@ export const getHangmanWords = async (language, category = null) => {
 
 /**
  * Oturum açar ve açan kişiyi moderatör yapar.
- * @param {object} payload { language, roundCount, category, customWords, moderatorPlays, pace, autoAdvance }
+ * @param {object} payload { language, roundCount, category, customWords, moderatorPlays, pace, autoAdvance, mode }
  *   pace: 'FAST' | 'NORMAL' | 'RELAXED' — sıra süresi; autoAdvance: tur arası geri sayımla kapansın mı
+ *   mode: 'TURN' (sıralı) | 'RACE' (herkes aynı anda) | 'TEAM' (iki takım, oylamalı)
  */
 export const startHangmanSession = async (teamId, payload) => {
     const { data } = await apiClient.post(`${base(teamId)}/sessions`, payload)
@@ -87,6 +89,38 @@ export const guessHangmanWord = async (teamId, sessionId, word) => {
 export const predictHangmanLetter = async (teamId, sessionId, letter) => {
     const { data } = await apiClient.post(`${base(teamId)}/sessions/${sessionId}/predict`, { value: letter })
     return data
+}
+
+/** Takım modu: sırası gelen takımın üyesi harfe oy verir. Herkes oy verince harf oynanır. */
+export const voteHangmanTeamLetter = async (teamId, sessionId, letter) => {
+    const { data } = await apiClient.post(`${base(teamId)}/sessions/${sessionId}/team-vote`, { value: letter })
+    return data
+}
+
+/**
+ * Yarış modu: kendi tahtan. Harfler yalnızca sana döner — herkese yayınlanan durumda
+ * (session.raceProgress) sadece ilerleme sayıları vardır.
+ */
+export const getHangmanRaceBoard = async (teamId, sessionId) => {
+    const { data } = await apiClient.get(`${base(teamId)}/sessions/${sessionId}/race/board`)
+    return data
+}
+
+/** Yarış modu: kendi tahtana harf. Yanıt güncel tahtandır. */
+export const raceHangmanLetter = async (teamId, sessionId, letter) => {
+    const { data } = await apiClient.post(`${base(teamId)}/sessions/${sessionId}/race/guess-letter`, { value: letter })
+    return data
+}
+
+/** Yarış modu: kendi tahtana kelime. Yanlış tahmin bir can götürür. */
+export const raceHangmanWord = async (teamId, sessionId, word) => {
+    const { data } = await apiClient.post(`${base(teamId)}/sessions/${sessionId}/race/guess-word`, { value: word })
+    return data
+}
+
+/** Emoji tepkisi — saklanmaz, reactions kanalına yayınlanır. Çok sık gönderilenler yutulur. */
+export const sendHangmanReaction = async (teamId, sessionId, emoji) => {
+    await apiClient.post(`${base(teamId)}/sessions/${sessionId}/react`, { value: emoji })
 }
 
 export const skipHangmanTurn = async (teamId, sessionId) => {

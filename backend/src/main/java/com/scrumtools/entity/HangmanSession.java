@@ -72,6 +72,27 @@ public class HangmanSession {
     private Boolean moderatorPlays = true;
 
     /**
+     * Oyun modu — sıralı, yarış ya da takım.
+     * Kolon sonradan eklendi; eski oturumlarda null'dır, {@link HangmanMode#of} ile okuyun.
+     */
+    @Enumerated(EnumType.STRING)
+    @Column(length = 16)
+    private HangmanMode mode;
+
+    /** Takım modunda sırası gelen takım (1 ya da 2); oyun başlamadıysa ya da başka moddaysa null. */
+    @Column
+    private Integer currentTeam;
+
+    /** Takım modunda takımların puanları (1 = Mavi, 2 = Kırmızı). Diğer modlarda kullanılmaz. */
+    @Column
+    @Builder.Default
+    private Integer teamOneScore = 0;
+
+    @Column
+    @Builder.Default
+    private Integer teamTwoScore = 0;
+
+    /**
      * Oyun temposu — sıra süresini ve kelime kilidini belirler.
      * Kolon sonradan eklendi; eski oturumlarda null'dır, {@link HangmanPace#of} ile okuyun.
      */
@@ -98,7 +119,7 @@ public class HangmanSession {
     @Builder.Default
     private Integer currentRoundIndex = -1;
 
-    /** Sırası gelen oyuncunun e-postası. Oyun başlamadıysa null. */
+    /** Sırası gelen oyuncunun e-postası. Oyun başlamadıysa ya da sıra bir oyuncuda değilse (yarış/takım) null. */
     @Column
     private String currentTurnEmail;
 
@@ -106,9 +127,9 @@ public class HangmanSession {
      * Mevcut sıranın başladığı an — süre sayacının referansı.
      *
      * İki kuralı birden besler:
-     *   • Sıranın ilk "kelime kilidi" saniyesinde kelime tahmini yalnızca sırası gelene açıktır.
-     *   • Sıra süresi sonunda tahmin gelmezse sıra kendiliğinden devreder.
-     * (İkisi de {@link HangmanPace}'ten gelir.)
+     *   • Sıra süresi ({@link HangmanPace}) sonunda tahmin gelmezse sıra kendiliğinden devreder.
+     *   • Yarış modunda sıra yoktur; bu alan turun (kelimenin) başladığı anı tutar ve
+     *     yarış süresi dolunca tur kapanır.
      *
      * Yalnızca sıra devrettiğinde sıfırlanır — doğru harfle sırayı koruyan oyuncunun süresi
      * kaldığı yerden işler, böylece seri yapan biri sırayı süresiz elinde tutamaz.

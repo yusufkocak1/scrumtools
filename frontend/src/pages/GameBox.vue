@@ -58,11 +58,24 @@
               @cancelled="hangmanSession = null"
           />
 
+          <HangmanRacePlay
+              v-else-if="hangmanSession.status === 'IN_PROGRESS' && hangmanSession.mode === 'RACE'"
+              :session="hangmanSession"
+              :isHost="isHangmanHost"
+              :teamId="teamId"
+              :reactions="hangmanReactions"
+              @next-round="handleHangmanNextRound"
+              @pause-intermission="handleHangmanPauseIntermission"
+              @reveal-category="handleHangmanRevealCategory"
+              @finish="handleHangmanFinish"
+          />
+
           <HangmanPlay
               v-else-if="hangmanSession.status === 'IN_PROGRESS'"
               :session="hangmanSession"
               :isHost="isHangmanHost"
               :teamId="teamId"
+              :reactions="hangmanReactions"
               @updated="hangmanSession = $event"
               @skip="handleHangmanSkip"
               @next-round="handleHangmanNextRound"
@@ -103,7 +116,7 @@
               </div>
               <h3 class="text-xl font-semibold text-gray-900 mb-2">Takım Oyunu</h3>
               <p class="text-gray-600 text-sm">
-                Oturum aç, takımın sırayla oynasın, puan sıralaması oluşsun
+                Oturum aç; sıralı, yarış ya da takım modunda birlikte oynayın
               </p>
             </div>
           </div>
@@ -251,6 +264,7 @@ import HangmanGame from '../components/gamebox/HangmanGame.vue'
 import HangmanSetup from '../components/gamebox/HangmanSetup.vue'
 import HangmanLobby from '../components/gamebox/HangmanLobby.vue'
 import HangmanPlay from '../components/gamebox/HangmanPlay.vue'
+import HangmanRacePlay from '../components/gamebox/HangmanRacePlay.vue'
 import HangmanResult from '../components/gamebox/HangmanResult.vue'
 import {
   getTemplates, getTemplate, deleteTemplate,
@@ -280,6 +294,7 @@ export default {
     HangmanSetup,
     HangmanLobby,
     HangmanPlay,
+    HangmanRacePlay,
     HangmanResult,
   },
   props: {
@@ -303,6 +318,8 @@ export default {
     // Adam Asmaca
     hangmanMode: null,    // null | 'solo' | 'team'
     hangmanSession: null,
+    /** Ekranda uçan emoji tepkileri — WS'ten gelir, birkaç saniye sonra düşer. */
+    hangmanReactions: [],
   }),
   computed: {
     isHost() {
@@ -573,6 +590,16 @@ export default {
           // Ekran değiştirilmez: kullanıcı oyuna GameBox'tan kendisi girer.
           this.hangmanSession = data
         })
+        subscribe(`/topic/hangman/${this.teamId}/reactions`, (data) => {
+          if (data.sessionId !== this.hangmanSession?.id) return
+          const id = `${Date.now()}-${Math.random()}`
+          // Aynı anda gelen tepkiler üst üste binmesin diye yatayda rastgele kaydır.
+          this.hangmanReactions = [...this.hangmanReactions.slice(-14),
+            { id, emoji: data.emoji, displayName: data.displayName, offset: Math.floor(Math.random() * 60) }]
+          setTimeout(() => {
+            this.hangmanReactions = this.hangmanReactions.filter(r => r.id !== id)
+          }, 3000)
+        })
         subscribe(`/topic/quiz/${this.teamId}/state`, (data) => {
           // Aynı takımda paralel yarışmalar olabilir: liste her zaman güncellenir,
           // ekran ise yalnızca içinde bulunduğum oturumu takip eder.
@@ -614,6 +641,7 @@ export default {
       unsubscribe(`/topic/quiz/${this.teamId}/state`)
       unsubscribe(`/topic/quiz/${this.teamId}/answered`)
       unsubscribe(`/topic/hangman/${this.teamId}/state`)
+      unsubscribe(`/topic/hangman/${this.teamId}/reactions`)
     }
   },
 

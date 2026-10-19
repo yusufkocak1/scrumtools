@@ -34,6 +34,9 @@ public record HangmanSessionStartRequest(
         String pace,
 
         /** Tur arası ekranı geri sayımla kendiliğinden kapansın mı? Boşsa açık. */
-        Boolean autoAdvance
+        Boolean autoAdvance,
+
+        /** Oyun modu: TURN | RACE | TEAM. Boşsa TURN. */
+        String mode
 ) {
 }

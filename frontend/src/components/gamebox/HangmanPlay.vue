@@ -1,78 +1,9 @@
 <template>
   <div class="max-w-6xl mx-auto">
-    <!-- ─── Tur arası: kelime ilanı ───
-         Tur bittiğinde oyun burada durur — kelime büyük harflerle ilan edilir ve
-         sonraki kelimeye ancak moderatör geçirir. Sunucu da bu sürede tahmin kabul etmez. -->
-    <transition name="fade">
-      <div v-if="intermission"
-           class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-gray-900/70 backdrop-blur-sm">
-        <div class="w-full max-w-2xl bg-white rounded-3xl shadow-2xl overflow-hidden max-h-full overflow-y-auto">
-          <div :class="['px-6 py-6 text-center',
-                        intermission.solved
-                          ? 'bg-gradient-to-r from-green-500 to-emerald-600'
-                          : 'bg-gradient-to-r from-rose-500 to-red-600']">
-            <p class="text-5xl mb-2">{{ intermission.solved ? '🎉' : '💀' }}</p>
-            <p class="text-white text-xl sm:text-2xl font-bold">
-              {{ intermission.solved ? `${intermission.solvedByName} bildi!` : 'Kimse bilemedi!' }}
-            </p>
-            <p class="text-white/80 text-xs mt-1">
-              Kelime {{ intermission.roundOrder + 1 }} / {{ session.totalRounds }}
-            </p>
-          </div>
-
-          <div class="p-6 sm:p-8 text-center">
-            <p class="text-xs font-semibold uppercase tracking-widest text-gray-400 mb-3">Kelime</p>
-            <div class="flex flex-wrap justify-center gap-1.5 sm:gap-2">
-              <span v-for="(ch, i) in revealedLetters" :key="i"
-                    class="w-10 h-12 sm:w-12 sm:h-14 flex items-center justify-center rounded-xl
-                           bg-indigo-50 border-2 border-indigo-200 text-indigo-700
-                           font-mono font-bold text-2xl sm:text-3xl">
-                {{ ch }}
-              </span>
-            </div>
-            <p v-if="intermissionCategory" class="mt-4 text-sm text-gray-500">
-              🏷️ {{ intermissionCategory }}
-            </p>
-            <p v-if="intermission.solved && intermission.score > 0" class="mt-3 text-sm text-gray-600">
-              <strong class="text-green-600">+{{ intermission.score }}</strong> puan
-            </p>
-          </div>
-
-          <div class="border-t border-gray-200 bg-gray-50 px-6 py-5 text-center">
-            <!-- Otomatik geçiş geri sayımı — moderatör dalgınken herkes beklemesin. -->
-            <div v-if="intermissionCounting" class="mb-4">
-              <p class="text-sm text-gray-600 mb-2">
-                {{ isLastRound ? '🏁 Sonuçlar' : '⏭️ Sonraki kelime' }}
-                <strong class="text-indigo-600">{{ intermissionLeft }} sn</strong> sonra
-              </p>
-              <div class="h-1.5 max-w-xs mx-auto bg-gray-200 rounded-full overflow-hidden">
-                <div class="h-full bg-indigo-500 transition-all duration-1000 ease-linear"
-                     :style="{ width: intermissionProgress + '%' }"></div>
-              </div>
-            </div>
-            <button v-if="isHost" @click="$emit('next-round')"
-                    class="w-full sm:w-auto px-8 py-3.5 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700
-                           transition-colors font-semibold text-lg shadow-lg shadow-indigo-600/20">
-              {{ isLastRound ? '🏁 Sonuçları Göster' : '⏭️ Sonraki Kelime' }}
-            </button>
-            <p v-else-if="!intermissionCounting" class="text-sm text-gray-500 flex items-center justify-center gap-2">
-              <span class="w-2 h-2 rounded-full bg-indigo-500 animate-pulse"></span>
-              {{ isLastRound
-                  ? 'Moderatör sonuçları açıyor…'
-                  : 'Moderatörün sonraki kelimeye geçmesi bekleniyor…' }}
-            </p>
-            <button v-if="isHost && intermissionCounting" @click="$emit('pause-intermission')"
-                    class="block mx-auto mt-3 text-xs text-gray-500 hover:text-indigo-700 transition-colors">
-              ⏸️ Geri sayımı durdur — biraz konuşalım
-            </button>
-            <button v-if="isHost && !isLastRound" @click="$emit('finish')"
-                    class="mt-3 text-xs text-gray-400 hover:text-red-600 transition-colors">
-              ⏹️ Oyunu burada bitir
-            </button>
-          </div>
-        </div>
-      </div>
-    </transition>
+    <HangmanIntermission :session="session" :isHost="isHost"
+                         @next-round="$emit('next-round')"
+                         @pause-intermission="$emit('pause-intermission')"
+                         @finish="$emit('finish')" />
 
     <div class="grid lg:grid-cols-[1fr_320px] gap-6 items-start">
       <!-- ─── Oyun alanı ─── -->
@@ -92,6 +23,12 @@
           </button>
 
           <p v-if="intermission" class="text-white font-bold text-lg">⏸️ Tur bitti</p>
+          <template v-else-if="isTeam">
+            <p v-if="isMyTurn" class="text-white font-bold text-lg">🗳️ Sıra takımında — harfe oy ver!</p>
+            <p v-else class="text-white font-medium">
+              ⏳ Sıra <strong>{{ currentTeamName }}</strong> takımda
+            </p>
+          </template>
           <p v-else-if="isMyTurn" class="text-white font-bold text-lg">🎯 Sıra sende!</p>
           <p v-else-if="isSpectator" class="text-white font-medium">
             👁️ İzliyorsun — sıra <strong>{{ session.currentTurnName }}</strong>'de
@@ -117,15 +54,9 @@
           <div v-if="!intermission" class="mt-3 max-w-sm mx-auto">
             <div class="flex items-center justify-between gap-2 text-[11px] text-white/85 mb-1">
               <span class="font-semibold">⏱️ {{ secondsLeft }} sn</span>
-              <span v-if="isSpectator"></span>
-              <span v-else-if="isMyTurn && wordOpensIn > 0">
-                🔒 Kelime tahmini {{ wordOpensIn }} sn daha sadece sende
+              <span v-if="!isSpectator && !isMyTurn">
+                💡 Kelimeyi biliyorsan dene — yanlışsa {{ wrongWordScore }}
               </span>
-              <span v-else-if="isMyTurn">🔓 Kelime tahminine herkes girebilir</span>
-              <span v-else-if="wordOpensIn > 0">
-                🔒 Kelimeyi {{ wordOpensIn }} sn sonra sen de deneyebilirsin
-              </span>
-              <span v-else>🔓 Kelime tahmini açıldı — sen de deneyebilirsin</span>
             </div>
             <div class="h-1.5 bg-white/25 rounded-full overflow-hidden">
               <div :class="['h-full transition-all duration-1000 ease-linear',
@@ -134,7 +65,7 @@
             </div>
           </div>
           <p v-if="isMyTurn && !intermission" class="mt-2 text-white/80 text-[11px]">
-            🔥 Bu sırada en fazla {{ maxStreak }} doğru harf — süre sıfırlanmaz
+            🔥 {{ isTeam ? 'Takımın bu sırada' : 'Bu sırada' }} en fazla {{ maxStreak }} doğru harf — süre sıfırlanmaz
           </p>
           <!-- Kategori ipucu — moderatör açtıysa (sabit kategorili oyunda baştan açık). -->
           <p v-if="categoryText"
@@ -198,11 +129,33 @@
                 🔮 {{ predictionCount }} kişi senin seçeceğin harfi tahmin ediyor…
               </p>
 
+              <!-- Takım oylaması — oylar herkese açık; takım ne seçeceğini birlikte tartışsın. -->
+              <div v-if="isTeam && !intermission"
+                   :class="['mb-3 px-4 py-2.5 rounded-xl text-center text-xs border',
+                            canVote ? 'bg-orange-50 border-orange-200 text-orange-800' : 'bg-gray-50 border-gray-200 text-gray-600']">
+                <template v-if="canVote">
+                  🗳️ Takımınla harfe oy ver — herkes oy verince ya da süre dolunca en çok oy alan harf oynanır.
+                  <span v-if="myVote" class="block mt-1">Oyun: <strong class="font-mono text-sm">{{ upper(myVote) }}</strong>
+                    — değiştirmek için başka harfe bas.</span>
+                </template>
+                <template v-else-if="!isSpectator">
+                  👀 {{ currentTeamName }} takım oyluyor — kelimeyi biliyorsan aşağıdan dene.
+                </template>
+                <template v-else>👀 {{ currentTeamName }} takım oyluyor…</template>
+                <div v-if="teamVotes.length" class="flex flex-wrap justify-center gap-1.5 mt-2">
+                  <span v-for="t in teamVotes" :key="t.letter" :title="t.voters.join(', ')"
+                        class="px-2 py-1 rounded-lg bg-white border border-orange-200 text-orange-700 font-semibold">
+                    <span class="font-mono">{{ upper(t.letter) }}</span> ×{{ t.count }}
+                  </span>
+                </div>
+                <span class="block mt-1 opacity-75">{{ votedCount }} / {{ activeTeamSize }} oy</span>
+              </div>
+
               <div class="flex flex-wrap justify-center gap-1.5 mb-6">
                 <button
                     v-for="letter in alphabet"
                     :key="letter"
-                    :disabled="!(canGuessLetter || canPredict) || isGuessed(letter) || busy"
+                    :disabled="!(canGuessLetter || canPredict || canVote) || isGuessed(letter) || busy"
                     @click="onLetterClick(letter)"
                     :class="['w-9 h-9 sm:w-10 sm:h-10 rounded-lg text-sm font-semibold transition-colors border',
                              letterClass(letter)]">
@@ -217,8 +170,8 @@
                 </p>
                 <p class="text-xs text-gray-500 mb-3">
                   Doğru bilirsen <strong class="text-indigo-600">kalan tüm harflerin</strong> puanını
-                  birden alırsın. Sıranın ilk {{ wordLockSeconds }} saniyesi sırası gelene aittir;
-                  sonrasında herkes birer hak ile yarışa girer.
+                  birden alırsın. Herkes her an deneyebilir; sıra {{ isTeam ? 'takımında' : 'sende' }} değilken
+                  yanlış tahmin <strong class="text-red-600">{{ wrongWordScore }}</strong> puan.
                 </p>
                 <div class="flex gap-2">
                   <input
@@ -236,7 +189,8 @@
                   </button>
                 </div>
                 <p v-if="!isMyTurn && !isSpectator && canGuessWord" class="mt-2 text-xs text-amber-600">
-                  ⚡ Sıra sende değil — bu sırada <strong>tek</strong> kelime tahmini hakkın var.
+                  ⚠️ Sıra {{ isTeam ? 'takımında' : 'sende' }} değil — yanlış tahmin
+                  <strong>{{ wrongWordScore }}</strong> puan{{ isTeam ? ' (takımından da düşer)' : '' }}.
                 </p>
               </div>
             </div>
@@ -266,8 +220,28 @@
 
       <!-- ─── Yan panel ─── -->
       <div class="space-y-4">
+        <HangmanReactions v-if="isParticipant" :session="session" :teamId="teamId" :reactions="reactions" />
+
+        <!-- Takım skorları -->
+        <div v-if="isTeam" class="bg-white rounded-2xl shadow-lg border border-gray-200 overflow-hidden">
+          <div class="px-5 py-3 border-b border-gray-200 bg-gray-50">
+            <h3 class="font-semibold text-gray-800">⚔️ Takımlar</h3>
+          </div>
+          <div class="grid grid-cols-2 divide-x divide-gray-100">
+            <div v-for="t in teams" :key="t.teamNo"
+                 :class="['p-4 text-center', !intermission && session.currentTeam === t.teamNo ? teamBg(t.teamNo) : '']">
+              <p class="text-sm font-semibold text-gray-800">{{ t.name }}</p>
+              <p :class="['text-3xl font-bold', t.teamNo === 1 ? 'text-blue-600' : 'text-red-600']">{{ t.score }}</p>
+              <p class="text-[11px] text-gray-500 mt-1 leading-snug">
+                {{ teamMembers(t.teamNo).join(', ') }}
+              </p>
+              <p v-if="t.teamNo === myTeamNo" class="text-[11px] font-semibold text-indigo-600 mt-1">senin takımın</p>
+            </div>
+          </div>
+        </div>
+
         <!-- Sıra kuyruğu — puan tablosu skora göre sıralı olduğu için sırayı göstermiyor. -->
-        <div v-if="turnQueue.length > 1" class="bg-white rounded-2xl shadow-lg border border-gray-200 overflow-hidden">
+        <div v-if="!isTeam && turnQueue.length > 1" class="bg-white rounded-2xl shadow-lg border border-gray-200 overflow-hidden">
           <div class="px-5 py-3 border-b border-gray-200 bg-gray-50">
             <h3 class="font-semibold text-gray-800">🔀 Sıra Kuyruğu</h3>
           </div>
@@ -305,6 +279,7 @@
               </span>
               <div class="flex-1 min-w-0">
                 <p class="text-sm font-medium text-gray-800 truncate">
+                  <span v-if="isTeam && entry.teamNo">{{ entry.teamNo === 1 ? '🔵' : '🔴' }}</span>
                   {{ entry.displayName }}
                   <span v-if="entry.email === myEmail" class="text-xs text-indigo-600">(sen)</span>
                 </p>
@@ -351,9 +326,11 @@
 </template>
 
 <script>
-import { guessHangmanLetter, guessHangmanWord, predictHangmanLetter } from '../../api/HangmanApi.js'
+import { guessHangmanLetter, guessHangmanWord, predictHangmanLetter, voteHangmanTeamLetter } from '../../api/HangmanApi.js'
 import { hangmanCategoryLabel } from '../../data/hangmanWords.js'
 import { playTurnChime, flashTabTitle } from '../../utils/turnAlert.js'
+import HangmanIntermission from './HangmanIntermission.vue'
+import HangmanReactions from './HangmanReactions.vue'
 
 const TR_ALPHABET = ['A', 'B', 'C', 'Ç', 'D', 'E', 'F', 'G', 'Ğ', 'H', 'I', 'İ', 'J', 'K', 'L', 'M',
   'N', 'O', 'Ö', 'P', 'R', 'S', 'Ş', 'T', 'U', 'Ü', 'V', 'Y', 'Z']
@@ -362,18 +339,18 @@ const EN_ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('')
 /** Sıra sesi tercihi tarayıcıda saklanır — her oyunda yeniden kapatmak gerekmesin. */
 const SOUND_PREF_KEY = 'hangman.turnSound'
 
-/** Sunucudaki HangmanSessionService.INTERMISSION_SECONDS — yalnızca ilerleme çubuğu için. */
-const INTERMISSION_SECONDS = 8
-
 /** Sıra kuyruğunda gösterilecek oyuncu sayısı — daha uzunu panelde gürültü yapıyor. */
 const QUEUE_PREVIEW = 5
 
 export default {
   name: 'HangmanPlay',
+  components: { HangmanIntermission, HangmanReactions },
   props: {
     session: Object,
     isHost: Boolean,
-    teamId: String
+    teamId: String,
+    /** GameBox'ın WS'ten topladığı uçan tepkiler. */
+    reactions: { type: Array, default: () => [] }
   },
   emits: ['updated', 'skip', 'finish', 'reveal-category', 'next-round', 'pause-intermission'],
   data: () => ({
@@ -386,17 +363,14 @@ export default {
      * ve erken kilitlemedir.
      */
     secondsLeft: 0,
-    wordOpensIn: 0,
-    /** Ara ekranının kendiliğinden kapanmasına kalan saniye; null = geri sayım yok. */
-    intermissionLeft: null,
     /**
      * Bu sıradaki gizli tahminim (küçük harf). Sunucu kimin neyi seçtiğini yayınlamadığı
      * için yerelde tutulur; sırası gelen harf seçince ya da sıra değişince sıfırlanır.
      */
     myPrediction: null,
+    /** Takım modunda bu sıradaki oyum (küçük harf); tahmin gibi her hamlede sıfırlanır. */
+    myVote: null,
     tickTimer: null,
-    /** Sırası olmayan oyuncunun bu sıra penceresindeki tek hakkını kullandı mı? */
-    wordTriedThisTurn: false,
     /** Sıra sende uyarısının sesi. Tercih localStorage'dan okunur (bkz. created). */
     soundEnabled: true,
     /** flashTabTitle'ın döndürdüğü durdurucu; null = başlık flaşı çalışmıyor. */
@@ -407,35 +381,42 @@ export default {
       return this.session?.round || null
     },
     /**
-     * Tur arası — biten turun bilgileri. Sunucu tur bitince oyunu burada durdurur
-     * (awaitingNextRound) ve sonraki kelimeye moderatörün geçmesini bekler.
+     * Tur arasında mıyız? Sunucu tur bitince oyunu durdurur (awaitingNextRound); ilan ekranı
+     * HangmanIntermission'da. Burada yalnızca sıra/sayaç göstergelerini susturmak için lazım.
      */
     intermission() {
-      if (!this.session?.awaitingNextRound) return null
-      const r = this.session.lastFinishedRound
-      if (!r) return null
-      return {
-        solved: r.status === 'SOLVED',
-        solvedByName: r.solvedByName,
-        revealedWord: r.revealedWord,
-        roundOrder: r.roundOrder,
-        categoryLabel: r.categoryLabel,
-        category: r.category,
-        score: this.solvedScore(r)
-      }
+      return !!this.session?.awaitingNextRound && !!this.session?.lastFinishedRound
     },
-    /** İlan panelindeki harf kutuları. */
-    revealedLetters() {
-      return this.upper(this.intermission?.revealedWord).split('')
+    isTeam() {
+      return this.session?.mode === 'TEAM'
     },
-    intermissionCategory() {
-      const r = this.intermission
-      if (!r?.category && !r?.categoryLabel) return null
-      return hangmanCategoryLabel(r.category, this.session?.language) || r.categoryLabel
+    myTeamNo() {
+      return (this.session?.participants || []).find(p => p.email === this.myEmail)?.teamNo ?? null
     },
-    /** Ara ekranındaki buton: son kelimeden sonra sıradaki adım sonuç ekranıdır. */
-    isLastRound() {
-      return (this.session?.currentRoundIndex ?? 0) + 1 >= (this.session?.totalRounds ?? 0)
+    currentTeamName() {
+      return this.teams.find(t => t.teamNo === this.session?.currentTeam)?.name || ''
+    },
+    teams() {
+      return this.session?.teams || []
+    },
+    teamVotes() {
+      return this.session?.teamVotes || []
+    },
+    activeTeamSize() {
+      return this.teams.find(t => t.teamNo === this.session?.currentTeam)?.memberCount || 0
+    },
+    votedCount() {
+      return this.teamVotes.reduce((sum, t) => sum + t.count, 0)
+    },
+    /** Takım modunda sırası gelen takımın üyesi harfe oy verir (doğrudan harf seçmez). */
+    canVote() {
+      return this.isTeam && this.isMyTurn && !this.isSpectator && !this.intermission && this.secondsLeft > 0
+    },
+    wrongWordScore() {
+      return this.session?.wrongWordScore ?? -10
+    },
+    isParticipant() {
+      return (this.session?.participants || []).some(p => p.email === this.myEmail)
     },
     locale() {
       return this.session?.language === 'tr' ? 'tr-TR' : 'en-US'
@@ -446,7 +427,9 @@ export default {
     myEmail() {
       return localStorage.getItem('user') || ''
     },
+    /** Sıralıda sıra bende mi; takımda sıra benim takımımda mı. */
     isMyTurn() {
+      if (this.isTeam) return this.myTeamNo != null && this.session?.currentTeam === this.myTeamNo
       return this.session?.currentTurnEmail === this.myEmail
     },
     isSpectator() {
@@ -486,7 +469,7 @@ export default {
      */
     turnsUntilMine() {
       const players = this.playersInTurnOrder
-      if (this.isSpectator || players.length < 2) return -1
+      if (this.isTeam || this.isSpectator || players.length < 2) return -1
       const mine = players.findIndex(p => p.email === this.myEmail)
       if (mine < 0 || !this.session?.currentTurnEmail) return -1
       return (mine - this.queueStartIndex + players.length) % players.length
@@ -505,46 +488,30 @@ export default {
     },
     /** Sırası olmayan oyuncu bekleme süresinde sıradaki harfi tahmin edebilir. */
     canPredict() {
-      return !this.isMyTurn && !this.isSpectator && !this.intermission
+      return !this.isTeam && !this.isMyTurn && !this.isSpectator && !this.intermission
           && this.secondsLeft > 0 && !!this.session?.currentTurnEmail
           && this.turnsUntilMine !== -1
     },
-    intermissionCounting() {
-      return !!this.intermission && this.intermissionLeft !== null
-    },
-    intermissionProgress() {
-      return Math.max(0, Math.min(100, ((this.intermissionLeft ?? 0) / INTERMISSION_SECONDS) * 100))
-    },
-    /** Tahmini sıfırlama anahtarı: harf açıldığında, sıra ya da tur değiştiğinde değişir. */
+    /** Tahmin/oy sıfırlama anahtarı: harf açıldığında, sıra ya da tur değiştiğinde değişir. */
     predictionWindowKey() {
-      return [this.session?.currentRoundIndex, this.session?.currentTurnEmail,
-        this.guessedLetters.length, !!this.intermission].join('|')
-    },
-    wordLockSeconds() {
-      return this.session?.wordLockSeconds ?? 10
+      return [this.session?.currentRoundIndex, this.session?.currentTurnEmail, this.session?.currentTeam,
+        this.guessedLetters.length, this.intermission].join('|')
     },
     turnProgress() {
       if (!this.turnSeconds) return 0
       return Math.max(0, Math.min(100, (this.secondsLeft / this.turnSeconds) * 100))
     },
-    /** Harf tahmini her zaman yalnızca sırası gelen oyuncunun hakkı. */
+    /** Sıralı modda harf tahmini yalnızca sırası gelen oyuncunun hakkı (takımda oy verilir). */
     canGuessLetter() {
-      return this.isMyTurn && !this.isSpectator && this.secondsLeft > 0
+      return !this.isTeam && this.isMyTurn && !this.isSpectator && this.secondsLeft > 0
     },
-    /**
-     * Kelime tahmini: sırası gelen her an; diğerleri kilit açıldıktan sonra ve sıra başına bir kez.
-     */
+    /** Kelime tahmini her an herkese açık; sırası olmayanın yanlış tahmini puan götürür. */
     canGuessWord() {
-      if (this.isSpectator || this.secondsLeft <= 0) return false
-      if (this.isMyTurn) return true
-      return this.wordOpensIn <= 0 && !this.wordTriedThisTurn
+      return this.isParticipant && !this.isSpectator && !this.intermission && this.secondsLeft > 0
     },
     wordInputPlaceholder() {
       if (this.isSpectator) return 'İzleyicisin'
-      if (this.canGuessWord) return 'Tüm kelimeyi yaz...'
-      if (this.wordTriedThisTurn) return 'Bu sıradaki hakkını kullandın'
-      if (this.wordOpensIn > 0) return `${this.wordOpensIn} sn sonra açılıyor`
-      return 'Sıranı bekle'
+      return 'Tüm kelimeyi yaz...'
     },
     /**
      * Kategori sunucudan yalnızca açıldığında gelir; emoji'li etiketi yerelden alırız,
@@ -592,11 +559,7 @@ export default {
   watch: {
     predictionWindowKey() {
       this.myPrediction = null
-    },
-    // Sıra bize geçtiğinde eski tahmin metnini temizle.
-    'session.currentTurnEmail'() {
-      this.wordGuess = ''
-      this.wordTriedThisTurn = false
+      this.myVote = null
     },
     // Ebeveyn her WS mesajında yeni bir oturum nesnesi verdiği için bu her güncellemede çalışır.
     session: {
@@ -620,17 +583,9 @@ export default {
     /** Sunucudan gelen kalan süreyi tek doğru kaynak kabul eder. */
     syncTimers() {
       this.secondsLeft = this.session?.turnSecondsLeft ?? 0
-      const opensIn = this.session?.wordOpenInSeconds ?? 0
-      // Kilit yeniden kapandıysa yeni bir sıra penceresi başlamıştır → hak tazelenir.
-      if (opensIn > 0) this.wordTriedThisTurn = false
-      this.wordOpensIn = opensIn
-      this.intermissionLeft = this.session?.intermissionSecondsLeft ?? null
     },
     tick() {
       if (this.secondsLeft > 0) this.secondsLeft--
-      if (this.wordOpensIn > 0) this.wordOpensIn--
-      // Sıfırda durur; geçişi sunucu yapar ve yeni durum WS ile gelir.
-      if (this.intermissionLeft > 0) this.intermissionLeft--
     },
     /**
      * Sıra bana geçti: kısa zil + (sekme arkadaysa) başlık flaşı.
@@ -642,7 +597,7 @@ export default {
       if (this.soundEnabled) playTurnChime()
       if (document.hidden) {
         this.endTitleFlash()
-        this.stopTitleFlash = flashTabTitle('🎯 SIRA SENDE!')
+        this.stopTitleFlash = flashTabTitle(this.isTeam ? '🗳️ SIRA TAKIMINDA!' : '🎯 SIRA SENDE!')
       }
     },
     endTitleFlash() {
@@ -667,21 +622,25 @@ export default {
     upper(v) {
       return (v || '').toLocaleUpperCase(this.locale)
     },
-    /**
-     * Turu bitiren tahminin kazandırdığı puan — canlı akıştaki kaydından okunur.
-     * Akış son {@code RECENT_GUESS_LIMIT} hamleyle sınırlı olduğu için bulunamazsa 0 döner.
-     */
-    solvedScore(round) {
-      if (round?.status !== 'SOLVED') return 0
-      const winning = (this.session?.recentGuesses || [])
-          .find(g => g.correct && g.userEmail === round.solvedByEmail)
-      return winning?.scoreDelta || 0
+    /** Takım üyelerinin adları (izleyiciler hariç). */
+    teamMembers(teamNo) {
+      return (this.session?.participants || [])
+          .filter(p => !p.spectator && p.teamNo === teamNo)
+          .map(p => p.displayName)
+    },
+    teamBg(teamNo) {
+      return teamNo === 1 ? 'bg-blue-50' : 'bg-red-50'
     },
     isGuessed(letter) {
       return this.guessedLetters.includes(letter.toLocaleLowerCase(this.locale))
     },
     letterClass(letter) {
       if (!this.isGuessed(letter)) {
+        if (this.canVote) {
+          return this.myVote === letter.toLocaleLowerCase(this.locale)
+              ? 'bg-orange-500 border-orange-500 text-white shadow'
+              : 'bg-white border-orange-200 text-orange-700 hover:bg-orange-50 hover:border-orange-400'
+        }
         if (this.canPredict) {
           return this.myPrediction === letter.toLocaleLowerCase(this.locale)
               ? 'bg-purple-600 border-purple-600 text-white shadow'
@@ -705,7 +664,24 @@ export default {
     },
     onLetterClick(letter) {
       if (this.canGuessLetter) this.submitLetter(letter)
+      else if (this.canVote) this.submitVote(letter)
       else if (this.canPredict) this.submitPrediction(letter)
+    },
+    async submitVote(letter) {
+      const lower = letter.toLocaleLowerCase(this.locale)
+      if (!this.canVote || this.busy || this.myVote === lower) return
+      this.busy = true
+      try {
+        const updated = await voteHangmanTeamLetter(this.teamId, this.session.id, lower)
+        this.$emit('updated', updated)
+        // Son oy harfi oynatmış olabilir; o zaman anahtar değişip oyu sıfırlar — sonra yazmayalım.
+        const key = this.predictionWindowKey
+        await this.$nextTick()
+        if (key === this.predictionWindowKey) this.myVote = lower
+      } catch (e) {
+        // Hata interceptor tarafından otomatik gösterilir
+      }
+      this.busy = false
     },
     async submitPrediction(letter) {
       const lower = letter.toLocaleLowerCase(this.locale)
@@ -737,14 +713,11 @@ export default {
     async submitWord() {
       const guess = this.wordGuess.trim()
       if (!this.canGuessWord || this.busy || !guess) return
-      // Sırası olmayanın sıra başına tek hakkı var; sunucu da doğrular, burası sadece UI kilidi.
-      const spendsQuota = !this.isMyTurn
       this.busy = true
       try {
         const updated = await guessHangmanWord(this.teamId, this.session.id,
             guess.toLocaleLowerCase(this.locale))
         this.wordGuess = ''
-        if (spendsQuota) this.wordTriedThisTurn = true
         this.$emit('updated', updated)
       } catch (e) {
         // Hata interceptor tarafından otomatik gösterilir
@@ -752,7 +725,7 @@ export default {
       this.busy = false
     },
     handleKeydown(e) {
-      if (!(this.canGuessLetter || this.canPredict) || this.busy) return
+      if (!(this.canGuessLetter || this.canPredict || this.canVote) || this.busy) return
       // Kelime tahmini alanına yazarken klavye kısayolu devreye girmesin.
       if (e.target && ['INPUT', 'TEXTAREA'].includes(e.target.tagName)) return
       if (e.key.length !== 1) return
